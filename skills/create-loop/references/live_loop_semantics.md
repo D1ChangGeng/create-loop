@@ -33,6 +33,9 @@ Autonomy-First and the bounded escalation ladder in
 
 This mechanism is called **Live Loop**.
 
+Evidence-driven growth defaults into a lightweight **`subgraph`** first — the inline `subgraph` mechanism hosted by the owning node
+([`subgraph_subloop_policy.md` §2](./subgraph_subloop_policy.md#2-what-a-subgraph-is)). If the gap's governance complexity crosses the **Promotion Gate** — for example, cross-session persistence, independent checkpoint or recovery, complex evidence, many artifacts, parallel isolation, elevated risk, multi-node impact, may recurse, or needs an independent closeout — the subgraph is **promoted** to a directory-materialized **`subloop`**, the **child loop** of [`recursive_loops.md`](./recursive_loops.md). The full gate is defined in [`subgraph_subloop_policy.md` §5](./subgraph_subloop_policy.md#5-promotion-gate-subgraph--subloop); Live Loop enters as a subgraph first and promotes only when that gate closes behind the inline choice.
+
 > The top-level control skeleton is stable, but the execution path is alive.
 
 A `loop.plan` is NOT a frozen, one-shot checklist. It is a **control
@@ -133,13 +136,18 @@ inside the existing governance, gate, and persistent-state machinery.
 The orchestrator follows this sequence:
 
 ```
-anomaly or improvement opportunity detected
-  -> judge whether it affects whether the original goal holds
-  -> spawn an exploration / diagnostic / repair / completion subgraph
-  -> gather evidence
-  -> assess impact, cost, risk, necessity
-  -> if within the authorization boundary, autonomously admit it into the execution graph
+live growth detected (§3 trigger)
+  -> judge whether the candidate is a necessary growth item (§6 admission criteria)
+  -> enter as a lightweight subgraph inside the owning node — the default tier
+  -> gather evidence; assess impact / cost / risk / necessity
+  -> if governance complexity crosses the Promotion Gate
+       (cross-session, independent checkpoint, complex evidence, many artifacts,
+        parallel isolation, elevated risk, multi-node impact, may recurse,
+        or needs independent closeout — see subgraph_subloop_policy.md §5)
+     -> promote_to_subloop — materialize a directory-materialized child loop
+  -> otherwise, complete the subgraph inside the parent
   -> update loop.plan / evidence.ledger / decision.log
+     (+ child_loops[] for any promoted subloop)
   -> continue advancing the original goal
 ```
 
@@ -153,10 +161,15 @@ Three consequences follow:
    [`SKILL.md` §3](../SKILL.md#3-autonomy-first-control-principle-read-before-any-mode)
    and detailed in [`human_approval.md` §6](./human_approval.md#6-what-must-be-user-approved-by-default).
 2. **Existing artifacts are the medium of admission.** Admission writes
-   to `loop.plan` (the subgraph field of the owning node, plus its
-   `parent_ref`), records the new `evidence.ledger` entries, and
-   appends a `decision.log` line. No hidden in-memory growth; nothing
-   sits outside the durable contract.
+   to `loop.plan` (the `subgraph` field of the owning node, plus its
+   `parent_ref`) for the inline-subgraph path; when a subgraph is
+   promoted to a subloop, the same admission writes the parent node's
+   `child_loops[]` reference to the new directory-materialized
+   **child loop** under `_loops/`
+   ([`recursive_loops.md` §5–§10](./recursive_loops.md)). Either path
+   records the new `evidence.ledger` entries and appends a
+   `decision.log` line. No hidden in-memory growth; nothing sits
+   outside the durable contract.
 3. **Advancing the original goal is the success condition.** Live Loop
    does not pause the loop to grow. It grows in order to keep the loop
    moving toward the original goal.
@@ -290,7 +303,7 @@ case.
 
 | property | how Live Loop satisfies it |
 |----------|-----------------------------|
-| **trackable** | the parent node's `subgraph` field carries the fragment; the fragment carries `parent_ref` ([`loop_plan_spec.md` §7](./loop_plan_spec.md#7-subgraph-recursion)). |
+| **trackable** | inline path: the parent node's `subgraph` field carries the fragment, and the fragment carries `parent_ref`. promoted path: the parent node's `child_loops[]` field carries the subloop reference, and the subloop links back via `loop.meta.yaml.parent.parent_node_id` ([`loop_plan_spec.md` §7](./loop_plan_spec.md#7-subgraph-recursion), [`recursive_loops.md` §10](./recursive_loops.md#10-the-child_loops-node-field-locked-schema-decision), [`subgraph_subloop_policy.md` §12](./subgraph_subloop_policy.md#12-the-promotion-procedure)). |
 | **verifiable** | every node in the admitted subgraph carries its own `gate`; the parent's `gate` still must pass for the parent to be `completed` ([`loop_plan_spec.md` §4](./loop_plan_spec.md#4-evidence-gates), [`evidence_gates.md`](./evidence_gates.md)). |
 | **immutable-per-version** | the Graph Harness rule applies: the plan for a given `plan_version` is immutable. A Live Loop admission writes a new fragment under the existing `plan_version`; structural changes outside Live Loop would `replan` to a new one ([`concepts.md` §7](./concepts.md#7-why-durability-primitives), [`loop_plan_spec.md` §1](./loop_plan_spec.md#1-top-level-loopplan-fields)). |
 | **recorded** | the admission appends to `evidence.ledger` ([`state_model.md` §evidence.ledger](./state_model.md#evidence-ledger)) and writes a `decision.log` line with the trigger, the criteria (§6) that were satisfied, the impact / cost / risk / necessity assessment, and the `parent_ref` of the admitted fragment. |
@@ -299,6 +312,26 @@ case.
 > Live Loop growth is **lossless under a session crash**. The next
 > agent reads the same fragment through the same contract; nothing
 > about the growth depended on the previous session's memory.
+
+> **Promotion.** When a Live Loop subgraph crosses the Promotion Gate,
+> it is materialized as a **`subloop`** — a directory-materialized
+> **child loop** under the parent loop's `_loops/`. The promotion
+> records in `decision.log.md` the originating `subgraph_id`, the
+> Promotion Gate condition(s) that held, and the new child `loop_id`;
+> the parent node's `child_loops[]` field carries the directory
+> reference. From that point the subloop is independently recoverable
+> and auditable
+> ([`recursive_loops.md` §5–§8](./recursive_loops.md),
+> [`subgraph_subloop_policy.md` §12](./subgraph_subloop_policy.md#12-the-promotion-procedure)).
+
+**Worked examples** (default subgraph, promote only at the gate). An
+unverifiable acceptance criterion defaults to a subgraph and promotes
+to a subloop only if investigation reveals a systemic requirement
+problem. A leftover bug materially harming effectiveness defaults to a
+subgraph and promotes only if the fix demands architecture change,
+data migration, or coordinated multi-module work. See
+[`subgraph_subloop_policy.md` §10](./subgraph_subloop_policy.md#10-relationship-to-live-loop)
+for both examples in full.
 
 The `evidence.ledger` entry for an admitted subgraph follows the
 standard shape ([`state_model.md` §evidence.ledger](./state_model.md#evidence-ledger)):
@@ -326,6 +359,7 @@ Live Loop              = runtime natural-growth mechanism
 Autonomy-first         = default: system explores and judges autonomously
 Evidence gates         = prevent growth from becoming random requirement-adding
 Human approval         = only for goal / permission / risk / responsibility boundaries
+Three-tier model      = action (leaf) / subgraph (lightweight, default) / subloop (materialized child loop); Live Loop promotes subgraph → subloop at the Promotion Gate
 ```
 
 | component | owns | reference |
@@ -335,6 +369,7 @@ Human approval         = only for goal / permission / risk / responsibility boun
 | Autonomy-first | how decisions are routed by default | [`SKILL.md` §3](../SKILL.md#3-autonomy-first-control-principle-read-before-any-mode), [`human_approval.md` §1](./human_approval.md#1-autonomy-first-approval-is-a-bounded-exception) |
 | Evidence gates | how growth is verified before it counts | [`concepts.md` §5](./concepts.md#5-why-evidence-gates), [`loop_plan_spec.md` §4](./loop_plan_spec.md#4-evidence-gates), [`evidence_gates.md`](./evidence_gates.md) |
 | Human approval | the boundary conditions where autonomy hands off | [`human_approval.md`](./human_approval.md), [`SKILL.md` §3](../SKILL.md#3-autonomy-first-control-principle-read-before-any-mode) |
+| Three-tier model | the action → subgraph → subloop ladder Live Loop growth climbs (default: subgraph; promote to subloop at the Promotion Gate) | [`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md), [`recursive_loops.md`](./recursive_loops.md) |
 
 The four components share the same vocabulary: they all speak in
 terms of the locked field set, the 15-status enum, the 8 node kinds,
@@ -358,3 +393,5 @@ It is a usage pattern over the existing machinery.
 - [`evidence_gates.md`](./evidence_gates.md). The eight gate kinds and how they are chosen; the appendix on a `risk: high` node's requirement that the `verifier` MUST NOT be the producing `agent`.
 - [`recovery_protocol.md`](./recovery_protocol.md). The operational procedure for running Live Loop in practice (when to admit, when to surface, when to roll back).
 - [`SKILL.md` §3](../SKILL.md#3-autonomy-first-control-principle-read-before-any-mode). The Autonomy-First Control Principle that Live Loop inherits without modification.
+- [`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md). The **three-tier execution model** (`action` / `subgraph` / `subloop`), the **Promotion Gate** that escalates a lightweight `subgraph` to a directory-materialized `subloop`, and the two worked examples (acceptance-criteria and effectiveness-bug) that illustrate the default-then-maybe-promote rule.
+- [`recursive_loops.md`](./recursive_loops.md). The directory-materialized **child loop** spec — the substrate a promoted `subloop` is built on: directory shape, `loop.meta.yaml`, `child_loops[]` reference, `return_contract` / `closeout.md`, child-checkpoint additions, and the Sub-loop Admission Gate.

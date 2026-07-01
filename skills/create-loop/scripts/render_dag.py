@@ -75,6 +75,18 @@ def emit_mermaid_nodes(nodes: list[Any], out: list[str], indent: str) -> None:
             out.append(f'{indent}subgraph sg_{sid}["subgraph: {sid}"]')
             emit_mermaid_nodes(sub["nodes"], out, indent + "  ")
             out.append(f"{indent}end")
+        for cid, ref in child_loop_refs(node):
+            out.append(f'{indent}{cid}[/"child_loop {short(ref.get("loop_id"))}"/]')
+
+
+def child_loop_refs(node: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """Yield (sanitized_id, ref) for each child_loop reference on a node."""
+    refs: list[tuple[str, dict[str, Any]]] = []
+    node_sid = sanitize(str(node.get("id")))
+    for idx, ref in enumerate(node.get("child_loops") or []):
+        if isinstance(ref, dict):
+            refs.append((f"{node_sid}__cl{idx}", ref))
+    return refs
 
 
 def emit_mermaid_edges(nodes: list[Any], out: list[str]) -> None:
@@ -90,6 +102,8 @@ def emit_mermaid_edges(nodes: list[Any], out: list[str]) -> None:
         sub = node.get("subgraph")
         if isinstance(sub, dict) and isinstance(sub.get("nodes"), list):
             emit_mermaid_edges(sub["nodes"], out)
+        for cid, _ref in child_loop_refs(node):
+            out.append(f"  {sanitize(nid)} -.-> {cid}")
 
 
 def render_mermaid(plan: dict[str, Any]) -> str:
@@ -124,6 +138,11 @@ def emit_dot_nodes(nodes: list[Any], out: list[str], cluster_prefix: str = "") -
             out.append(f'    label="subgraph: {sid}";')
             emit_dot_nodes(sub["nodes"], out, cluster_prefix)
             out.append("  }")
+        for cid, ref in child_loop_refs(node):
+            cl_label = f"child_loop\\n{short(ref.get('loop_id'))}"
+            out.append(
+                f'  "{cid}" [label="{cl_label}", shape=note, style=dashed];'
+            )
 
 
 def emit_dot_edges(nodes: list[Any], out: list[str]) -> None:
@@ -139,6 +158,8 @@ def emit_dot_edges(nodes: list[Any], out: list[str]) -> None:
         sub = node.get("subgraph")
         if isinstance(sub, dict) and isinstance(sub.get("nodes"), list):
             emit_dot_edges(sub["nodes"], out)
+        for cid, _ref in child_loop_refs(node):
+            out.append(f'  "{sanitize(nid)}" -> "{cid}" [style=dashed];')
 
 
 def render_dot(plan: dict[str, Any]) -> str:

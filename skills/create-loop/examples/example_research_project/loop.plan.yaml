@@ -93,6 +93,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "user"
     notes: "Layer 0. Collects only design-time invariants; open unknowns are routed to owner nodes as assumptions/research questions."
 
@@ -128,6 +129,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: ""
 
@@ -162,6 +164,7 @@ nodes:
     parallelizable: true              # PARALLEL with N2b_protocol_preregistration
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "subagent"
     notes: "Both N2 and N2b depend only on N1 and not on each other, so they dispatch concurrently."
 
@@ -196,6 +199,7 @@ nodes:
     parallelizable: true              # PARALLEL with N2_source_gathering
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "Pre-registration is design-invariant for a rigorous survey; guards against post-hoc criteria drift."
 
@@ -232,6 +236,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "Fan-in join of N2 + N2b. on_failure=replan sends inadequate evidence bases back to gathering."
 
@@ -266,6 +271,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: ""
 
@@ -338,6 +344,7 @@ nodes:
           parallelizable: false
           allow_subgraph: false
           subgraph: null
+          child_loops: []
           assignee: "subagent"
           notes: ""
 
@@ -372,6 +379,7 @@ nodes:
           parallelizable: true         # PARALLEL with S5c_run_comparison_B
           allow_subgraph: false
           subgraph: null
+          child_loops: []
           assignee: "subagent"
           notes: "S5b and S5c both require only S5a and not each other -> concurrent."
 
@@ -406,6 +414,7 @@ nodes:
           parallelizable: true         # PARALLEL with S5b_analyze_dataset_A
           allow_subgraph: false
           subgraph: null
+          child_loops: []
           assignee: "subagent"
           notes: ""
 
@@ -442,8 +451,10 @@ nodes:
           parallelizable: false
           allow_subgraph: false
           subgraph: null
+          child_loops: []
           assignee: "subagent"
           notes: "Join collects the two parallel branches before the parent N5 gate can be evaluated."
+    child_loops: []
     assignee: "agent"
     notes: "Layer 2 lives here: the concrete analyses are runtime-discovered and confined to this subgraph."
 
@@ -479,6 +490,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "Independent verification; failed at 0.71 because a confound was uncontrolled -> replan N5."
 
@@ -513,6 +525,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "Conditional router. Sampled N times for agreement on whether the evidence is conclusive."
 
@@ -548,6 +561,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "Generate -> critique -> revise until the draft clears the rubric."
 
@@ -582,6 +596,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "subagent"
     notes: ""
 
@@ -613,6 +628,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "user"
     notes: "Surfaced via checkpoint.pending_approvals when ready."
 
@@ -648,6 +664,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: ""
 
@@ -682,6 +699,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: ""
 

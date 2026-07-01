@@ -1,0 +1,182 @@
+# loop.plan — ROOT loop DAG for the example child-loop tree.
+# Small governance DAG: charter -> build -> verify -> closeout. The build node
+# spawned a directory-materialized CHILD loop (subloop) for an effectiveness bug
+# that needed its own plan, evidence, and closeout — its child_loops ref points
+# into _loops/. Every node carries child_loops (mostly the empty sentinel []).
+# Tokens are LOCKED — see references/loop_plan_spec.md Glossary.
+
+schema_version: "1.0.0"
+plan_id: "plan-example-delivery-L001"
+goal: "Deliver the example feature and fix the effectiveness bug found mid-run."
+true_intent: "Ship a working deliverable whose end effect is correct, not merely operational."
+non_goals:
+  - "Anything outside the example feature scope."
+
+success_criteria:
+  - id: "sc-built"
+    statement: "The deliverable builds and passes its automated checks."
+    measurable: true
+  - id: "sc-effective"
+    statement: "The known effectiveness bug is fixed, proven by the child loop's closeout evidence."
+    measurable: true
+
+failure_criteria:
+  - "Budget exhausted before the effectiveness bug is fixed."
+
+termination:
+  max_iterations: 20
+  max_wall_clock_hours: 12
+  max_cost_units: 400
+  done_when: "all success_criteria met and all top-level nodes completed"
+
+constraints:
+  - "Respect the stated budget."
+
+nodes:
+  # (1) CHARTER — root node; no dependencies.
+  - id: "charter"
+    kind: "gate"
+    title: "Charter / control-profile sign-off"
+    design_invariant: true
+    status: "completed"
+    requires: []
+    produces:
+      - "artifacts/task_profile.yaml"
+    inputs: []
+    preconditions: []
+    postconditions:
+      - "The control profile is agreed and recorded."
+    gate:
+      kind: "human_approval"
+      threshold: null
+      rubric: null
+      evidence_ref: "evidence/charter.json"
+    retry_policy:
+      max_attempts: 2
+      backoff_base_seconds: 1.0
+      jitter: true
+    on_failure: "escalate"
+    priority: 100
+    risk: "low"
+    parallelizable: false
+    allow_subgraph: false
+    subgraph: null
+    child_loops: []               # explicit sentinel: no materialized children
+    assignee: "agent"
+    notes: ""
+
+  # (2) BUILD — implementation node; SUBLOOP OWNER. It spawned child loop L001.01
+  #     for the effectiveness bug fix (its own plan/state/evidence/closeout).
+  - id: "build"
+    kind: "milestone"
+    title: "Build the deliverable and fix the effectiveness bug"
+    design_invariant: true
+    status: "running"
+    requires:
+      - "charter"
+    produces:
+      - "artifacts/deliverable.md"
+    inputs:
+      - "artifacts/task_profile.yaml"
+    preconditions:
+      - "The control profile exists."
+    postconditions:
+      - "The deliverable builds and the effectiveness bug is fixed."
+    gate:
+      kind: "test"
+      threshold: null
+      rubric: null
+      evidence_ref: "evidence/build.json"
+    retry_policy:
+      max_attempts: 3
+      backoff_base_seconds: 5.0
+      jitter: true
+    on_failure: "replan"
+    priority: 90
+    risk: "high"
+    parallelizable: false
+    allow_subgraph: true          # heavyweight follow-on work was materialized as a subloop
+    subgraph: null                # no inline fragment; the work is a directory child loop
+    # child_loops — POPULATED ref pointing at the real child dir under _loops/.
+    # path + closeout resolve relative to THIS (L001) loop directory.
+    child_loops:
+      - loop_id: L001.01
+        path: _loops/L001.01-fix-effectiveness-bug
+        spawn_reason: "leftover bug harming the final effect; needs its own plan + evidence audit (Admission Gate #1, #3)"
+        status: running
+        closeout: _loops/L001.01-fix-effectiveness-bug/closeout.md
+    assignee: "agent"
+    notes: "SUBLOOP OWNER. The effectiveness bug fix is child loop L001.01; the parent reads its closeout.md to integrate the result."
+
+  # (3) VERIFY — gate the combined result (build + child-loop return).
+  - id: "verify"
+    kind: "gate"
+    title: "Verify the deliverable and the effectiveness fix"
+    design_invariant: true
+    status: "pending"
+    requires:
+      - "build"
+    produces:
+      - "artifacts/verification.md"
+    inputs:
+      - "artifacts/deliverable.md"
+    preconditions:
+      - "The build node completed and child loop L001.01 closed out."
+    postconditions:
+      - "The deliverable passes and the effectiveness bug is confirmed fixed."
+    gate:
+      kind: "llm_judge"
+      threshold: 0.85
+      rubric: "rubrics/verification.md"
+      evidence_ref: "evidence/verify.json"
+    retry_policy:
+      max_attempts: 2
+      backoff_base_seconds: 3.0
+      jitter: true
+    on_failure: "replan"
+    priority: 80
+    risk: "med"
+    parallelizable: false
+    allow_subgraph: false
+    subgraph: null
+    child_loops: []
+    assignee: "subagent"
+    notes: ""
+
+  # (4) CLOSEOUT — confirm done_when and archive the run.
+  - id: "closeout"
+    kind: "milestone"
+    title: "Close out the run"
+    design_invariant: true
+    status: "pending"
+    requires:
+      - "verify"
+    produces:
+      - "artifacts/closeout_report.md"
+    inputs:
+      - "artifacts/verification.md"
+    preconditions:
+      - "Verification passed."
+    postconditions:
+      - "All success_criteria are confirmed met and the run is archived."
+    gate:
+      kind: "artifact_exists"
+      threshold: null
+      rubric: null
+      evidence_ref: "evidence/closeout.json"
+    retry_policy:
+      max_attempts: 1
+      backoff_base_seconds: 0.0
+      jitter: false
+    on_failure: "escalate"
+    priority: 70
+    risk: "low"
+    parallelizable: false
+    allow_subgraph: false
+    subgraph: null
+    child_loops: []
+    assignee: "agent"
+    notes: ""
+
+created: "2026-07-01"
+plan_version: 1

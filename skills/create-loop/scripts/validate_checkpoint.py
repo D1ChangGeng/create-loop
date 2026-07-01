@@ -11,6 +11,7 @@ Exit codes: 0 valid, 1 schema/consistency error(s), 2 load error.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -36,6 +37,13 @@ CHECKPOINT_REQUIRED: tuple[str, ...] = (
     "pending_approvals", "next_suggested_action", "open_assumptions",
     "event_log_ref", "evidence_ledger_ref", "cost_units_spent", "iteration",
 )
+# Optional child-loop checkpoint fields (recursive_loops.md). Recognized but
+# never required, so the 17-field base checkpoint keeps validating.
+CHILD_LOOP_OPTIONAL: tuple[str, ...] = (
+    "loop_id", "parent_loop_id", "parent_node_id", "current_node",
+    "last_valid_artifacts", "next_recommended_action", "open_blockers",
+)
+LOOP_ID_RE = re.compile(r"^L\d{3}(\.\d{2})*$")
 
 
 def load_yaml(path: str) -> Any:
@@ -91,6 +99,14 @@ def validate_checkpoint_schema(doc: Any, errors: list[str]) -> None:
                 )
     elif "node_states" in doc:
         errors.append("[SCHEMA] checkpoint: node_states must be a mapping")
+
+    for field in ("loop_id", "parent_loop_id"):
+        val = doc.get(field)
+        if field in doc and not (isinstance(val, str) and LOOP_ID_RE.match(val)):
+            errors.append(
+                f"[SCHEMA] checkpoint: {field} {val!r} does not match the loop-id "
+                f"pattern L<seq>[.<seq>]"
+            )
 
 
 def validate_consistency(doc: Any, plan: Any, plan_path: str, errors: list[str]) -> None:

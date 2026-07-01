@@ -109,6 +109,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "The interview is Layer 0 (concepts.md §8). Its output is the control profile that shapes this top-level graph."
 
@@ -143,6 +144,7 @@ nodes:
     parallelizable: true
     allow_subgraph: true
     subgraph: null
+    child_loops: []
     assignee: "subagent"
     notes: "Runs concurrently with N2_risk_screen; they share no dependency beyond N0_charter."
 
@@ -177,6 +179,7 @@ nodes:
     parallelizable: true
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "subagent"
     notes: "Runs concurrently with N1_discovery; the fan-in happens at N3_feasibility."
 
@@ -213,6 +216,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "Merges the N1_discovery ∥ N2_risk_screen branches; it is ready only when BOTH are completed."
 
@@ -247,6 +251,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: ""
 
@@ -281,6 +286,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "That an architecture exists is design-invariant; WHICH modules it names is captured in the artifact, not as top-level nodes."
 
@@ -317,6 +323,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "The coverage matrix is machine-checkable, hence an automated_check gate."
 
@@ -390,6 +397,7 @@ nodes:
           parallelizable: true
           allow_subgraph: false
           subgraph: null
+          child_loops: []
           assignee: "agent"
           notes: "Runs in parallel with impl_persistence."
 
@@ -421,6 +429,7 @@ nodes:
           parallelizable: true
           allow_subgraph: false
           subgraph: null
+          child_loops: []
           assignee: "agent"
           notes: "Migration test failed on attempt 1 (FK constraint), fixed by local_patch, passed on attempt 2 — see evidence ledger."
 
@@ -456,6 +465,7 @@ nodes:
           parallelizable: false
           allow_subgraph: false
           subgraph: null
+          child_loops: []
           assignee: "agent"
           notes: "Fan-in of impl_auth ∥ impl_persistence inside the subgraph."
 
@@ -489,8 +499,10 @@ nodes:
           parallelizable: false
           allow_subgraph: false
           subgraph: null
+          child_loops: []
           assignee: "subagent"
           notes: "Child gate node; its pass is a precondition for N7_implementation's own gate."
+    child_loops: []
     assignee: "agent"
     notes: "SUBGRAPH OWNER (allow_subgraph: true). Runtime-discovered detail (which auth scheme, which DB) is confined here, never at the top level."
 
@@ -526,6 +538,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "subagent"
     notes: "generate → critique → revise until the rubric score clears 0.85."
 
@@ -557,6 +570,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "user"
     notes: "Gate-exempt by kind (self-gating human handoff). Currently open in checkpoint.pending_approvals with a token."
 
@@ -593,6 +607,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "Side-effecting (activity): logged to the event log and never blindly replayed. Its saga undo is N10c_rollback_compensation."
 
@@ -623,6 +638,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "Saga compensation: node.contract.compensation_of = N10_deploy. Triggered by the saga on deploy failure, not by normal readiness."
 
@@ -658,6 +674,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: ""
 
@@ -692,6 +709,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []
     assignee: "agent"
     notes: "Confirms termination.done_when before the loop terminates."
 

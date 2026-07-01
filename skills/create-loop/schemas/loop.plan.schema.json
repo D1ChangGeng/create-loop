@@ -101,6 +101,34 @@
         "deprecated"
       ]
     },
+    "child_loop_ref": {
+      "type": "object",
+      "description": "A reference from a node to one of its directory-materialized child loops (subloops). Field names and enum reuse are locked byte-for-byte per references/recursive_loops.md §10.1. status reuses the same 15 node-status enum ($defs.status).",
+      "additionalProperties": false,
+      "required": ["loop_id", "path", "spawn_reason", "status", "closeout"],
+      "properties": {
+        "loop_id": {
+          "type": "string",
+          "description": "The child loop's immutable id (e.g. L001.02)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the child loop directory, relative to the parent loop directory (e.g. _loops/L001.02-design-loop-spec)."
+        },
+        "spawn_reason": {
+          "type": "string",
+          "description": "Why this child loop was materialized — which Sub-loop Admission Gate criterion held."
+        },
+        "status": {
+          "$ref": "#/$defs/status",
+          "description": "The child's current status. One of the 15 canonical node statuses — reused, not a new enum."
+        },
+        "closeout": {
+          "type": "string",
+          "description": "Path (relative to the parent loop directory) to the child's closeout.md — the parent's read entry point for the return contract."
+        }
+      }
+    },
     "success_criterion": {
       "type": "object",
       "additionalProperties": false,
@@ -246,6 +274,7 @@
         "parallelizable",
         "allow_subgraph",
         "subgraph",
+        "child_loops",
         "assignee",
         "notes"
       ],
@@ -343,6 +372,11 @@
             { "$ref": "#/$defs/subgraph" },
             { "type": "null" }
           ]
+        },
+        "child_loops": {
+          "type": "array",
+          "description": "REQUIRED node field. The node's directory-materialized child loops (subloops). Empty array [] is the explicit sentinel for a node with no materialized children — mirrors how subgraph is required-but-null. Reference shape locked byte-for-byte per references/recursive_loops.md §10.",
+          "items": { "$ref": "#/$defs/child_loop_ref" }
         },
         "assignee": {
           "type": "string",

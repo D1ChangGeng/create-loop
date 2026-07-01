@@ -1,0 +1,207 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/node.runtime.schema.json",
+  "title": "node.runtime",
+  "description": "The per-node runtime state file (nodes/<node_id>/node.runtime.yaml). Holds the runtime_subgraphs[] list — the lightweight subgraphs hosted by a single node. Field names and enum values are locked byte-for-byte per references/subgraph_subloop_policy.md §8. A subgraph carries its OWN 8-value status enum (proposed, admitted, running, blocked, completed, failed, promoted_to_subloop, cancelled) — DISTINCT from the 15 canonical node statuses, which MUST NOT be applied to a subgraph.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node_id", "runtime_subgraphs"],
+  "properties": {
+    "node_id": {
+      "type": "string",
+      "description": "The id of the parent node (in loop.plan.yaml) whose runtime subgraphs this file hosts."
+    },
+    "runtime_subgraphs": {
+      "type": "array",
+      "description": "The list of subgraphs hosted by this node. May be empty ([]).",
+      "items": { "$ref": "#/$defs/subgraph" }
+    }
+  },
+  "$defs": {
+    "subgraph_status": {
+      "type": "string",
+      "description": "A subgraph's status. The 8 subgraph statuses — DISTINCT from the 15 node statuses; never apply a node status to a subgraph. Terminal: completed, failed, promoted_to_subloop, cancelled.",
+      "enum": [
+        "proposed",
+        "admitted",
+        "running",
+        "blocked",
+        "completed",
+        "failed",
+        "promoted_to_subloop",
+        "cancelled"
+      ]
+    },
+    "subgraph": {
+      "type": "object",
+      "description": "A single hosted subgraph. Carries the minimal 8-field set plus optional enhancement fields.",
+      "additionalProperties": false,
+      "required": [
+        "subgraph_id",
+        "title",
+        "status",
+        "spawn_reason",
+        "scope",
+        "nodes",
+        "edges",
+        "completion_gate",
+        "outputs",
+        "promotion_policy"
+      ],
+      "properties": {
+        "subgraph_id": {
+          "type": "string",
+          "description": "The subgraph's id. Pattern SG-<parent-node-id-short>-<seq> (prefix SG-, 3-digit zero-padded seq; e.g. SG-N4-001). Immutable once created.",
+          "pattern": "^SG-.+"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short human-readable name of the subgraph."
+        },
+        "status": {
+          "$ref": "#/$defs/subgraph_status",
+          "description": "One of the 8 subgraph statuses — not a node status."
+        },
+        "spawn_reason": {
+          "type": "string",
+          "description": "Why the subgraph was created (which local need it serves)."
+        },
+        "scope": {
+          "type": "object",
+          "description": "The subgraph's boundary. Each list may be empty ([]).",
+          "additionalProperties": false,
+          "required": ["in", "out"],
+          "properties": {
+            "in": {
+              "type": "array",
+              "description": "What is in scope for this subgraph. May be empty ([]).",
+              "items": { "type": "string" }
+            },
+            "out": {
+              "type": "array",
+              "description": "What is explicitly out of scope for this subgraph. May be empty ([]).",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "nodes": {
+          "type": "array",
+          "description": "The subgraph's local task nodes.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "status", "output"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Local node id within the subgraph."
+              },
+              "title": {
+                "type": "string",
+                "description": "Short human-readable name of the local node."
+              },
+              "status": {
+                "$ref": "#/$defs/subgraph_status",
+                "description": "The local node's status. One of the 8 subgraph statuses — not a node status."
+              },
+              "output": {
+                "type": ["string", "null"],
+                "description": "The artifact path this local node produced, or null if none yet."
+              }
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "description": "Dependency edges as [from, to] pairs of local node ids. May be empty ([]).",
+          "items": {
+            "type": "array",
+            "description": "A [from, to] pair of local node ids.",
+            "items": { "type": "string" },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "completion_gate": {
+          "type": "object",
+          "description": "The subgraph's local done condition.",
+          "additionalProperties": false,
+          "required": ["required_outputs", "pass_condition"],
+          "properties": {
+            "required_outputs": {
+              "type": "array",
+              "description": "The artifact paths required before the subgraph may complete. May be empty ([]).",
+              "items": { "type": "string" }
+            },
+            "pass_condition": {
+              "type": "string",
+              "description": "The condition that must hold for the subgraph to pass its completion gate."
+            }
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "description": "The artifact paths the subgraph produced. May be empty ([]).",
+          "items": { "type": "string" }
+        },
+        "promotion_policy": {
+          "type": "object",
+          "description": "The local promotion policy: {status, promote_to_subloop_if[]}. Governs when this subgraph is promoted to a subloop (Promotion Gate).",
+          "additionalProperties": false,
+          "required": ["status", "promote_to_subloop_if"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "description": "The current promotion status of this subgraph (e.g. not_promoted, promoted_to_subloop)."
+            },
+            "promote_to_subloop_if": {
+              "type": "array",
+              "description": "The list of promotion conditions that, if any holds, escalate this subgraph to a subloop.",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Optional enhancement field: scheduling priority of the subgraph."
+        },
+        "risk_level": {
+          "type": "string",
+          "description": "Optional enhancement field: the subgraph's risk level."
+        },
+        "owner_agent": {
+          "type": "string",
+          "description": "Optional enhancement field: the agent that owns the subgraph."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Optional enhancement field: when the subgraph was created (ISO-8601 date-time).",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Optional enhancement field: when the subgraph was last updated (ISO-8601 date-time).",
+          "format": "date-time"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "description": "Optional enhancement field: references to supporting evidence.",
+          "items": { "type": "string" }
+        },
+        "decision_refs": {
+          "type": "array",
+          "description": "Optional enhancement field: references to related decision.log.md entries.",
+          "items": { "type": "string" }
+        },
+        "attempt_count": {
+          "type": "integer",
+          "description": "Optional enhancement field: how many attempts the subgraph has taken."
+        },
+        "max_attempts": {
+          "type": "integer",
+          "description": "Optional enhancement field: the subgraph's attempt budget."
+        }
+      }
+    }
+  }
+}

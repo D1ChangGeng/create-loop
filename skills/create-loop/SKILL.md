@@ -42,15 +42,20 @@ It is **not** a prompt generator. It is a control system.
    `branch`, `fanout`, `join`, `approval`, and `compensation` nodes, with
    artifact dependency edges (via `requires`), every non-trivial node carrying an
    evidence gate, and a bounded escalation ladder per node.
-3. **Persistent state** — a run-id directory, `checkpoint.yaml`,
-   `node.contract.yaml`, and `evidence.ledger.yaml`. Filesystem-mappable so a
-   fresh agent with zero chat memory can resume correctly.
+3. **Persistent state** — a per-loop directory `.agents/loops/L<seq>-<slug>/`
+   holding `loop.meta.yaml` + `loop.plan.yaml` + `loop.state.yaml` +
+   `checkpoint.yaml` + `evidence.ledger.yaml` + `decision.log.md` + `run.log.md` +
+   `handoff.md` + `closeout.md` + `artifacts/` + `_loops/` (+ optional
+   `nodes/<node_id>/node.runtime.yaml` for in-node subgraphs). Filesystem-
+   mappable so a fresh agent with zero chat memory can resume correctly.
 
 Read [`references/concepts.md`](references/concepts.md) for why the shape is
 this way. Read [`references/loop_plan_spec.md`](references/loop_plan_spec.md)
-for field definitions and the locked Glossary, and
+for field definitions and the locked Glossary,
 [`references/state_model.md`](references/state_model.md) for statuses,
-transitions, checkpoint fields, and the resume algorithm.
+transitions, checkpoint fields, and the resume algorithm, and
+[`references/recursive_loops.md`](references/recursive_loops.md) for the
+isomorphic per-loop directory layout and recursion rules.
 
 ---
 
@@ -198,7 +203,55 @@ Runtime Subgraphs + Evidence Gates**. Full spec:
 
 ---
 
-## 5. Mode A — Create a loop
+## 5. Execution units: action / subgraph / subloop
+
+Three tiers, distinguished by **governance need, not size**. Start at the
+lightest tier; promote only when governance demands it (Promotion Gate below).
+
+| tier | essence | own directory? | recoverable? | use when |
+|------|---------|----------------|--------------|----------|
+| `action` | a single concrete op (read, run, write) | no | no | one atomic step inside a node — the leaf of all execution |
+| `subgraph` | lightweight in-node DAG for local exploration / correction / verification / decomposition | no (hosted in parent) | partial (via parent) | local multi-step work the parent node can safely govern |
+| `subloop` | materialized child loop directory (per `references/recursive_loops.md`) | yes | yes (own checkpoint + evidence ledger + closeout) | independently governable work that needs its own plan / state / evidence / closeout |
+
+> **Use `action` for a single step, a `subgraph` for local multi-step work, a
+> `subloop` for independently governable work.**
+
+A `subgraph` is either the inline `subgraph` node field (per
+`references/loop_plan_spec.md`) or a per-node `node.runtime.yaml`
+(`nodes/<node_id>/node.runtime.yaml`) holding that node's `runtime_subgraphs[]`.
+It uses its **own 8-value status enum** (`proposed`, `admitted`, `running`,
+`blocked`, `completed`, `failed`, `promoted_to_subloop`, `cancelled`) —
+**distinct from the 15 node statuses** in `references/state_model.md`. A node
+never takes subgraph statuses; a subgraph never takes node statuses.
+
+A `subloop` is a directory-materialized child loop:
+`.agents/loops/L<seq>-<slug>/` holding a `loop.meta.yaml` + `loop.plan.yaml` +
+`loop.state.yaml` + `checkpoint.yaml` + `evidence.ledger.yaml` + logs +
+`artifacts/` + `_loops/` + `closeout.md`. The parent node references it via the
+**`child_loops` field** (REQUIRED on every node, empty sentinel `[]`) by path +
+a `return_contract` realized as `closeout.md`. Subloops recurse via their own
+`_loops/` and are indexed by `.agents/loops/INDEX.yaml` (global) and
+`<loop>/_loops/INDEX.yaml` (local). The isomorphic per-loop directory and
+directory-name rules are locked in `references/recursive_loops.md`.
+
+**Promotion Gate.** Start with the lightest structure; promote a `subgraph` to a
+`subloop` only when it needs its own plan / state / checkpoint / evidence /
+closeout — i.e. when any of: cross-session, independent checkpoint, complex
+evidence chain, many artifacts, parallel isolation (subagent / separate
+executor), high risk, large multi-phase scope, may recurse into grandchildren,
+or needs an independent `return_contract`.
+
+**Isolation rule.** A child loop writes **ONLY its own directory**. Parent state
+changes go through the `return_contract` / `closeout.md` merge protocol — never
+direct writes into the parent's checkpoint, evidence ledger, or artifacts.
+
+Full spec: [`references/recursive_loops.md`](references/recursive_loops.md) and
+[`references/subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md).
+
+---
+
+## 6. Mode A — Create a loop
 
 Use this mode when the user is starting fresh or is restarting with a new goal.
 
@@ -226,8 +279,10 @@ Run these in order. Do not skip.
    `feasibility_gate` → `architecture_gate` → `verification_plan_gate` →
    `release_gate` (only if `production_launch`) → `closeout`, with
    `final_approval` where `human_review_nodes` require it.
-   - Every node MUST carry all 20 fields per
-     [`references/loop_plan_spec.md`](references/loop_plan_spec.md) §2.
+- Every node MUST carry all 21 fields per
+      [`references/loop_plan_spec.md`](references/loop_plan_spec.md) §2
+      (the 21st is `child_loops` — the directory-materialized child-loop
+      reference list; see §5).
    - Edges go in `requires` (a `produces/requires` artifact dependency,
      not habitual order).
    - Each `mapper` / `allow_subgraph: true` node has `subgraph: null` and
@@ -236,12 +291,18 @@ Run these in order. Do not skip.
      4-value ladder; use `assignee` from `agent | user | subagent`; use
      `risk` from `low | med | high`.
 
-3. **Set up the run-id directory and durable state.**
-   Create `<run_id>/` (the idempotency key). Initialise
+3. **Set up the per-loop directory and durable state.**
+   Create `.agents/loops/L<seq>-<slug>/` (the run-id / idempotency key).
+   Materialise `loop.meta.yaml` ([`templates/loop.meta.yaml`](templates/loop.meta.yaml)),
+   the plan, initialise
    [`templates/checkpoint.yaml`](templates/checkpoint.yaml) (one entry per
-   plan node in `node_states`, every node `pending` or `ready`), start the
-   append-only event log, and stand up
-   [`templates/evidence.ledger.yaml`](templates/evidence.ledger.yaml).
+   plan node in `node_states`, every node `pending` or `ready), start the
+   append-only event log, stand up
+   [`templates/evidence.ledger.yaml`](templates/evidence.ledger.yaml), and
+   create an empty `artifacts/` + `_loops/` (register `.agents/loops/INDEX.yaml`
+   if this is the first loop). See
+   [`references/recursive_loops.md`](references/recursive_loops.md) for the
+   full layout.
 
 4. **Validate before declaring v0 live.**
    - `python3 scripts/validate_loop_plan.py <plan>` — schema + graph rules
@@ -260,7 +321,7 @@ and [`schemas/evidence.ledger.schema.json`](schemas/evidence.ledger.schema.json)
 
 ---
 
-## 6. Mode B — Run / advance a loop
+## 7. Mode B — Run / advance a loop
 
 Use this mode when `loop.plan v0` exists and the loop is in motion. Execute
 this loop **per node**, until `termination.done_when` holds:
@@ -311,7 +372,7 @@ Per-node intent and resulting artifact templates:
 
 ---
 
-## 7. Mode C — Resume from a blank session
+## 8. Mode C — Resume from a blank session
 
 Use this mode when a fresh agent with no chat memory takes over a half-finished
 loop. The checkpoint is the only source of truth.
@@ -319,8 +380,9 @@ loop. The checkpoint is the only source of truth.
 Run the algorithm from [`references/state_model.md`](references/state_model.md)
 §"Resume from a blank session", in order:
 
-1. Acquire / confirm the run (locate `run_id/` directory; respect
-   `O_CREAT|O_EXCL` single-flight).
+1. Acquire / confirm the run (locate `.agents/loops/L<seq>-<slug>/` and its
+   `_loops/` children via `INDEX.yaml`; respect `O_CREAT|O_EXCL` single-flight
+   per loop directory).
 2. Read state — latest `checkpoint.yaml` for current `plan_id` +
    `plan_version`.
 3. Verify evidence — every node marked `completed` must have a matching
@@ -340,7 +402,7 @@ Rationale, edge cases, and the cross-agent hand-off schema are in
 
 ---
 
-## 8. Exceptions & escalation
+## 9. Exceptions & escalation
 
 Every node declares `on_failure` — its starting rung on the bounded, ordered
 ladder:
@@ -358,7 +420,7 @@ on an `approval` node with a `human_approval` gate.
 
 ---
 
-## 9. Human approval
+## 10. Human approval
 
 Approval is a **bounded exception**, not a routine step (see §3). It is planned
 in advance, never improvised as a first reaction to a branch or blocker. Two
@@ -379,7 +441,7 @@ Decision-authority tiers, the cross-session handoff token, and the
 
 ---
 
-## 10. Knowledge promotion
+## 11. Knowledge promotion
 
 Verified, reusable findings may be promoted from transient loop state to
 durable project knowledge (the `self-evolution` skill). The boundary is
@@ -397,7 +459,7 @@ Loop closeout itself produces
 
 ---
 
-## 11. Platform capability & degradation
+## 12. Platform capability & degradation
 
 Do **not** assume the host provides background execution, subagents, a
 durable runtime, or lifecycle hooks. When any are missing, degrade to the
@@ -407,8 +469,8 @@ filesystem primitives that always exist:
 |--------------------|----------|
 | background execution | persistent files + explicit checkpoints written at every transition |
 | subagents | the single agent runs nodes serially; `assignee: subagent` collapses to `assignee: agent` |
-| durable runtime | the `run_id/` directory + event log + checkpoint on the filesystem *is* the runtime |
-| lifecycle hooks | a handoff doc per stop + manual re-invocation + the §7 resume algorithm at startup |
+| durable runtime | the `.agents/loops/L<seq>-<slug>/` directory tree + event log + checkpoint on the filesystem *is* the runtime (see [`references/recursive_loops.md`](references/recursive_loops.md)) |
+| lifecycle hooks | a handoff doc per stop + manual re-invocation + the §8 resume algorithm at startup |
 
 Probe via `task_profile.yaml:platform_capability`. Set
 `fallback_accepted` before emitting `loop.plan v0`. "Degraded mode" is the
@@ -416,7 +478,7 @@ same contract with fewer conveniences — not a second implementation.
 
 ---
 
-## 12. Reference map (progressive disclosure index)
+## 13. Reference map (progressive disclosure index)
 
 Every link below points to a real file. Read it when its row says to. Most
 rows only matter in their respective modes.
@@ -429,6 +491,8 @@ rows only matter in their respective modes.
 | [`live_loop_semantics.md`](references/live_loop_semantics.md) | The execution path grew, a gate exposed an omission/defect, or you must decide whether new work is goal-necessary growth vs scope creep. Triggers, admission criteria, and the three-classes-of-change table. |
 | [`loop_plan_spec.md`](references/loop_plan_spec.md) | You need the authoritative field dictionary for `loop.plan`, node kinds, gate kinds, `retry_policy`, the escalation ladder, control-flow vocabularies, subgraphs, or the locked **Glossary**. |
 | [`state_model.md`](references/state_model.md) | You need the 15-status enum, the state transition table, **checkpoint** / **node.contract** / **evidence.ledger** field sets, or the §"Resume from a blank session" algorithm. |
+| [`recursive_loops.md`](references/recursive_loops.md) | You need the isomorphic per-loop directory layout, `loop.meta.yaml` field set, `child_loops[]` reference shape, `return_contract` / `closeout.md`, child-checkpoint additions, the Sub-loop Admission Gate, the isolation rule, or the INDEX files. Read when promoting to or working inside a **subloop**. |
+| [`subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md) | You need the action / subgraph / subloop three-tier model, the **Promotion Gate** (when a subgraph must be promoted to a subloop), the 8-value subgraph status enum, `node.runtime.yaml` hosting, or the subgraph ↔ parent-node permission table. |
 | [`branching_parallelism.md`](references/branching_parallelism.md) | You are dispatching nodes, wiring `fanout`/`join`, choosing serial vs parallel, or designing `branch` / merge / cancellation. |
 | [`evidence_gates.md`](references/evidence_gates.md) | You are picking which of the 8 gate kinds to assign to a node, or deciding between `llm_judge` vs `human_approval` vs `evaluator_optimizer`. |
 | [`exception_handling.md`](references/exception_handling.md) | A node fails, the ladder fires, a saga needs compensation, or you need retry-policy math / per-exception response table. |
@@ -443,20 +507,26 @@ rows only matter in their respective modes.
 |------|-----------|
 | [`interview_brief.md`](templates/interview_brief.md) | Mode A: you are about to run the Charter interview — load it for the adaptive rules, dimensions A–G, stop condition, and the **MUST NOT ask** table. |
 | [`task_profile.yaml`](templates/task_profile.yaml) | Mode A: the charter / control profile you populate during the interview. |
-| [`loop.plan.yaml`](templates/loop.plan.yaml) | Mode A: the `loop.plan v0` template — every node carries all 20 fields. |
+| [`loop.meta.yaml`](templates/loop.meta.yaml) | Mode A: identity & relation for the new loop directory (`loop_id`, `parent`, `scope`, `return_contract`, etc.). |
+| [`loop.plan.yaml`](templates/loop.plan.yaml) | Mode A: the `loop.plan v0` template — every node carries all 21 fields (incl. `child_loops`). |
+| [`loops.index.yaml`](templates/loops.index.yaml) | Mode A / Mode C: the global `.agents/loops/INDEX.yaml` (and the per-loop `_loops/INDEX.yaml`) — read the index before traversing the directory tree. |
 | [`checkpoint.yaml`](templates/checkpoint.yaml) | Modes B/C: the durable snapshot you read on resume and rewrite after every transition. |
 | [`evidence.ledger.yaml`](templates/evidence.ledger.yaml) | Mode B: the append-only record of gate verdicts a node needs to reach `completed`. |
 | [`node.contract.yaml`](templates/node.contract.yaml) | Mode B: per-node execution contract (`cache_key`, `attempt`, gate copy, evidence pointer). |
+| [`node.runtime.yaml`](templates/node.runtime.yaml) | Mode B: per-node runtime hosting for in-node `subgraph`s (`nodes/<node_id>/node.runtime.yaml`, the `runtime_subgraphs[]` list). |
 | [`handoff.md`](templates/handoff.md) | Modes B/C: when the session ends mid-node, this is the handoff the next session reads first. |
 | [`run.log.md`](templates/run.log.md) | Mode B: human-readable per-node run narrative (not a source of truth). |
 | [`decision.log.md`](templates/decision.log.md) | Mode B: ADR-style log of major plan/scope decisions. |
-| [`closeout.md`](templates/closeout.md) | Mode B / after done: the closeout summary that drives knowledge promotion. |
+| [`closeout.md`](templates/closeout.md) | Mode B / after done: the closeout summary — also the **return interface** for a child loop to its parent. |
 
 ### Schemas — `schemas/` (locked JSON Schema; validators are authoritative)
 
 | File | Read when |
 |------|-----------|
 | [`loop.plan.schema.json`](schemas/loop.plan.schema.json) | You need structural validation of `loop.plan.yaml` against the locked field set. |
+| [`loop.meta.schema.json`](schemas/loop.meta.schema.json) | You need structural validation of a `loop.meta.yaml` (top-level loop or child-loop identity / relation / return_contract). |
+| [`loops.index.schema.json`](schemas/loops.index.schema.json) | You need structural validation of `.agents/loops/INDEX.yaml` (global) or `<loop>/_loops/INDEX.yaml` (local). |
+| [`node.runtime.schema.json`](schemas/node.runtime.schema.json) | You need structural validation of a `nodes/<node_id>/node.runtime.yaml` (the per-node `runtime_subgraphs[]` list). |
 | [`checkpoint.schema.json`](schemas/checkpoint.schema.json) | You need structural validation of `checkpoint.yaml` field types. |
 | [`node.contract.schema.json`](schemas/node.contract.schema.json) | You need structural validation of a node's execution contract. |
 | [`evidence.ledger.schema.json`](schemas/evidence.ledger.schema.json) | You need structural validation of an evidence-ledger entry. |
@@ -465,7 +535,7 @@ rows only matter in their respective modes.
 
 | File | Use when |
 |------|----------|
-| [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` schema + the hand-rolled graph rules R1–R5/R7/R8. Required gate at v0 and after any `replan`. |
+| [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` schema + the hand-rolled graph rules R1–R5/R7/R8. Required gate at v0 and after any `replan`. Supports `--kind loop_plan \| node_contract \| evidence_ledger \| loop_meta \| loops_index \| node_runtime` (the last three cover the recursive / three-tier machinery). |
 | [`validate_checkpoint.py`](scripts/validate_checkpoint.py) | Validates initial checkpoint coverage and linkage to `plan_id` + `plan_version`. |
 | [`render_dag.py`](scripts/render_dag.py) | Optional DAG render for human inspection. |
 
@@ -475,8 +545,9 @@ rows only matter in their respective modes.
 |------|-----------|
 | [`example_research_project/`](examples/example_research_project/) | End-to-end worked example for a research deliverable (`research_report`). |
 | [`example_product_delivery/`](examples/example_product_delivery/) | End-to-end worked example for a product/code deliverable (`code_impl`). |
+| [`example_child_loop_tree/`](examples/example_child_loop_tree/) | End-to-end worked example for **recursive child loops** — a top-level loop with a `child_loops[]`-referenced child and its own `_loops/INDEX.yaml`. Use when you need a model for `subloop` directory layout, `loop.meta.yaml`, `child_loops[]`, and the return-contract merge. |
 
-Each example directory contains a `README.md`, `loop.plan.yaml`, and `checkpoint.yaml`.
+Each example directory contains a `README.md`, `loop.plan.yaml`, and `checkpoint.yaml` (plus, for `example_child_loop_tree/`, a `loop.meta.yaml`, a global `INDEX.yaml`, and a child loop with its own `closeout.md`).
 
 ### Tests — `tests/`
 
@@ -489,11 +560,12 @@ Each example directory contains a `README.md`, `loop.plan.yaml`, and `checkpoint
 
 ## Quick orientation for the model running this skill
 
-1. Did the user hand you a short goal with no plan? → **Mode A** (§5).
-2. Did the user hand you an existing `run_id/` or `loop.plan.yaml` and ask you
-   to continue? → **Mode B** if `loop.plan v0` exists and work was in
-   progress; **Mode C** if the session is blank and you must recover. When
-   unsure, run the §7 resume algorithm first — it is read-only and safe.
+1. Did the user hand you a short goal with no plan? → **Mode A** (§6).
+2. Did the user hand you an existing `.agents/loops/L<seq>-<slug>/` or
+   `loop.plan.yaml` and ask you to continue? → **Mode B** if `loop.plan v0`
+   exists and work was in progress; **Mode C** (§8) if the session is blank
+   and you must recover. When unsure, run the §8 resume algorithm first — it is
+   read-only and safe.
 3. Did the user describe a goal that *might* need a loop but is small enough
    to do in one shot? Then you don't need this skill — say so and do the task.
    But: if it spans more than a couple of tool calls, may need a decision

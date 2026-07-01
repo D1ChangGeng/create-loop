@@ -43,6 +43,23 @@ downstream schema enum uses exactly these values, spelled exactly this way.
 leaves a terminal status except `completed`/`cancelled` → `deprecated` on a
 `replan` that supersedes the node (see table).
 
+### Subgraph lifecycle is a SEPARATE, lighter 8-status enum
+
+A `subgraph` (the lightweight runtime control structure inside a parent node)
+uses its **own 8-value status enum** — `proposed`, `admitted`, `running`,
+`blocked`, `completed`, `failed`, `promoted_to_subloop`, `cancelled`. These are
+**DISTINCT from the 15 canonical node statuses defined above**. A subgraph is a
+lighter control structure than a node, so it carries a lighter lifecycle;
+downstream tooling MUST NOT apply the 15 node statuses to a subgraph, and MUST
+NOT apply these 8 subgraph statuses to a node. The two enums never overlap in
+scope.
+
+The subgraph enum is authoritative in
+[`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md) (its lifecycle,
+transition examples, control fields, and the Promotion Gate that escalates a
+`subgraph` to a directory-materialized `subloop`). This file does not redefine
+it — only the boundary is named here so the two enums are never conflated.
+
 ---
 
 ## State transition table
@@ -120,6 +137,46 @@ resume.
 | `evidence_ledger_ref` | string (path) | yes | Path to the [evidence.ledger](#evidence-ledger). |
 | `cost_units_spent` | number | yes | Cumulative cost, checked against `termination.max_cost_units`. |
 | `iteration` | int | yes | Loop iteration counter, checked against `termination.max_iterations`. |
+
+#### Child-loop checkpoint fields
+
+A **child loop's** (`subloop`'s) `checkpoint.yaml` carries the following fields
+**in addition to** the base checkpoint field set defined above. These additions
+reconcile with — never replace — the base fields; both the base set and these
+additions MUST be present in a child loop's `checkpoint.yaml`. The additions
+are authoritative in [`recursive_loops.md` §7.4](./recursive_loops.md#74-child-checkpoint-additions).
+
+| field | type | required | description |
+|-------|------|----------|-------------|
+| `loop_id` | string | yes | This child loop's id (e.g. `L001.02.03`). |
+| `parent_loop_id` | string | yes | The parent loop's id (e.g. `L001.02`). |
+| `parent_node_id` | string | yes | The node in the parent plan that owns this child loop. |
+| `current_node` | string (node_id) | yes | The node in *this* loop's plan currently in focus for resume. |
+| `last_valid_artifacts` | list[string] | yes | Paths of this loop's artifacts confirmed valid at the last checkpoint (safe to reuse on resume). May be empty (`[]`). |
+| `next_recommended_action` | string | yes | Advisory hint for the next agent resuming this child loop; never a source of truth over the graph. |
+| `open_blockers` | list[object] | yes | Each: `{node_id, reason}`. Blockers currently open in this child loop. May be empty (`[]`). |
+
+**Reconciliation note (child-only vs base-set reuse).**
+
+The base checkpoint fields above (`schema_version`, `plan_id`, `plan_version`,
+`checkpoint_id`, `created`, `phase`, `node_states`, `ready_set`, `last_completed`,
+`blocked`, `pending_approvals`, `next_suggested_action`, `open_assumptions`,
+`event_log_ref`, `evidence_ledger_ref`, `cost_units_spent`, `iteration`) still
+apply verbatim to a child loop's `checkpoint.yaml`. Of the additions above:
+
+- **Child-only identity fields — no base equivalent:** `loop_id`,
+  `parent_loop_id`, `parent_node_id`. The base set carries no parent/child
+  identity fields.
+- **Child-only resume-hint fields — no base equivalent:** `current_node`,
+  `last_valid_artifacts`. The base set has neither a single-node resume focus
+  nor an explicit list of confirmed-valid artifact paths.
+- **Child-only advisory field, distinct from a base field with similar
+  semantics:** `next_recommended_action`. This is a **separate** field from the
+  base `next_suggested_action`; both are present in a child loop's checkpoint,
+  and the child addition is scoped to the child's own graph.
+- **Structural reuse of the base `blocked` field shape:** `open_blockers`
+  mirrors the base `blocked` list-of-`{node_id, reason}` shape, scoped to the
+  child's own graph; both fields are present.
 
 ### node.contract fields
 
@@ -216,6 +273,13 @@ what makes a blank session safe (see
 - [`loop_plan_spec.md`](./loop_plan_spec.md) — plan/node field dictionary, gate
   object, retry policy, escalation ladder, and the canonical **Glossary**.
 - [`concepts.md`](./concepts.md) — why the model is shaped this way.
+- [`recursive_loops.md`](./recursive_loops.md) — directory-materialized child
+  loops; defines the child-checkpoint additions added on top of the base
+  checkpoint field set in this file (§7.4).
+- [`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md) — the three-tier
+  execution model; defines the **8-status subgraph lifecycle** (distinct from
+  the 15 node statuses defined here) and the Promotion Gate that escalates a
+  `subgraph` to a `subloop`.
 - [`./research_durable_loops.md`](./research_durable_loops.md) — checkpoint,
   event-sourced replay, idempotency, saga sources.
 - [`./research_dags_multiagent.md`](./research_dags_multiagent.md) — state

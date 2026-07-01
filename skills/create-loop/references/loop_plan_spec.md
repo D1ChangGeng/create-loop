@@ -85,6 +85,7 @@ edges are modelled implicitly through the `requires` field
 | `parallelizable` | bool | yes | `true` if this node may run concurrently with other ready nodes. |
 | `allow_subgraph` | bool | yes | `true` if this node may materialise a subgraph at runtime when it discovers it is too big/dark/complex. |
 | `subgraph` | object \| null | yes | A nested `loop.plan` fragment (see [§7](#7-subgraph-recursion)), or `null` if none has been materialised. |
+| `child_loops` | list[child_loop_ref] | yes | List of references to directory-materialized child loops (subloops) spawned from this node. Empty `[]` when the node has no child loops. Each ref is `{loop_id, path, spawn_reason, status, closeout}` where `status` is one of the [15 canonical node statuses](#node-statuses) and `path` is relative to this loop's directory. This is the heavyweight, isolated counterpart to the inline `subgraph` field; see [`recursive_loops.md`](./recursive_loops.md) and [`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md). |
 | `assignee` | enum | yes | Who executes the node: `agent`, `user`, or `subagent`. |
 | `notes` | string | yes | Free-form notes. May be `""`. |
 
@@ -259,6 +260,34 @@ parallel dispatch, gates, retry, escalation) applies recursively within it. Only
 `design_invariant: true` nodes may appear at the top level; runtime-discovered
 work is confined to subgraphs.
 
+### 7.1 `subgraph` vs `child_loops` (subloop): when to use which
+
+The `subgraph` field and the `child_loops` field are NOT interchangeable. They
+are the two non-action tiers of the execution model:
+
+- `subgraph` — **inline, lightweight, same-run, node-hosted**. A nested plan
+  fragment carried inside the node's own `subgraph` field and recovered through
+  the parent loop. Governed by the parent node, and shares its state, evidence,
+  logs, and budget.
+- `child_loops` (subloop) — **directory-materialized, isolated, recoverable,
+  referenced by path + return contract**. Each entry points at an independent
+  child loop directory (with its own `loop.plan.yaml`, `loop.state.yaml`,
+  `checkpoint.yaml`, `evidence.ledger.yaml`, `artifacts/`, and `closeout.md`)
+  reachable via the path-relative `path` field and integrated by the parent via
+  its `closeout` file plus the child's `return_contract`.
+
+> Use `action` for simple single-step work, `subgraph` for local multi-step
+> work, `subloop` for independently governable work.
+
+The full three-tier model (`action` / `subgraph` / `subloop`), the Promotion
+Gate that moves work between tiers, the 8-value subgraph status enum, the
+`SG-` subgraph id pattern, and the per-node `node.runtime.yaml` layout are
+defined authoritatively in
+[`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md). The directory
+convention, `loop.meta.yaml` field set, `child_loops[]` reference shape, and
+Sub-loop Admission Gate are defined authoritatively in
+[`recursive_loops.md`](./recursive_loops.md).
+
 ---
 
 ## 8. Related persistent state
@@ -307,6 +336,19 @@ Terminal statuses: `completed`, `cancelled`, `deprecated`.
 ### Edge type (1)
 
 `produces/requires` — the sole edge type, modelled via a node's `requires` list.
+
+### `child_loops` node field (required; array; empty sentinel `[]`)
+
+`child_loops` — each entry is a `child_loop_ref` object with fields: `loop_id`,
+`path` (relative to this loop's directory), `spawn_reason`, `status` (one of the
+[15 canonical node statuses](#node-statuses)), `closeout`. The
+directory-materialized child loop itself, the `child_loops[]` reference shape,
+the `return_contract`, the `closeout.md` return interface, and the Sub-loop
+Admission Gate are defined authoritatively in
+[`recursive_loops.md`](./recursive_loops.md). The three-tier execution model
+(`action` / `subgraph` / `subloop`) and the Promotion Gate that moves work
+between tiers are defined in
+[`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md).
 
 ### Control-flow vocabularies (4, from LangGraph)
 

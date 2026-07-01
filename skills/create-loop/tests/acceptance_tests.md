@@ -30,23 +30,28 @@ Every canonical field name and enum value used here is copied verbatim from
 
 ---
 
-## 1. All 4 schemas are valid JSON and valid Draft-07 metaschema
+## 1. All 7 schemas are valid JSON and valid Draft-07 metaschema
 
-The package ships four JSON schemas under `schemas/`:
+The package ships seven JSON schemas under `schemas/`:
 `loop.plan.schema.json`, `node.contract.schema.json`,
-`checkpoint.schema.json`, `evidence.ledger.schema.json`.
+`checkpoint.schema.json`, `evidence.ledger.schema.json`,
+`loop.meta.schema.json`, `loops.index.schema.json`, `node.runtime.schema.json`
+(the three trailing schemas back the recursive-child-loop / three-tier feature:
+`loop.meta.yaml`, the `INDEX.yaml` files, and per-node `node.runtime.yaml`).
 
 Each must (a) parse as JSON and (b) declare and conform to JSON Schema Draft-07.
 
 ```bash
 # 1a. Each schema parses as JSON (exit 0, prints "OK <file>").
 for f in schemas/loop.plan.schema.json schemas/node.contract.schema.json \
-         schemas/checkpoint.schema.json schemas/evidence.ledger.schema.json; do
+         schemas/checkpoint.schema.json schemas/evidence.ledger.schema.json \
+         schemas/loop.meta.schema.json schemas/loops.index.schema.json \
+         schemas/node.runtime.schema.json; do
   python3 -c "import json,sys; json.load(open(sys.argv[1])); print('OK', sys.argv[1])" "$f"
 done
 ```
 
-Expected: exit `0`; four `OK schemas/...json` lines on stdout.
+Expected: exit `0`; seven `OK schemas/...json` lines on stdout.
 
 ```bash
 # 1b. Each schema declares the Draft-07 metaschema and is itself Draft-07 valid.
@@ -54,7 +59,9 @@ python3 -c '
 import json, sys
 from jsonschema import Draft7Validator
 files = ["schemas/loop.plan.schema.json","schemas/node.contract.schema.json",
-         "schemas/checkpoint.schema.json","schemas/evidence.ledger.schema.json"]
+         "schemas/checkpoint.schema.json","schemas/evidence.ledger.schema.json",
+         "schemas/loop.meta.schema.json","schemas/loops.index.schema.json",
+         "schemas/node.runtime.schema.json"]
 for f in files:
     s = json.load(open(f))
     assert s.get("$schema","").rstrip("#").endswith("draft-07/schema"), f"{f}: not draft-07"
@@ -63,17 +70,19 @@ for f in files:
 '
 ```
 
-Expected: exit `0`; four `draft-07 OK schemas/...json` lines on stdout. A
+Expected: exit `0`; seven `draft-07 OK schemas/...json` lines on stdout. A
 nonzero exit means a schema is malformed or not declared as Draft-07.
 
 ---
 
-## 2. Each of the 4 YAML templates validates against its schema
+## 2. Each of the 7 YAML templates validates against its schema
 
-The package ships four templates under `templates/`. Each is a minimal but
+The package ships seven templates under `templates/`. Each is a minimal but
 complete, valid instance of its artifact and must validate through the
 appropriate script. The `--kind` selector on `validate_loop_plan.py` chooses
-which of the three plan-family schemas to apply (`loop_plan` is the default).
+which schema to apply (`loop_plan` is the default; the others are
+`node_contract`, `evidence_ledger`, `loop_meta`, `loops_index`, and
+`node_runtime`).
 
 ```bash
 # 2a. loop.plan template (default --kind loop_plan).
@@ -87,12 +96,23 @@ python3 scripts/validate_loop_plan.py --kind evidence_ledger templates/evidence.
 
 # 2d. checkpoint template (its own script).
 python3 scripts/validate_checkpoint.py templates/checkpoint.yaml
+
+# 2e. loop.meta template (--kind loop_meta).
+python3 scripts/validate_loop_plan.py --kind loop_meta templates/loop.meta.yaml
+
+# 2f. loops.index template (--kind loops_index).
+python3 scripts/validate_loop_plan.py --kind loops_index templates/loops.index.yaml
+
+# 2g. node.runtime template (--kind node_runtime).
+python3 scripts/validate_loop_plan.py --kind node_runtime templates/node.runtime.yaml
 ```
 
 Expected: each command exits `0`. No error message is printed for a valid
 template. Exit `0` here proves the template carries every required field
 (`schema_version`, `plan_id`, `goal`, `true_intent`, `termination`, `nodes`,
-etc.) with in-enum values.
+etc.; and for the new artifacts `loop_id`, `type`, `parent`, `root`,
+`return_contract`; `loops[]`/`children[]`; `node_id`, `runtime_subgraphs[]`)
+with in-enum values.
 
 ---
 
@@ -119,6 +139,45 @@ python3 scripts/validate_checkpoint.py examples/example_research_project/checkpo
 Expected: all four commands exit `0`. Because `--plan` is supplied, exit `0`
 also asserts the checkpoint's `plan_version` matches the plan's and every key of
 `node_states` is a node `id` defined in the plan.
+
+> **Note (child_loops now required).** After Wave 6, `child_loops` is a
+> **required** field on every plan node (empty sentinel `[]` when a node has no
+> directory-materialized children). Both examples above now carry `child_loops`
+> on every node, so exit `0` here also confirms the plans satisfy the new
+> required-field rule.
+
+---
+
+## 3b. The recursive child-loop tree example validates end-to-end
+
+A third example ships under `examples/example_child_loop_tree/` — a materialized
+recursive loop tree (root loop with `_loops/` children/grandchildren) exercising
+the directory-materialized child-loop feature. Every `loop.meta.yaml`,
+`loop.plan.yaml`, and `INDEX.yaml` in that tree must validate through the
+extended CLI. The commands below discover each artifact type and validate it with
+the matching `--kind`.
+
+```bash
+# 3b-i. Every loop.meta.yaml validates (--kind loop_meta).
+find examples/example_child_loop_tree -name loop.meta.yaml \
+  -exec python3 scripts/validate_loop_plan.py --kind loop_meta {} \;
+
+# 3b-ii. Every loop.plan.yaml validates (default --kind loop_plan).
+find examples/example_child_loop_tree -name loop.plan.yaml \
+  -exec python3 scripts/validate_loop_plan.py {} \;
+
+# 3b-iii. Every INDEX.yaml validates (--kind loops_index).
+find examples/example_child_loop_tree -name INDEX.yaml \
+  -exec python3 scripts/validate_loop_plan.py --kind loops_index {} \;
+```
+
+Expected: every spawned validation exits `0`. Because `find … -exec … \;` runs
+the validator once per matched file, a nonzero exit from any single file
+propagates and fails the check. Exit `0` across all three finds proves each
+`loop.meta.yaml` carries a valid identity/relation block (`loop_id`, `type`,
+`parent`/`root`, `return_contract`), each nested `loop.plan.yaml` is a valid plan
+(with `child_loops` present on every node), and each `INDEX.yaml` — global
+(`loops[]`) or local (`children[]`) — validates against `loops.index.schema.json`.
 
 ---
 
@@ -175,8 +234,8 @@ Expected: exit `0` and `PY-COMPILE-OK` on stdout.
 
 Copy-paste this entire block. Run it from `/root/create-loop/create-loop/`. It
 runs every acceptance check in order under `set -e`, so the **first** failure
-aborts with a nonzero exit; reaching `ALL GREEN` means the package passes the
-acceptance gate.
+aborts with a nonzero exit; reaching `ALL GREEN (incl. child-loops)` means the
+package passes the acceptance gate.
 
 ```bash
 set -euo pipefail
@@ -192,7 +251,9 @@ echo "   SKILL-line-budget-OK"
 
 echo "== 1a. schemas parse as JSON =="
 for f in schemas/loop.plan.schema.json schemas/node.contract.schema.json \
-         schemas/checkpoint.schema.json schemas/evidence.ledger.schema.json; do
+         schemas/checkpoint.schema.json schemas/evidence.ledger.schema.json \
+         schemas/loop.meta.schema.json schemas/loops.index.schema.json \
+         schemas/node.runtime.schema.json; do
   python3 -c "import json,sys; json.load(open(sys.argv[1])); print('   OK', sys.argv[1])" "$f"
 done
 
@@ -201,7 +262,9 @@ python3 -c '
 import json
 from jsonschema import Draft7Validator
 files = ["schemas/loop.plan.schema.json","schemas/node.contract.schema.json",
-         "schemas/checkpoint.schema.json","schemas/evidence.ledger.schema.json"]
+         "schemas/checkpoint.schema.json","schemas/evidence.ledger.schema.json",
+         "schemas/loop.meta.schema.json","schemas/loops.index.schema.json",
+         "schemas/node.runtime.schema.json"]
 for f in files:
     s = json.load(open(f))
     assert s.get("$schema","").rstrip("#").endswith("draft-07/schema"), f+": not draft-07"
@@ -214,6 +277,9 @@ python3 scripts/validate_loop_plan.py templates/loop.plan.yaml
 python3 scripts/validate_loop_plan.py --kind node_contract templates/node.contract.yaml
 python3 scripts/validate_loop_plan.py --kind evidence_ledger templates/evidence.ledger.yaml
 python3 scripts/validate_checkpoint.py templates/checkpoint.yaml
+python3 scripts/validate_loop_plan.py --kind loop_meta templates/loop.meta.yaml
+python3 scripts/validate_loop_plan.py --kind loops_index templates/loops.index.yaml
+python3 scripts/validate_loop_plan.py --kind node_runtime templates/node.runtime.yaml
 echo "   templates OK"
 
 echo "== 3. examples validate (plan + checkpoint) =="
@@ -224,6 +290,15 @@ for ex in example_product_delivery example_research_project; do
 done
 echo "   examples OK"
 
+echo "== 3b. child-loop tree example validates (meta + plan + index) =="
+find examples/example_child_loop_tree -name loop.meta.yaml \
+  -exec python3 scripts/validate_loop_plan.py --kind loop_meta {} \;
+find examples/example_child_loop_tree -name loop.plan.yaml \
+  -exec python3 scripts/validate_loop_plan.py {} \;
+find examples/example_child_loop_tree -name INDEX.yaml \
+  -exec python3 scripts/validate_loop_plan.py --kind loops_index {} \;
+echo "   child-loop tree OK"
+
 echo "== 4. render_dag emits mermaid + dot =="
 python3 scripts/render_dag.py examples/example_product_delivery/loop.plan.yaml > /tmp/dag_out.txt
 grep -q '```mermaid' /tmp/dag_out.txt
@@ -231,7 +306,8 @@ grep -Eq '^graph (TD|LR)' /tmp/dag_out.txt
 grep -q 'digraph' /tmp/dag_out.txt
 echo "   render OK"
 
-echo "ALL GREEN"
+echo "ALL GREEN (incl. child-loops)"
 ```
 
-Expected final line on stdout: `ALL GREEN`, with overall exit `0`.
+Expected final line on stdout: `ALL GREEN (incl. child-loops)`, with overall
+exit `0`.

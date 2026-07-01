@@ -1,0 +1,40 @@
+# checkpoint — CHILD loop (L001.01) mid-run snapshot. Carries the base 17
+# checkpoint fields PLUS the 7 child-loop additions (recursive_loops.md §7.4).
+# node_states keys match this loop's plan node ids; plan_id/plan_version match
+# its loop.plan.yaml. current_node names a node in THIS loop's plan.
+
+schema_version: "1.0.0"
+plan_id: "plan-fix-effectiveness-bug-L001.01"
+plan_version: 1
+checkpoint_id: "ckpt-L001.01-0005"
+created: "2026-07-01T12:40:00Z"
+phase: 0
+
+node_states:
+  reproduce: "completed"
+  root_cause: "running"
+  fix: "pending"
+  regression_verify: "pending"
+
+ready_set: []                     # root_cause is running; nothing else dispatchable
+last_completed:
+  - "reproduce"
+blocked: []
+pending_approvals: []
+next_suggested_action: "Finish root_cause analysis, then dispatch fix and re-run the regression gate."
+open_assumptions:
+  - "The repro is representative of the production effectiveness failure."
+event_log_ref: "./event_log.jsonl"
+evidence_ledger_ref: "./evidence.ledger.yaml"
+cost_units_spent: 58.0
+iteration: 5
+
+# --- child-loop checkpoint additions (recursive_loops.md §7.4) ---
+loop_id: L001.01                  # this child loop's id
+parent_loop_id: L001              # the parent loop's id
+parent_node_id: build             # node in L001's plan that owns this child loop
+current_node: root_cause          # node in THIS loop's plan in focus for resume
+last_valid_artifacts:
+  - artifacts/repro.md
+next_recommended_action: "Complete root-cause doc, then apply the fix and verify the regression test."
+open_blockers: []                 # each: {node_id, reason}; none open in this child loop

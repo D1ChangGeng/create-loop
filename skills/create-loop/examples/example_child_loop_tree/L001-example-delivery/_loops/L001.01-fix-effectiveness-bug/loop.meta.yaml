@@ -1,0 +1,42 @@
+# loop.meta — CHILD loop identity. type: child_loop, depth: 1. parent points at
+# L001 (path ../.. from this dir); root points at L001 (path ../../.. from here).
+# See references/recursive_loops.md §6.
+
+loop_id: L001.01
+slug: fix-effectiveness-bug
+title: Fix the effectiveness bug affecting the final deliverable
+type: child_loop
+parent:
+  loop_id: L001
+  path: ../..                     # to L001-example-delivery, relative to this dir
+  parent_node_id: build           # the node in L001's plan that spawned this loop
+  spawn_reason: >-
+    Leftover bug that does not block basic operation but materially harms the
+    final effect; the fix needs architecture-level analysis, its own evidence
+    audit, and a formal closeout. Trips Admission Gate criteria "high
+    complexity" and "independent evidence audit".
+root:
+  loop_id: L001
+  path: ../../..                  # to the tree root (L001), relative to this dir
+status: running
+created_at: "2026-07-01T11:00:00Z"
+created_by: create-loop
+depth: 1                          # 1 for a direct child of the root
+scope:
+  in:
+    - reproduce the effectiveness bug
+    - identify and apply the root-cause fix
+    - prove the fix with regression evidence
+  out:
+    - unrelated build work (owned by L001 build node)
+    - the top-level verification gate (owned by L001 verify node)
+return_contract:
+  closeout_file: closeout.md
+  required_outputs:
+    - artifacts/root-cause.md
+    - artifacts/fix-evidence.md
+  parent_updates:
+    - node: build
+      update: mark the effectiveness-bug postcondition satisfied
+    - node: verify
+      update: re-run the llm_judge gate once the fix evidence exists

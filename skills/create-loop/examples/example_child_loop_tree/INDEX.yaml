@@ -1,0 +1,12 @@
+# INDEX — GLOBAL loop index for this example tree (mirrors
+# .agents/loops/INDEX.yaml). Lists the top-level loop so an agent resumes/audits
+# without walking the tree. See references/recursive_loops.md §11.1.
+
+loops:
+  - loop_id: L001
+    slug: example-delivery
+    path: L001-example-delivery
+    status: running
+    title: Example delivery loop with one materialized child loop
+    checkpoint: L001-example-delivery/checkpoint.yaml
+    updated_at: "2026-07-01T13:15:00Z"

@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/loops.index.schema.json",
+  "title": "loops.index",
+  "description": "An INDEX.yaml file for the loop tree. Two forms: the global index (.agents/loops/INDEX.yaml, lists every top-level loop under key loops) and the local child index (<loop>/_loops/INDEX.yaml, lists a loop's direct children under key children). Field names and enum values are locked byte-for-byte per references/recursive_loops.md §11. All status values reuse the 15 canonical node statuses from references/state_model.md.",
+  "oneOf": [
+    {
+      "type": "object",
+      "description": "Global index — .agents/loops/INDEX.yaml. Lists every top-level loop.",
+      "additionalProperties": false,
+      "required": ["loops"],
+      "properties": {
+        "loops": {
+          "type": "array",
+          "description": "One entry per top-level loop.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["loop_id", "slug", "path", "status", "title", "checkpoint", "updated_at"],
+            "properties": {
+              "loop_id": {
+                "type": "string",
+                "description": "The loop's immutable id (e.g. L001)."
+              },
+              "slug": {
+                "type": "string",
+                "description": "The loop's kebab-case slug."
+              },
+              "path": {
+                "type": "string",
+                "description": "Path to the loop directory, relative to .agents/loops/ (e.g. L001-create-loop-skill)."
+              },
+              "status": {
+                "type": "string",
+                "description": "The loop's status. One of the 15 canonical node statuses.",
+                "enum": [
+                  "undiscovered",
+                  "discovered",
+                  "needs_clarification",
+                  "pending",
+                  "ready",
+                  "running",
+                  "waiting_external",
+                  "waiting_user",
+                  "blocked",
+                  "verifying",
+                  "verification_failed",
+                  "retry_pending",
+                  "completed",
+                  "cancelled",
+                  "deprecated"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "description": "Human-readable title of the loop."
+              },
+              "checkpoint": {
+                "type": "string",
+                "description": "Path to the loop's checkpoint.yaml."
+              },
+              "updated_at": {
+                "type": "string",
+                "description": "When this index entry was last updated (ISO-8601 date-time).",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "description": "Local child index — <loop>/_loops/INDEX.yaml. Lists a loop's direct children.",
+      "additionalProperties": false,
+      "required": ["children"],
+      "properties": {
+        "children": {
+          "type": "array",
+          "description": "One entry per direct child loop.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["loop_id", "slug", "path", "status", "parent_node_id"],
+            "properties": {
+              "loop_id": {
+                "type": "string",
+                "description": "The child loop's immutable id (e.g. L001.02)."
+              },
+              "slug": {
+                "type": "string",
+                "description": "The child loop's kebab-case slug."
+              },
+              "path": {
+                "type": "string",
+                "description": "Path to the child loop directory, relative to this _loops/ directory (e.g. L001.02-design-loop-spec)."
+              },
+              "status": {
+                "type": "string",
+                "description": "The child loop's status. One of the 15 canonical node statuses.",
+                "enum": [
+                  "undiscovered",
+                  "discovered",
+                  "needs_clarification",
+                  "pending",
+                  "ready",
+                  "running",
+                  "waiting_external",
+                  "waiting_user",
+                  "blocked",
+                  "verifying",
+                  "verification_failed",
+                  "retry_pending",
+                  "completed",
+                  "cancelled",
+                  "deprecated"
+                ]
+              },
+              "parent_node_id": {
+                "type": "string",
+                "description": "The node in the parent plan that owns this child loop."
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

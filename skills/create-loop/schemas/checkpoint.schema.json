@@ -120,6 +120,44 @@
     "iteration": {
       "type": "integer",
       "description": "Loop iteration counter, checked against termination.max_iterations."
+    },
+    "loop_id": {
+      "type": "string",
+      "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). This child loop's id (e.g. L001.02.03). Present only in a child loop's (subloop's) checkpoint; absent from a base loop checkpoint. Locked per references/recursive_loops.md §7.4."
+    },
+    "parent_loop_id": {
+      "type": ["string", "null"],
+      "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). The parent loop's id (e.g. L001.02), or null."
+    },
+    "parent_node_id": {
+      "type": ["string", "null"],
+      "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). The node in the parent plan that owns this child loop, or null."
+    },
+    "current_node": {
+      "type": ["string", "null"],
+      "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). The node in this loop's plan currently in focus for resume, or null."
+    },
+    "last_valid_artifacts": {
+      "type": "array",
+      "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). Paths of this loop's artifacts confirmed valid at the last checkpoint (safe to reuse on resume). May be empty ([]).",
+      "items": { "type": "string" }
+    },
+    "next_recommended_action": {
+      "type": "string",
+      "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). Advisory hint for the next agent resuming this child loop; distinct from the base next_suggested_action; never a source of truth over the graph."
+    },
+    "open_blockers": {
+      "type": "array",
+      "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). Blockers currently open in this child loop, mirroring the base blocked shape scoped to the child's graph. May be empty ([]).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["node_id", "reason"],
+        "properties": {
+          "node_id": { "type": "string", "description": "The blocked node in this child loop." },
+          "reason": { "type": "string", "description": "Why the node is blocked." }
+        }
+      }
     }
   },
   "$defs": {

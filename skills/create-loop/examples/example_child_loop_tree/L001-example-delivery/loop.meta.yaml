@@ -1,0 +1,26 @@
+# loop.meta — ROOT loop identity. type: root_loop, parent: null, depth: 0.
+# root points at itself (path "."). See references/recursive_loops.md §6.
+
+loop_id: L001
+slug: example-delivery
+title: Example delivery loop with one materialized child loop
+type: root_loop
+parent: null                      # null for a root_loop
+root:
+  loop_id: L001                   # a root_loop's root points at itself
+  path: .
+status: running
+created_at: "2026-07-01T09:00:00Z"
+created_by: create-loop
+depth: 0                          # 0 for a top-level root_loop
+scope:
+  in:
+    - deliver the example feature end to end
+    - materialize a child loop for the effectiveness bug fix
+  out:
+    - unrelated backlog items
+return_contract:
+  closeout_file: closeout.md
+  required_outputs:
+    - artifacts/deliverable.md
+  parent_updates: []              # empty for a root_loop (no parent to update)

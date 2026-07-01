@@ -1,0 +1,30 @@
+# checkpoint — ROOT loop mid-run snapshot. node_states keys match the 4 plan
+# node ids exactly; plan_id and plan_version match loop.plan.yaml. This is a
+# root loop, so the child-loop checkpoint additions (recursive_loops.md §7.4)
+# are absent here — they live in the CHILD loop's checkpoint under _loops/.
+
+schema_version: "1.0.0"
+plan_id: "plan-example-delivery-L001"
+plan_version: 1
+checkpoint_id: "ckpt-L001-0003"
+created: "2026-07-01T13:15:00Z"
+phase: 0
+
+node_states:
+  charter: "completed"
+  build: "running"                # spawned child loop L001.01, awaiting its closeout
+  verify: "pending"
+  closeout: "pending"
+
+ready_set: []                     # build is running (child loop in flight); nothing else dispatchable
+last_completed:
+  - "charter"
+blocked: []
+pending_approvals: []
+next_suggested_action: "Await child loop L001.01 closeout, then re-evaluate build's test gate before dispatching verify."
+open_assumptions:
+  - "The child loop's effectiveness fix will satisfy build's postcondition."
+event_log_ref: "state/event_log.jsonl"
+evidence_ledger_ref: "state/evidence.ledger.yaml"
+cost_units_spent: 96.0
+iteration: 3

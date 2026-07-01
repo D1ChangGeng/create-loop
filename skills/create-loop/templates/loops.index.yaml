@@ -1,0 +1,28 @@
+# loops.index — the GLOBAL index (.agents/loops/INDEX.yaml). Lists every
+# top-level loop so an agent can resume/audit/schedule WITHOUT walking the tree
+# (see references/recursive_loops.md §11.1). Read the index first; the tree walk
+# is the fallback of last resort.
+#
+# This is the GLOBAL shape: a top-level `loops:` list. The LOCAL child index
+# (<loop>/_loops/INDEX.yaml) uses a `children:` list instead — the two shapes
+# are mutually exclusive.
+#
+# Each entry: {loop_id, slug, path, status, title, checkpoint, updated_at}.
+# status is one of the 15 canonical node statuses; path is relative to
+# .agents/loops/; updated_at is ISO-8601.
+
+loops:
+  - loop_id: L001                              # immutable id of the top-level loop
+    slug: create-loop-skill                    # kebab-case slug
+    path: L001-create-loop-skill               # dir relative to .agents/loops/
+    status: running                            # one of the 15 node statuses
+    title: Build the create-loop Agent Skill
+    checkpoint: L001-create-loop-skill/checkpoint.yaml   # path to its checkpoint
+    updated_at: "2026-07-01T15:10:00Z"         # ISO-8601 date-time (quote it)
+  - loop_id: L002
+    slug: migrate-billing
+    path: L002-migrate-billing
+    status: completed                          # terminal status
+    title: Migrate billing to the new schema
+    checkpoint: L002-migrate-billing/checkpoint.yaml
+    updated_at: "2026-06-28T09:42:00Z"

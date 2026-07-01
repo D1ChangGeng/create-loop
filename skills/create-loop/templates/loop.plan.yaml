@@ -72,6 +72,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []               # explicit sentinel: no directory-materialized children
     assignee: "agent"
     notes: ""
 
@@ -112,6 +113,7 @@ nodes:
     #     plan_version: 1
     #     nodes: [ ...runtime-discovered nodes, design_invariant: false... ]
     subgraph: null                # null until a fragment is materialised
+    child_loops: []               # explicit sentinel: no directory-materialized children
     assignee: "subagent"
     notes: "Set allow_subgraph so a deep investigation can expand into its own mini-plan."
 
@@ -144,8 +146,17 @@ nodes:
     priority: 80
     risk: "high"
     parallelizable: false
-    allow_subgraph: false
-    subgraph: null
+    allow_subgraph: true          # build is complex enough to materialise a subloop
+    subgraph: null                # no inline fragment; the heavyweight work is a child loop
+    # child_loops — REQUIRED on every node. A POPULATED ref illustrating the
+    # directory-materialized subloop reference shape (recursive_loops.md §10.1).
+    # The path/closeout resolve relative to THIS loop directory.
+    child_loops:
+      - loop_id: L001.01          # the child loop's immutable id (parent id + .<local-seq>)
+        path: _loops/L001.01-build-deliverable   # child dir, relative to this loop dir
+        spawn_reason: "high complexity + independent evidence audit (Admission Gate #1, #3)"
+        status: running           # child's current status (one of the 15 node statuses)
+        closeout: _loops/L001.01-build-deliverable/closeout.md   # parent's read entry point
     assignee: "agent"
     notes: ""
 
@@ -176,6 +187,7 @@ nodes:
     parallelizable: false
     allow_subgraph: false
     subgraph: null
+    child_loops: []               # explicit sentinel: no directory-materialized children
     assignee: "user"
     notes: "Waits on a human_approval handoff; surfaced via checkpoint.pending_approvals."
 

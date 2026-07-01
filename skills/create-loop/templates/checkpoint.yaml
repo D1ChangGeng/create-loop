@@ -32,3 +32,19 @@ event_log_ref: "state/event_log.jsonl"       # append-only log for deterministic
 evidence_ledger_ref: "state/evidence.ledger.yaml"  # path to the evidence.ledger
 cost_units_spent: 137.5           # cumulative; checked vs termination.max_cost_units
 iteration: 4                      # loop iteration counter; checked vs termination.max_iterations
+
+# --- child-loop checkpoint additions (recursive_loops.md §7.4) --------------
+# The 7 fields below are OPTIONAL and appear ONLY in a CHILD loop's (subloop's)
+# checkpoint — they are absent from a base/root loop checkpoint like this one.
+# They ADD to (never replace) the 17 base fields above. Uncomment and fill them
+# in a child loop's checkpoint.yaml. loop_id/parent_loop_id follow the loop-id
+# pattern L<seq>[.<seq>]; current_node names a node in THIS loop's plan.
+#
+# loop_id: "L001.02.03"                 # this child loop's id
+# parent_loop_id: "L001.02"             # the parent loop's id
+# parent_node_id: "n-live-policy"       # node in the parent plan that owns this loop
+# current_node: "build"                 # node in THIS loop's plan in focus for resume
+# last_valid_artifacts:                 # this loop's artifacts confirmed valid; safe to reuse
+#   - "artifacts/triggers.md"
+# next_recommended_action: "complete draft, run llm_judge gate"  # advisory; distinct from next_suggested_action
+# open_blockers: []                     # each: {node_id, reason}; open blockers in THIS child loop

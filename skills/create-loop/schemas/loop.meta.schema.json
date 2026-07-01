@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/loop.meta.schema.json",
+  "title": "loop.meta",
+  "description": "A loop's identity and relation — the file that carries everything the loop directory name deliberately omits. Holds the parent/child relation, spawn reason, slug, title, owner node, scope, and return contract. Field names and enum values are locked byte-for-byte per references/recursive_loops.md §6. status reuses the 15 canonical node statuses from references/state_model.md; type is the 2-value root_loop | child_loop enum.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "loop_id",
+    "slug",
+    "title",
+    "type",
+    "parent",
+    "root",
+    "status",
+    "created_at",
+    "created_by",
+    "depth",
+    "scope",
+    "return_contract"
+  ],
+  "properties": {
+    "loop_id": {
+      "type": "string",
+      "description": "The immutable loop id (L001, L001.02, L001.02.01). Primary key."
+    },
+    "slug": {
+      "type": "string",
+      "description": "The kebab-case slug from the directory name."
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable title of the loop."
+    },
+    "type": {
+      "type": "string",
+      "description": "One of root_loop | child_loop. root_loop for a top-level loop; child_loop for any materialized child at any depth.",
+      "enum": ["root_loop", "child_loop"]
+    },
+    "parent": {
+      "type": ["object", "null"],
+      "description": "The parent relation. null (or absent) only for a root_loop. For a child_loop, an object naming the parent loop, its relative path, the owning node, and the spawn reason.",
+      "additionalProperties": false,
+      "required": ["loop_id", "path", "parent_node_id", "spawn_reason"],
+      "properties": {
+        "loop_id": {
+          "type": "string",
+          "description": "The parent loop's id (e.g. L001.02)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the parent loop directory, relative to this child's own directory (e.g. ../..)."
+        },
+        "parent_node_id": {
+          "type": "string",
+          "description": "The id of the node in the parent's loop.plan.yaml that spawned this child loop (the owning node)."
+        },
+        "spawn_reason": {
+          "type": "string",
+          "description": "Why this child loop was materialized (which Admission Gate criterion held)."
+        }
+      }
+    },
+    "root": {
+      "type": "object",
+      "description": "The top-of-tree relation pointing at the root loop of this tree. For a root_loop, root points at itself.",
+      "additionalProperties": false,
+      "required": ["loop_id", "path"],
+      "properties": {
+        "loop_id": {
+          "type": "string",
+          "description": "The root loop's id."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the root loop directory, relative to this loop's own directory."
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "description": "Identity-level status. One of the 15 canonical node statuses. Terminal: completed, cancelled, deprecated.",
+      "enum": [
+        "undiscovered",
+        "discovered",
+        "needs_clarification",
+        "pending",
+        "ready",
+        "running",
+        "waiting_external",
+        "waiting_user",
+        "blocked",
+        "verifying",
+        "verification_failed",
+        "retry_pending",
+        "completed",
+        "cancelled",
+        "deprecated"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "description": "When the loop directory was created (ISO-8601 date-time).",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Who/what created the loop (agent, subagent, or user identifier)."
+    },
+    "depth": {
+      "type": "integer",
+      "description": "Recursion depth. 0 for a top-level (root_loop); 1 for its direct children; 2 for grandchildren; and so on.",
+      "minimum": 0
+    },
+    "scope": {
+      "type": "object",
+      "description": "The loop's boundary: what is in and out of scope. Each list may be empty ([]).",
+      "additionalProperties": false,
+      "required": ["in", "out"],
+      "properties": {
+        "in": {
+          "type": "array",
+          "description": "What is in scope for this loop. May be empty ([]).",
+          "items": { "type": "string" }
+        },
+        "out": {
+          "type": "array",
+          "description": "What is explicitly out of scope for this loop. May be empty ([]).",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "return_contract": {
+      "type": "object",
+      "description": "How this loop returns to its parent. For a root_loop, closeout_file still points at its own closeout.md and parent_updates may be empty ([]).",
+      "additionalProperties": false,
+      "required": ["closeout_file", "required_outputs", "parent_updates"],
+      "properties": {
+        "closeout_file": {
+          "type": "string",
+          "description": "Path (relative to this loop's directory) to the closeout document. Conventionally closeout.md."
+        },
+        "required_outputs": {
+          "type": "array",
+          "description": "The artifact paths this loop MUST produce before it may close out. May be empty ([]) only for a loop that produces no artifacts (rare).",
+          "items": { "type": "string" }
+        },
+        "parent_updates": {
+          "type": "array",
+          "description": "The updates the parent must apply once this loop closes. May be empty ([]) for a root_loop."
+        }
+      }
+    }
+  }
+}

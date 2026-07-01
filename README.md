@@ -45,7 +45,10 @@ concrete work becomes knowable. Two principles govern execution:
 
 The plan, checkpoints, evidence ledger, and per-node contracts are plain files,
 so any fresh agent can resume across sessions with no runtime, database, or
-daemon.
+daemon. The plan is recursive: non-trivial child work is materialized as
+isolated child loop directories under `.agents/loops/.../_loops/`
+(`L<seq>-<slug>/`), distinct from lightweight inline subgraphs, so each child
+loop is independently governed, rescheduled, and replayable.
 
 ## Repository layout
 
@@ -57,11 +60,11 @@ create-loop/
     └── create-loop/            the installable skill
         ├── SKILL.md            core protocol (progressive disclosure)
         ├── README.md           full usage / maintain / extend guide
-        ├── references/         concepts, spec, state model, live-loop, etc.
+        ├── references/         concepts, spec, state model, live-loop, recursive-loops, subgraph/subloop policy
         ├── templates/          fill-in run artifacts
         ├── schemas/            JSON Schemas for the artifacts
         ├── scripts/            validators + DAG renderer
-        ├── examples/           two end-to-end worked loops
+        ├── examples/           three worked loops (incl. recursive child-loop tree)
         └── tests/              acceptance + failure-mode specs
 ```
 

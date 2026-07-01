@@ -23,25 +23,46 @@ different readers, different consumers, and different failure surfaces.
 
 ### 1.1 `create-loop` owns transient task-control state
 
-All run-scoped execution state for ONE complex task lives under
-`.agents/loops/<run-id>/` (the canonical `run_id_directory` from
-[`concepts.md` §7](./concepts.md#7-why-durability-primitives) and
-[`recovery_protocol.md`](./recovery_protocol.md)). This state is
-**disposable once the task closes out**. The artifacts in this directory
-are:
+All run-scoped execution state for ONE complex task lives under a
+**per-loop directory** at `.agents/loops/L<seq>-<slug>/` (e.g.
+`.agents/loops/L001-create-loop-skill/`), with nested child loops under
+its `_loops/` subdirectory. This is the canonical
+`run_id_directory` shape from [`concepts.md` §7](./concepts.md#7-why-durability-primitives)
+and [`recovery_protocol.md`](./recovery_protocol.md), now materialised
+as the recursive directory convention defined in
+[`recursive_loops.md` §3 and §5](./recursive_loops.md). A global
+`.agents/loops/INDEX.yaml` indexes the top-level loops; each loop's
+`_loops/INDEX.yaml` indexes its direct children. This state is
+**disposable once the task closes out**. The artifacts in this per-loop
+directory (isomorphic at every recursion depth) are:
 
 | artifact | purpose | file |
 |---|---|---|
-| `loop.plan` (or split fragments per the plan spec) | the DAG the loop executes against | `loop.plan.yaml` per [`loop_plan_spec.md`](./loop_plan_spec.md) |
-| `checkpoint` | durable snapshot of node status, ready set, blocked, pending approvals, cost, iteration | [`state_model.md` §checkpoint fields](./state_model.md#checkpoint-fields) |
+| `loop.meta` | identity, parent/child relation, spawn reason, slug, title, scope, return contract | `loop.meta.yaml` per [`recursive_loops.md` §6](./recursive_loops.md#6-loopmetayaml--exact-field-set-locked) |
+| `loop.plan` (or split fragments per the plan spec) | the DAG this loop executes against | `loop.plan.yaml` per [`loop_plan_spec.md`](./loop_plan_spec.md) |
+| `loop.state` | this loop's current live state | `loop.state.yaml` |
+| `checkpoint` | durable snapshot of node status, ready set, blocked, pending approvals, cost, iteration | [`state_model.md` §checkpoint fields](./state_model.md#checkpoint-fields); child-loop additions in [`recursive_loops.md` §7.4](./recursive_loops.md#74-child-checkpoint-additions) |
 | `event_log` | append-only event log for deterministic replay | referenced from `checkpoint.event_log_ref` |
 | `evidence.ledger` | append-only gate-verdict entries (`verdict: pass\|fail\|inconclusive`) | [`state_model.md` §evidence ledger](./state_model.md#evidence-ledger) |
 | `node.contract` | per-node execution contract (gate, retry_policy, attempt counter) | [`state_model.md` §node.contract fields](./state_model.md#node-contract-fields) |
-| `decision.log` | append-only record of architectural/operational decisions made mid-run | run-scoped, schema TBD by plan author |
+| `decision.log` | append-only record of architectural/operational decisions made mid-run | `decision.log.md` |
+| `run.log` | append-only run-time log of this loop | `run.log.md` |
+| `handoff` | session handoff document for resuming this loop | `handoff.md` |
+| `closeout` | the formal return interface (child → parent), read by the parent once the loop reaches a terminal status | `closeout.md` per [`recursive_loops.md` §7.2](./recursive_loops.md#72-closeoutmd--required-content) |
+| artifacts directory | this loop's produced artifacts | `artifacts/` |
+| child loops directory | recursion machinery — each entry is itself a per-loop directory | `_loops/` (per [`recursive_loops.md` §5](./recursive_loops.md#5-the-isomorphic-per-loop-directory)) |
+| archive directory | deprecated / merged / closed historical items | `_archive/` |
 
-All six are **execution state for one run**. They live and die with the
-run. They are NOT project knowledge. They are NOT cross-run memory. They
-are NOT scoped, verified, or curated.
+All of the above are **execution state for one run**. They live and die
+with the run. They are NOT project knowledge. They are NOT cross-run
+memory. They are NOT scoped, verified, or curated. Two index files sit
+ALONGSIDE the per-loop directories and do not change the boundary: a
+**global** `.agents/loops/INDEX.yaml` (every top-level loop, one entry
+per loop) and a **local** `<loop>/_loops/INDEX.yaml` (every direct child
+of that loop). The index files are read-first lookup tables per
+[`recursive_loops.md` §11](./recursive_loops.md#11-index-files-avoid-full-tree-scans); they
+are still transient — they belong to `.agents/loops/`, not to
+`.agents/knowledge/`.
 
 ### 1.2 `self-evolution` owns durable project knowledge
 
@@ -113,8 +134,10 @@ The following MUST NEVER be written from `create-loop` into
 - `pending_approvals` open tokens
 - `open_assumptions` entries that were resolved during this run
 
-These belong in `.agents/loops/<run-id>/`. They are not knowledge. They
-are execution residue.
+These belong in `.agents/loops/L<seq>-<slug>/` (the per-loop directory,
+or one of its `_loops/L<parent>.<local-seq>-<slug>/` children when the
+run is a child loop). They are not knowledge. They are execution
+residue.
 
 ---
 
@@ -148,7 +171,9 @@ A finding from a `create-loop` run may cross into
    for cost review" does.
 
 If any criterion fails, the finding stays in the run's
-`.agents/loops/<run-id>/closeout.md` and is NOT promoted.
+`.agents/loops/L<seq>-<slug>/closeout.md` (or, if the run is a child
+loop, in the child's `_loops/.../closeout.md` per the recursive
+convention) and is NOT promoted.
 
 ### 2.2 The mechanism — append to the inbox
 
@@ -166,7 +191,12 @@ If any criterion fails, the finding stays in the run's
 - Bullets: 2–5, in the agent's own words, capturing what surprised
   or wasn't obvious.
 - Source line: `[source: ...]` referencing the originating run, e.g.
-  `[source: .agents/loops/<run-id>/evidence.ledger.yaml#<entry_id>]`.
+  `[source: .agents/loops/L<seq>-<slug>/evidence.ledger.yaml#<entry_id>]`.
+  The loop's global or local index (`.agents/loops/INDEX.yaml` or the
+  loop's `_loops/INDEX.yaml`) is the read-first lookup to resolve a
+  `<seq>-<slug>` pair before the source line is constructed; the source
+  line itself always points into a real artifact under the per-loop
+  directory.
 
 ### 2.3 Proposed channel marker: `[LOOP]`
 
@@ -229,24 +259,46 @@ Every promoted entry carries a `[source: ...]` line that traces the
 finding back to its run-scoped origin. The canonical form is:
 
 ```
-[source: .agents/loops/<run-id>/evidence.ledger.yaml#<entry_id>]
+[source: .agents/loops/L<seq>-<slug>/evidence.ledger.yaml#<entry_id>]
 ```
 
 Alternative source shapes, used when the finding's strongest evidence
 is elsewhere in the run:
 
 ```
-[source: .agents/loops/<run-id>/decision.log#L42]
-[source: .agents/loops/<run-id>/node.contract.yaml#<node_id>]
-[source: .agents/loops/<run-id>/closeout.md#<section>]
+[source: .agents/loops/L<seq>-<slug>/decision.log.md#L42]
+[source: .agents/loops/L<seq>-<slug>/node.contract.yaml#<node_id>]
+[source: .agents/loops/L<seq>-<slug>/closeout.md#<section>]
+[source: .agents/loops/L<seq>-<slug>/handoff.md#<section>]
 ```
 
+When the strongest evidence lives inside a **materialised child loop**
+(e.g. the parent's promotion candidate was produced by a child that
+reached its own terminal status), the source path descends into the
+nested `_loops/` namespace using the child loop id
+`<parent-id>.<local-seq>`:
+
+```
+[source: .agents/loops/L001-<slug>/_loops/L001.02-<slug>/evidence.ledger.yaml#<entry_id>]
+```
+
+This is the recursion-compatible promotion path: a child loop's
+`closeout.md` is the promotion candidate source (per
+[`recursive_loops.md` §7](./recursive_loops.md#7-return_contract-and-closeoutmd-the-return-interface))
+and the `[source: ...]` line points at the precise artifact in the
+child's own per-loop directory that grounds the finding. The global
+and local INDEX files (`.agents/loops/INDEX.yaml` and
+`<loop>/_loops/INDEX.yaml`) are how an agent resolves a nested
+`<parent-id>.<local-seq>` before assembling the source line — read the
+index first, traverse the tree only as a fallback (per
+[`recursive_loops.md` §11](./recursive_loops.md#11-index-files-avoid-full-tree-scans)).
+
 `self-evolution`'s Mode 4 traceability — "summaries must trace to
-details" — is satisfied because the source points at a real
-filesystem artifact in the run directory, and `manifest.json`'s
-`last_verified` audit can re-read the run directory (until the run is
-archived) to confirm the finding still corresponds to recorded
-evidence.
+details" — is satisfied because the source points at a real filesystem
+artifact in the per-loop directory (top-level or nested), and
+`manifest.json`'s `last_verified` audit can re-read that directory
+(until the loop is archived) to confirm the finding still corresponds
+to recorded evidence.
 
 ---
 
@@ -295,7 +347,12 @@ dependency on each other.
 
 Per [`recovery_protocol.md`](./recovery_protocol.md) §2 and
 [`state_model.md` §resume-from-blank-session](./state_model.md#resume-from-a-blank-session),
-the recovery algorithm reads ONLY `.agents/loops/<run-id>/` artifacts:
+the recovery algorithm reads ONLY `.agents/loops/L<seq>-<slug>/`
+artifacts (consulting `.agents/loops/INDEX.yaml` first per
+[`recursive_loops.md` §11](./recursive_loops.md#11-index-files-avoid-full-tree-scans)
+to locate the target loop, then descending into its per-loop directory
+and any `_loops/L<parent>.<local-seq>-<slug>/` children when the run
+spawned materialised sub-loops):
 
 1. Locate the `run_id_directory` (single-flight check).
 2. Read the latest `checkpoint`.
@@ -333,7 +390,7 @@ The two recoveries are independent:
 
 | failure | effect on `create-loop` recovery | effect on `self-evolution` recovery |
 |---|---|---|
-| `.agents/loops/<run-id>/` corrupted or missing | resume fails; loop escalates to `blocked` and surfaces a `pending_approval` | none |
+| `.agents/loops/L<seq>-<slug>/` (or its INDEX.yaml) corrupted or missing | resume fails; loop escalates to `blocked` and surfaces a `pending_approval` | none |
 | `.agents/knowledge/` corrupted or missing | none — `create-loop` does not depend on it | `self-evolution` rebuilds from filesystem per SKILL.md Mode 4 manifest recovery |
 | Both missing | fresh start (loop from `pending`, knowledge from empty) | fresh start |
 | Only one present | the present one works normally | the present one works normally |
@@ -350,7 +407,9 @@ entries, `evidence.ledger` entries, `cost_units_spent`, or
 `iteration` into `.agents/knowledge/`. This is the same rule as
 §1.4 restated for the recovery path: even the temptation to "snapshot
 the checkpoint for future reference" is forbidden — that's what
-`.agents/loops/<run-id>/` already is.
+`.agents/loops/L<seq>-<slug>/` already is (with `.agents/loops/INDEX.yaml`
+and the per-loop `_loops/INDEX.yaml` files making that snapshot
+discoverable, not durable).
 
 ---
 
@@ -376,8 +435,9 @@ finding.
 
 If `.agents/loops/` does not exist, this spec does not apply — there
 is no `create-loop` run in progress. The agent either starts a new
-run (which creates `.agents/loops/<run-id>/` per the single-flight
-rule) or is not using `create-loop`.
+run (which materialises `.agents/loops/L<seq>-<slug>/` per the
+single-flight rule and seeds `.agents/loops/INDEX.yaml`) or is not
+using `create-loop`.
 
 ### 5.3 No copy of self-evolution internals
 
@@ -427,8 +487,9 @@ A minimal end-to-end example, illustrating all the rules above.
 
 ### 6.1 The run
 
-Suppose `create-loop` runs `loop.plan` `p-2026-07-02-001` with
-`run_id` `r-0c4a`. Inside the plan, a `mapper` node `n47` runs an
+Suppose `create-loop` runs `loop.plan` `p-2026-07-02-001` in per-loop
+directory `.agents/loops/L007-eval-opt-recovery/`. Inside the plan, a
+`mapper` node `n47` runs an
 `evaluator_optimizer` gate. The gate fails twice (`verdict: fail`,
 attempts 1 and 2), then passes on attempt 3 after the `local_patch`
 ladder step adjusts the prompt. The reusable finding is:
@@ -469,12 +530,12 @@ All three pass. `create-loop` writes to the inbox:
 ## 2026-07-02 16:48 — [LOOP] Evaluator_optimizer gates recover faster with rubric specificity than with local_retry
 
 - Two consecutive sub-0.4 scores on an evaluator_optimizer gate in
-  run r-0c4a: local_retry did not move the score; a local_patch that
-  added one rubric dimension lifted the next attempt from 0.35 to
-  0.82.
+  loop L007-eval-opt-recovery: local_retry did not move the score; a
+  local_patch that added one rubric dimension lifted the next attempt
+  from 0.35 to 0.82.
 - The threshold "two consecutive <0.4" is now a candidate heuristic
   for choosing the on_failure ladder step at plan-design time.
-- [source: .agents/loops/r-0c4a/evidence.ledger.yaml#e-003]
+- [source: .agents/loops/L007-eval-opt-recovery/evidence.ledger.yaml#e-003]
 ```
 
 The entry uses the channel marker `[LOOP]`. It enters the inbox as
@@ -484,8 +545,8 @@ directory.
 
 ### 6.4 What does NOT get promoted
 
-For the same run, the following stay in `.agents/loops/r-0c4a/`
-only:
+For the same loop, the following stay in
+`.agents/loops/L007-eval-opt-recovery/` only:
 
 - the three `node.contract.attempt` values (`1`, `2`, `3`),
 - the `cost_units_spent` after each attempt,
@@ -523,8 +584,10 @@ file whose `scope:` field points at `.agents/loops/` (or whose sources
 are all run-scoped artifacts). Mode 4 (Evolve) review of new domain
 content catches it earlier.
 
-Repair: move the offending content back to `.agents/loops/<run-id>/`,
-leave a `[DOMAIN-FIX]` inbox entry explaining the move.
+Repair: move the offending content back to
+`.agents/loops/L<seq>-<slug>/` (or its `_loops/L<parent>.<local-seq>-<slug>/`
+subdirectory if it leaked from a child loop), leave a `[DOMAIN-FIX]`
+inbox entry explaining the move.
 
 ### 7.2 Over-promotion — findings written without the gate
 
@@ -558,7 +621,8 @@ Symptom: `[LOOP]` is used for findings that did not originate from a
 candidates (status churn, retries).
 
 Detection: spot-check: do `[LOOP]` entries cite a
-`.agents/loops/<run-id>/` source path?
+`.agents/loops/L<seq>-<slug>/` source path (top-level or nested
+under `_loops/`)?
 
 Repair: edit or remove the offending entries; reaffirm the marker's
 intended meaning at next team sync. (If `[LOOP]` is formally accepted
@@ -576,7 +640,8 @@ on import surface; integration test that runs `create-loop` against a
 fresh project with no `.agents/knowledge/`.
 
 Repair: revert the dependency; the resume algorithm reads only
-`.agents/loops/<run-id>/`.
+`.agents/loops/L<seq>-<slug>/` (with `.agents/loops/INDEX.yaml` as the
+read-first lookup).
 
 ---
 
@@ -598,12 +663,13 @@ attention.
   "this month the loops produced N knowledge candidates"? This would
   require a `self-evolution` schema change; the spec does not
   presume it.
-- How should archived runs (`.agents/loops/<run-id>/` moved to a
-  long-term archive) affect the `[source: ...]` traceability? The
-  source path becomes stale once the run directory is archived or
-  pruned. Resolution options: re-point to the archive path, or
-  accept that very old entries have stale sources (with `last_verified`
-  doing the staleness work).
+- How should archived loops (`.agents/loops/L<seq>-<slug>/` moved
+  wholesale to a long-term archive, or whose contents have been folded
+  into that loop's `_archive/` per the recursive convention) affect
+  the `[source: ...]` traceability? The source path becomes stale once
+  the per-loop directory is archived or pruned. Resolution options:
+  re-point to the archive path, or accept that very old entries have
+  stale sources (with `last_verified` doing the staleness work).
 
 ---
 

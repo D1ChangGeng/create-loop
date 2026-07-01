@@ -29,6 +29,19 @@ genuine boundaries (goal, authorization, irreversibility, cost, risk, value).
 stable while the execution path grows from evidence — evidence-driven
 completeness growth, not scope creep.
 
+The plan is also **recursive**: each node dispatches its work across a
+**three-tier model** (`action` atomic, `subgraph` lightweight inline
+runtime, `subloop` directory-materialized child loop). When a child
+graph is non-trivial it gets its own isolated per-loop directory under
+the parent's `_loops/` (e.g. `L<seq>-<slug>/_loops/L<seq>.<seq>-<slug>/`)
+with its own `loop.meta.yaml`, `loop.plan.yaml`, checkpoint, evidence
+ledger, logs, and `artifacts/`. Inline `subgraph` and `allow_subgraph`
+fields on a node are still the lightweight path; promotion to a
+directory-materialized subloop is governed by the Admission Gate. Full
+spec in [`references/recursive_loops.md`](references/recursive_loops.md)
+and the tier / Promotion Gate vocabulary in
+[`references/subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md).
+
 Full reasoning lives in `references/concepts.md`. The vocabulary
 (vocabulary, enums, transitions) lives in `references/loop_plan_spec.md`
 and `references/state_model.md`.
@@ -124,6 +137,15 @@ python3 scripts/validate_loop_plan.py --kind node_contract <node.contract.yaml>
 
 # Append-only evidence ledger.
 python3 scripts/validate_loop_plan.py --kind evidence_ledger <evidence.ledger.yaml>
+
+# Per-loop control profile (`loop.meta.yaml`).
+python3 scripts/validate_loop_plan.py --kind loop_meta <loop.meta.yaml>
+
+# Tree index file (one `INDEX.yaml` per run root and per `_loops/` directory).
+python3 scripts/validate_loop_plan.py --kind loops_index <INDEX.yaml>
+
+# Per-node runtime hosting record (`node.runtime.yaml`, subgraph tier).
+python3 scripts/validate_loop_plan.py --kind node_runtime <node.runtime.yaml>
 ```
 
 Exit `0` means valid. Nonzero exit prints the rule the input violated.
@@ -149,7 +171,7 @@ a file if you want both.
 
 ### Worked examples
 
-Two end-to-end examples ship under `examples/`:
+Three end-to-end examples ship under `examples/`:
 
 - `examples/example_product_delivery/`: software delivery loop (REST
   API service with auth, persistence, deployment). Read its
@@ -158,6 +180,11 @@ Two end-to-end examples ship under `examples/`:
   (cited survey plus defensible recommendation on
   retrieval-augmentation vs hallucination). Heavier on branching and
   replan. Read its `README.md`.
+- `examples/example_child_loop_tree/`: a materialized recursive
+  child-loop tree (one parent loop with a `L001.01-...` subloop under
+  its `_loops/`), exercising `loop.meta.yaml`, `child_loops`, the
+  `INDEX.yaml` files, and the isomorphic per-loop layout. Read its
+  `README.md`.
 
 Each example contains a `loop.plan.yaml` and a `checkpoint.yaml` that
 both pass the validators:
@@ -189,12 +216,43 @@ directory and populates it from `templates/`:
 | `run.log.md` | `templates/run.log.md` | append-only run narrative |
 | `handoff.md` | `templates/handoff.md` | handoff doc written at each stop so a fresh agent can pick up |
 | `closeout.md` | `templates/closeout.md` | end-of-run summary |
+| `loops.index.yaml` | `templates/loops.index.yaml` | tree index over the run root (one per `_loops/`) |
 
 The append-only event log referenced by `checkpoint.event_log_ref` is
 the lowest-level replay primitive (per `references/concepts.md` §7). All
 of these are plain files. A fresh agent resumes by reading the
 checkpoint, verifying evidence, computing the ready set from the
 dependency graph, and dispatching the next node.
+
+### Per-loop layout (recursive)
+
+A run is a **tree of isomorphic per-loop directories**, not a single
+flat directory. The top-level run root lives at
+`.agents/loops/L<seq>-<slug>/` and contains the artifacts above plus:
+
+- `loop.meta.yaml`: the per-loop control profile (see
+  `references/recursive_loops.md` §6 for the exact field set).
+- `artifacts/`: node-produced outputs the loop references from `produces`.
+- `_loops/INDEX.yaml`: the tree index over materialized child loops
+  (one row per child).
+- `_loops/L<seq>.<seq>-<slug>/`: a **directory-materialized child
+  loop** for any non-trivial child work promoted past the Admission Gate.
+  Every child follows the same per-loop shape, recursively: its own
+  `loop.meta.yaml`, `loop.plan.yaml`, `checkpoint.yaml`,
+  `evidence.ledger.yaml`, logs, `closeout.md`, `artifacts/`, its own
+  `_loops/` for further nesting, and its own `_loops/INDEX.yaml`.
+- `nodes/<id>/node.runtime.yaml`: per-node runtime hosting record
+  for nodes running their work on the lightweight `subgraph` tier
+  (`action` / `subgraph` / `subloop`, see
+  `references/subgraph_subloop_policy.md`).
+
+The per-loop layout is **isomorphic**: the root loop and every child
+loop under `_loops/` follow the same shape. Inline `subgraph` /
+`allow_subgraph` fields on a node stay the lightweight path; promotion
+to a directory-materialized subloop is governed by the Admission Gate in
+[`references/recursive_loops.md`](references/recursive_loops.md) §8.
+The three-tier decision tree lives in
+[`references/subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md) §11.
 
 ---
 
@@ -215,7 +273,7 @@ echo "== SKILL.md line budget < 600 =="
 test "$(wc -l < SKILL.md)" -lt 600
 
 echo "== schemas parse as JSON and are valid Draft-07 =="
-# (4 files under schemas/)
+# (7 files under schemas/)
 
 echo "== templates validate =="
 python3 scripts/validate_loop_plan.py            templates/loop.plan.yaml
@@ -291,6 +349,29 @@ must key off them.
    the new value's green-path use, plus an invalid-input fixture to
    prove the validator catches misuse.
 5. Re-run the full acceptance gate
+   (`tests/acceptance_tests.md#full-green-sequence`).
+
+### Add a recursive-loop field, INDEX entry, or tier token
+
+Recursive-loop vocabulary lives in two extra reference docs that key off
+`loop_plan_spec.md` and `state_model.md`. Touch them when you change
+anything in the child-loop or subgraph layer:
+
+1. [`references/recursive_loops.md`](references/recursive_loops.md) is the
+   authoritative source for the `loop.meta.yaml` field set, the
+   `child_loops` node-field shape, the per-loop checkpoint additions,
+   the `_loops/` directory convention, the Admission Gate, the
+   `L<seq>-<slug>/` naming, and the `INDEX.yaml` schema.
+2. [`references/subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md)
+   is the authoritative source for the three-tier model (`action`,
+   `subgraph`, `subloop`), the subgraph's own lighter status enum, the
+   `node.runtime.yaml` field set, and the Promotion Gate.
+3. Update the matching `schemas/loop.meta.schema.json`,
+   `schemas/loops.index.schema.json`, or
+   `schemas/node.runtime.schema.json` so the validator enforces the new
+   shape, and add a `templates/` entry plus a green-path fixture in
+   `tests/failure_mode_tests.md`.
+4. Re-run the full acceptance gate
    (`tests/acceptance_tests.md#full-green-sequence`).
 
 ### Add a new template or reference doc

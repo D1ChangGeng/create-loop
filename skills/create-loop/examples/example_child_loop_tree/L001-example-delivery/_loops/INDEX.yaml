@@ -1,0 +1,11 @@
+# INDEX — LOCAL child index (<loop>/_loops/INDEX.yaml). Lists L001's direct
+# children so the parent resumes/audits without walking the subtree. Uses the
+# `children:` shape (mutually exclusive with the global `loops:` shape).
+# See references/recursive_loops.md §11.2.
+
+children:
+  - loop_id: L001.01
+    slug: fix-effectiveness-bug
+    path: L001.01-fix-effectiveness-bug
+    status: running
+    parent_node_id: build
