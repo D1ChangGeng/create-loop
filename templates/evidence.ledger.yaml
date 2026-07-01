@@ -1,0 +1,33 @@
+# evidence.ledger — append-only record of gate verdicts.
+# A node may transition verifying -> completed only when its LATEST entry has verdict == pass.
+# Tokens are LOCKED:
+#   gate_kind: automated_check | test | llm_judge | self_consistency |
+#              evaluator_optimizer | step_verifier | human_approval | artifact_exists
+#   verdict:   pass | fail | inconclusive
+#   verifier:  agent | subagent | user | script
+#   score:     number 0..1 for scored gates, or null for pass/fail gates
+
+schema_version: "1.0.0"           # version of THIS evidence.ledger schema
+
+entries:                          # append-only; newest last. Each entry has all 9 fields.
+  # Example: a FAILED verdict from an earlier attempt (kept for the audit trail).
+  - entry_id: "ev-0001"
+    node_id: "build"
+    gate_kind: "test"
+    verdict: "fail"
+    score: null                   # pass/fail gate => null
+    artifact_path: "evidence/build_tests.attempt1.json"
+    rationale: "3 of 40 unit tests failed on the first build attempt."
+    recorded: "2026-07-02T10:20:00Z"   # ISO-8601 date-time
+    verifier: "script"
+
+  # Example: a PASS verdict from the successful re-attempt.
+  - entry_id: "ev-0002"
+    node_id: "build"
+    gate_kind: "test"
+    verdict: "pass"
+    score: null
+    artifact_path: "evidence/build_tests.attempt2.json"
+    rationale: "All 40 unit tests pass after the local patch."
+    recorded: "2026-07-02T10:42:00Z"
+    verifier: "script"

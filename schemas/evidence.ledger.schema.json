@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/evidence.ledger.schema.json",
+  "title": "evidence.ledger",
+  "description": "An append-only record of gate verdicts. Wraps schema_version and an entries array of gate-verdict entries. A node may transition verifying -> completed only when its latest entry has verdict == pass. Field names and enum values are locked byte-for-byte per references/state_model.md (evidence.ledger).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "entries"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of the evidence.ledger schema."
+    },
+    "entries": {
+      "type": "array",
+      "description": "Append-only list of gate-verdict entries.",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_id",
+        "node_id",
+        "gate_kind",
+        "verdict",
+        "score",
+        "artifact_path",
+        "rationale",
+        "recorded",
+        "verifier"
+      ],
+      "properties": {
+        "entry_id": {
+          "type": "string",
+          "description": "Unique id of the ledger entry."
+        },
+        "node_id": {
+          "type": "string",
+          "description": "The node the verdict is for."
+        },
+        "gate_kind": {
+          "type": "string",
+          "description": "One of the 8 gate kinds.",
+          "enum": [
+            "automated_check",
+            "test",
+            "llm_judge",
+            "self_consistency",
+            "evaluator_optimizer",
+            "step_verifier",
+            "human_approval",
+            "artifact_exists"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "description": "The gate verdict.",
+          "enum": ["pass", "fail", "inconclusive"]
+        },
+        "score": {
+          "type": ["number", "null"],
+          "description": "Numeric score for scored gates (0..1), or null for pass/fail gates.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "artifact_path": {
+          "type": "string",
+          "description": "Path to the evidence artifact this entry attests."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why the verdict was reached."
+        },
+        "recorded": {
+          "type": "string",
+          "description": "When the entry was recorded (ISO-8601 date-time).",
+          "format": "date-time"
+        },
+        "verifier": {
+          "type": "string",
+          "description": "Who produced the verdict.",
+          "enum": ["agent", "subagent", "user", "script"]
+        }
+      }
+    }
+  }
+}

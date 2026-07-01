@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/checkpoint.schema.json",
+  "title": "checkpoint",
+  "description": "The durable snapshot of loop progress. A fresh session reads exactly this to resume. Keyed by plan_id (+ plan_version). Field names and enum values are locked byte-for-byte per references/state_model.md (checkpoint fields).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "plan_version",
+    "checkpoint_id",
+    "created",
+    "phase",
+    "node_states",
+    "ready_set",
+    "last_completed",
+    "blocked",
+    "pending_approvals",
+    "next_suggested_action",
+    "open_assumptions",
+    "event_log_ref",
+    "evidence_ledger_ref",
+    "cost_units_spent",
+    "iteration"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of the checkpoint schema."
+    },
+    "plan_id": {
+      "type": "string",
+      "description": "The loop.plan this checkpoint tracks."
+    },
+    "plan_version": {
+      "type": "integer",
+      "description": "The plan version this checkpoint is valid for."
+    },
+    "checkpoint_id": {
+      "type": "string",
+      "description": "Unique id of this checkpoint snapshot."
+    },
+    "created": {
+      "type": "string",
+      "description": "When this checkpoint was written (ISO-8601 date-time).",
+      "format": "date-time"
+    },
+    "phase": {
+      "type": "integer",
+      "description": "Phase counter for continue_as_new rollover."
+    },
+    "node_states": {
+      "type": "object",
+      "description": "Current status of every node, keyed by node_id. Statuses are from the node status enum.",
+      "additionalProperties": { "$ref": "#/$defs/status" }
+    },
+    "ready_set": {
+      "type": "array",
+      "description": "Nodes currently ready for dispatch.",
+      "items": { "type": "string" }
+    },
+    "last_completed": {
+      "type": "array",
+      "description": "Nodes most recently moved to completed.",
+      "items": { "type": "string" }
+    },
+    "blocked": {
+      "type": "array",
+      "description": "Nodes currently blocked.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["node_id", "reason"],
+        "properties": {
+          "node_id": { "type": "string", "description": "The blocked node." },
+          "reason": { "type": "string", "description": "Why the node is blocked." }
+        }
+      }
+    },
+    "pending_approvals": {
+      "type": "array",
+      "description": "Open escalate/approval handoffs.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["node_id", "token", "requested"],
+        "properties": {
+          "node_id": { "type": "string", "description": "The approval node awaiting sign-off." },
+          "token": { "type": "string", "description": "Approval token surfaced to the user." },
+          "requested": {
+            "type": "string",
+            "description": "When the approval was requested (ISO-8601 date-time).",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "next_suggested_action": {
+      "type": "string",
+      "description": "Human-readable hint for the next agent; advisory only, never a source of truth over the graph."
+    },
+    "open_assumptions": {
+      "type": "array",
+      "description": "Assumptions/answers not yet verified; drives needs_clarification resolution.",
+      "items": { "type": "string" }
+    },
+    "event_log_ref": {
+      "type": "string",
+      "description": "Path to the append-only event log (deterministic replay)."
+    },
+    "evidence_ledger_ref": {
+      "type": "string",
+      "description": "Path to the evidence.ledger."
+    },
+    "cost_units_spent": {
+      "type": "number",
+      "description": "Cumulative cost, checked against termination.max_cost_units."
+    },
+    "iteration": {
+      "type": "integer",
+      "description": "Loop iteration counter, checked against termination.max_iterations."
+    }
+  },
+  "$defs": {
+    "status": {
+      "type": "string",
+      "description": "Node status. The canonical, complete set of 15 node statuses. Terminal: completed, cancelled, deprecated.",
+      "enum": [
+        "undiscovered",
+        "discovered",
+        "needs_clarification",
+        "pending",
+        "ready",
+        "running",
+        "waiting_external",
+        "waiting_user",
+        "blocked",
+        "verifying",
+        "verification_failed",
+        "retry_pending",
+        "completed",
+        "cancelled",
+        "deprecated"
+      ]
+    }
+  }
+}

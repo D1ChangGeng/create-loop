@@ -1,0 +1,34 @@
+# checkpoint — durable snapshot of loop progress. A fresh session reads exactly
+# this to resume. Keyed by plan_id (+ plan_version). node_states keys MUST match
+# the node ids in loop.plan.yaml exactly.
+# Statuses are LOCKED (15): undiscovered | discovered | needs_clarification | pending |
+#   ready | running | waiting_external | waiting_user | blocked | verifying |
+#   verification_failed | retry_pending | completed | cancelled | deprecated
+
+schema_version: "1.0.0"           # version of THIS checkpoint schema
+plan_id: "plan-example-0001"      # MUST match loop.plan.yaml plan_id
+plan_version: 1                   # MUST match loop.plan.yaml plan_version
+checkpoint_id: "ckpt-000042"      # unique id of this snapshot
+created: "2026-07-02T10:45:00Z"   # ISO-8601 date-time
+phase: 0                          # phase counter for continue_as_new rollover
+
+# node_states — one entry per plan node, keyed by node_id (all 4 must appear).
+node_states:
+  goal_clarification: "completed"
+  discovery: "completed"
+  build: "verifying"              # build ran; awaiting its test gate verdict
+  final_approval: "pending"       # not yet ready (build not completed)
+
+ready_set: []                     # nothing dispatchable right now (build is verifying)
+last_completed:                   # most recently moved to completed
+  - "discovery"
+blocked: []                       # each item: {node_id, reason}
+pending_approvals: []             # each item: {node_id, token, requested}; empty until approval is ready
+
+next_suggested_action: "Await the build test gate verdict; on pass, ready final_approval."
+open_assumptions:                 # unverified assumptions; drives needs_clarification resolution
+  - "The provided test suite fully covers the success criteria."
+event_log_ref: "state/event_log.jsonl"       # append-only log for deterministic replay
+evidence_ledger_ref: "state/evidence.ledger.yaml"  # path to the evidence.ledger
+cost_units_spent: 137.5           # cumulative; checked vs termination.max_cost_units
+iteration: 4                      # loop iteration counter; checked vs termination.max_iterations

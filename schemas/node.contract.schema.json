@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/node.contract.schema.json",
+  "title": "node.contract",
+  "description": "The per-node execution contract, one per node attempt lineage. Holds the persistent attempt counter and gate the retry guard reads. Field names and enum values are locked byte-for-byte per references/state_model.md (node.contract fields).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "node_id",
+    "plan_id",
+    "cache_key",
+    "attempt",
+    "status",
+    "gate",
+    "retry_policy",
+    "on_failure",
+    "evidence_ref",
+    "started",
+    "finished",
+    "compensation_of"
+  ],
+  "properties": {
+    "node_id": {
+      "type": "string",
+      "description": "The node this contract governs."
+    },
+    "plan_id": {
+      "type": "string",
+      "description": "Owning plan."
+    },
+    "cache_key": {
+      "type": "string",
+      "description": "hash(inputs + prompt + model + config); a matching prior success permits a resumable skip."
+    },
+    "attempt": {
+      "type": "integer",
+      "description": "Persistent attempt counter; the retry guard reads this, never memory."
+    },
+    "status": {
+      "$ref": "#/$defs/status",
+      "description": "Current status from the node status enum."
+    },
+    "gate": {
+      "$ref": "#/$defs/gate",
+      "description": "The node's gate."
+    },
+    "retry_policy": {
+      "$ref": "#/$defs/retry_policy",
+      "description": "The node's retry policy."
+    },
+    "on_failure": {
+      "type": "string",
+      "description": "Ladder start.",
+      "enum": ["local_retry", "local_patch", "replan", "escalate"]
+    },
+    "evidence_ref": {
+      "type": "string",
+      "description": "Path to this node's evidence artifact."
+    },
+    "started": {
+      "type": ["string", "null"],
+      "description": "When the current attempt started (ISO-8601), or null."
+    },
+    "finished": {
+      "type": ["string", "null"],
+      "description": "When the current attempt finished (ISO-8601), or null."
+    },
+    "compensation_of": {
+      "type": ["string", "null"],
+      "description": "If this is a compensation node, the node_id it undoes (saga pairing); else null."
+    }
+  },
+  "$defs": {
+    "status": {
+      "type": "string",
+      "description": "Node status. The canonical, complete set of 15 node statuses. Terminal: completed, cancelled, deprecated.",
+      "enum": [
+        "undiscovered",
+        "discovered",
+        "needs_clarification",
+        "pending",
+        "ready",
+        "running",
+        "waiting_external",
+        "waiting_user",
+        "blocked",
+        "verifying",
+        "verification_failed",
+        "retry_pending",
+        "completed",
+        "cancelled",
+        "deprecated"
+      ]
+    },
+    "gate": {
+      "type": "object",
+      "description": "The evidence gate ({kind, threshold, rubric, evidence_ref}).",
+      "additionalProperties": false,
+      "required": ["kind", "threshold", "rubric", "evidence_ref"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "One of the 8 gate kinds.",
+          "enum": [
+            "automated_check",
+            "test",
+            "llm_judge",
+            "self_consistency",
+            "evaluator_optimizer",
+            "step_verifier",
+            "human_approval",
+            "artifact_exists"
+          ]
+        },
+        "threshold": {
+          "type": ["number", "null"],
+          "description": "Pass threshold for scored gates (0..1). null for pass/fail gates.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rubric": {
+          "type": ["string", "null"],
+          "description": "Path to a rubric document for judged gates, or null."
+        },
+        "evidence_ref": {
+          "type": "string",
+          "description": "Path where this gate's evidence is written."
+        }
+      }
+    },
+    "retry_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_attempts", "backoff_base_seconds", "jitter"],
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "description": "Maximum number of execution attempts for this node before escalating past local_retry."
+        },
+        "backoff_base_seconds": {
+          "type": "number",
+          "description": "Base backoff between attempts (multiplied per attempt for exponential backoff)."
+        },
+        "jitter": {
+          "type": "boolean",
+          "description": "true to add randomised jitter to backoff."
+        }
+      }
+    }
+  }
+}

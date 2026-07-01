@@ -1,0 +1,83 @@
+Business Source License 1.1
+
+Licensor: D1ChangGeng
+Licensed Work: Create-Loop Skill
+Change Date: 2030-07-02
+Change License: Apache License 2.0
+
+Terms
+
+The Licensor hereby grants you the right to copy, modify, create derivative
+works, redistribute, and make non-production use of the Licensed Work.
+
+Additional Use Grant:
+
+You may use the Licensed Work for any purpose, including production use,
+provided that your use does not include offering the Licensed Work to third
+parties as a hosted or managed service, or incorporating it into a commercial
+product or service that is sold, licensed, or otherwise made available to
+third parties on a paid basis, unless you have obtained a commercial license
+from the Licensor.
+
+Derivative Works Requirement:
+
+Any derivative work based on or incorporating the Licensed Work MUST be
+made publicly available as open source under a license that is no more
+restrictive than this license. Derivative works MUST NOT be sold, licensed
+for a fee, or otherwise commercialized. This requirement applies regardless
+of the size of the organization or the nature of the use.
+
+For clarity, the following uses are permitted without a commercial license:
+
+  - Personal use (any individual using the skill for their own projects)
+  - Open-source projects (derivatives must also be open source)
+  - Internal use by companies with fewer than 10 employees
+  - Educational and research use
+  - Evaluation and testing
+
+The following uses require a commercial license:
+
+  - Companies with 10 or more employees using the ORIGINAL skill in production
+  - Offering the ORIGINAL skill as part of a hosted or managed service
+
+The following uses are prohibited (no license available):
+
+  - Selling or charging fees for derivative works
+  - Distributing derivative works under a closed-source license
+
+To obtain a commercial license, contact the Licensor.
+
+On the Change Date, the Licensed Work will be made available under the
+Change License (Apache License 2.0), at which point all use restrictions
+are removed.
+
+THE LICENSED WORK IS PROVIDED "AS IS". THE LICENSOR HEREBY DISCLAIMS ALL
+WARRANTIES, EXPRESS OR IMPLIED, INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+---
+
+Frequently Asked Questions
+
+Q: Can I use this for my personal projects?
+A: Yes, without any restrictions or fees.
+
+Q: Can I use this in my startup (under 10 people)?
+A: Yes, without any restrictions or fees.
+
+Q: Can my company (10+ employees) use this?
+A: You need a commercial license for the original skill. Contact the Licensor.
+
+Q: Can I fork and modify this for personal use?
+A: Yes. You can modify it freely for personal and internal use.
+
+Q: Can I fork and sell my modified version?
+A: No. All derivative works must be open source and free. You cannot charge
+   for any version derived from this skill.
+
+Q: Can I fork, modify, and keep my version private?
+A: No. Derivative works must be publicly available as open source.
+
+Q: What happens on the Change Date (2030-07-02)?
+A: The entire work becomes Apache 2.0 licensed. All restrictions are removed,
+   including the derivative works requirement.

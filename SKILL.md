@@ -1,0 +1,491 @@
+---
+name: create-loop
+description: USE THIS SKILL whenever the user wants to plan, drive, resume, or survive a complex long-running task — including: building an execution-control loop or `loop.plan` instead of a one-shot prompt; designing multi-session, cross-session, durable, resumable, long-horizon agent work; turning a fuzzy goal into a recursive task DAG with checkpoints, evidence gates, recovery, branches, parallelism, retries, and human-in-the-loop approval nodes; any project that spans many sessions, exceeds one context window, must survive context loss or session switch or compaction, or needs to be handed off between agents; "write the loop not the prompt"; orchestration of multi-step work with dependencies, fanout/join, sagas, escalations. TRIGGER on phrases like "this is a big task", "this will take many sessions", "I need this to survive a crash", "resume the work", "I lost context", "plan the steps", "set up an agent loop", "build me a control plan", "we need checkpoints", "we need approval gates", "long-running agent task", "durable execution", or any time a user wants to drive an ambitious multi-step project even if they never say "loop". If the work might be picked up tomorrow by a fresh agent in a fresh session with no memory, this skill applies.
+---
+
+# create-loop
+
+A meta-skill. You give it a short goal. It turns that goal into a `loop.plan` — a
+recursive execution-control DAG, an evidence-gate protocol, and a persistent
+state contract that any fresh agent can resume from a blank session.
+
+It is **not** a prompt generator. It is a control system.
+
+---
+
+## 1. What this is
+
+`create-loop` produces three artifacts together:
+
+1. **`task_profile.yaml`** — the *charter / control profile*, populated by the
+   Loop Startup (Charter) interview. Captures goal, true intent, success/failure
+   criteria, non-goals, risk class, approval boundary, platform capability, and
+   state-persistence requirements.
+2. **`loop.plan v0`** — a recursive DAG of `milestone`, `gate`, `mapper`,
+   `branch`, `fanout`, `join`, `approval`, and `compensation` nodes, with
+   artifact dependency edges (via `requires`), every non-trivial node carrying an
+   evidence gate, and a bounded escalation ladder per node.
+3. **Persistent state** — a run-id directory, `checkpoint.yaml`,
+   `node.contract.yaml`, and `evidence.ledger.yaml`. Filesystem-mappable so a
+   fresh agent with zero chat memory can resume correctly.
+
+Read [`references/concepts.md`](references/concepts.md) for why the shape is
+this way. Read [`references/loop_plan_spec.md`](references/loop_plan_spec.md)
+for field definitions and the locked Glossary, and
+[`references/state_model.md`](references/state_model.md) for statuses,
+transitions, checkpoint fields, and the resume algorithm.
+
+---
+
+## 2. The three-layer model
+
+The mental model that organises everything else. The interview is **Layer 0**
+of the loop — the first governance node — not an external step.
+
+| Layer | Artifact | Job |
+|-------|----------|-----|
+| **0 — Loop Startup** | Charter interview → `templates/task_profile.yaml` | Establish the *control profile*: goal/end-state, success and failure criteria, non-goals, risk and approval boundary, platform capability, persistence model, HITL nodes. Asks ONLY design-time invariants. |
+| **1 — Top-level plan** | `templates/loop.plan.yaml` (`v0`) | Design-time-invariant governance nodes: Discovery, Risk & Compliance, Feasibility, Architecture, Verification, optional Release. No vendor names, no file paths, no test specs at this level. |
+| **2 — Runtime subgraphs** | `node.subgraph` of any `mapper` or `allow_subgraph: true` node | Concrete vendors, files, tests, defects, integration steps — generated inside the owning node once research and feasibility actually run. |
+
+The startup sequence is therefore:
+
+```
+short goal
+  → Layer 0  : Charter / Control-Profile Gate (N0)
+  → Layer 1  : loop.plan v0  (design-invariant governance nodes only)
+  → Layer 2  : governance nodes execute, each materialising its own subgraph
+              from real research, feasibility, and implementation findings
+```
+
+The rule is sharp: **if the answer should be produced by later research,
+feasibility, execution, or verification, it is NOT a startup precondition.**
+Capture it in `unknowns`, `assumptions`, or `research_questions` of
+`task_profile.yaml` with an `owner_node` that will own the runtime subgraph
+that resolves it. See [`templates/interview_brief.md`](templates/interview_brief.md)
+§3 — "What the interview MUST NOT ask."
+
+---
+
+## 3. Autonomy-First Control Principle (read before any mode)
+
+This is the primary design principle of `create-loop`, and it overrides any
+instinct to consult the user when a decision, unknown, or blocker appears. The
+goal of a `loop.plan` is to **maximise autonomous progress quality, execution
+reliability, verification strength, and recoverability** — not to distribute
+control evenly between human and agent, and not to make it comfortable for a
+human to approve every step.
+
+Human intervention is a **bounded exception**, not the default path. A human is
+often the bottleneck on a complex task: incomplete memory, unstable
+requirements, snap judgements, no time for deep comparison, weaker maintenance
+of long-horizon state / dependencies / evidence chains than a file-based
+protocol. So the default is autonomy; asking the user is reserved for the
+boundary conditions in the table below.
+
+**When the loop hits a branch, an unknown, a design choice, an implementation
+blocker, or insufficient evidence — do NOT ask the user first.** Instead:
+
+```
+branch / choice   → spawn an exploration subgraph → research + compare candidates
+                    in parallel → score by evidence/risk/cost → pick the clear
+                    winner and record the rationale; if no clear winner but the
+                    choice is reversible and low-risk, take the highest
+                    information-gain / lowest-cost path and proceed
+unknown           → form an assumption → gather evidence → update confidence →
+                    escalate only if it stays unresolved AND is load-bearing
+blocker / failure → classify → diagnostic subgraph → repair / alternative →
+                    minimal reversible fix → verify → only escalate after
+                    autonomous recovery is exhausted
+```
+
+This is why `on_failure` starts at `local_retry`, not `escalate`; why a node
+with `allow_subgraph: true` recurses instead of pausing; and why the interview
+(§2) asks for *boundaries*, not designs.
+
+**Escalate to the user ONLY when the decision crosses one of these boundaries:**
+
+| Boundary | Why it needs the user |
+|----------|-----------------------|
+| Change the top-level `goal` / `true_intent` | Goal sovereignty belongs to the user |
+| Expand `scope` / `non_goals` | Alters cost, time, and commitment |
+| External side effect (publish, email, open a PR, delete data, pay) | Irreversible impact outside the workspace |
+| Irreversible operation (delete, overwrite, migrate, public release) | Cannot be undone by the loop |
+| Legal / compliance / security high-risk | The agent cannot assume this responsibility |
+| Major resource commitment (time, spend, compute, API cost) | Crosses a budget the user owns |
+| User value preference (fast vs robust, aggressive vs conservative) | A taste/values call, not an evidence call |
+| Final judgement under irreducible uncertainty | The user must accept the residual risk |
+| Missing access / authorization | Only the user can grant it |
+| License / distribution boundary | Legal and usage-scope call |
+
+Everything else — decomposition, research depth, architecture *comparison*,
+risk *discovery*, test *design*, integration approach, recovery — the loop does
+autonomously, records with evidence, and surfaces as a defensible recommendation
+rather than an open question. Escalation is **exhausted-autonomous-recovery**,
+not a first reflex. The full decision protocol and per-exception routing are in
+[`references/human_approval.md`](references/human_approval.md) and
+[`references/exception_handling.md`](references/exception_handling.md).
+
+---
+
+## 4. Live Loop Semantics (the plan is alive)
+
+The top-level control skeleton is **stable**; the execution path is **alive**. A
+`loop.plan` is not a frozen one-shot checklist. It is a control system with a
+stable top-level goal, a stable governance skeleton (the `design_invariant: true`
+nodes), and **live runtime execution paths that grow from evidence**.
+
+Growth is not adding requirements. It is **evidence-driven completeness growth** —
+converting work that is *necessary for the original goal to actually hold* into
+controlled subgraphs.
+
+> Live Loop is not scope creep. It is evidence-driven completeness growth.
+
+**When execution exposes an omission, contradiction, defect, wrong assumption, or
+a gate that formally passes but does not truly satisfy `success_criteria`** — do
+not mechanically continue the old plan, and (per §3) do not ask the user to
+redesign. Instead:
+
+```
+anomaly or improvement opportunity detected
+  → judge whether it affects whether the original goal holds
+  → spawn an exploration / diagnostic / repair / completion subgraph
+  → gather evidence
+  → assess impact, cost, risk, necessity
+  → if within the authorization boundary, autonomously admit it to the graph
+  → update loop.plan (new plan_version on the fragment) / evidence.ledger / decision.log
+  → continue advancing the original goal
+```
+
+**A candidate may enter the Live Loop only if at least one holds:** not doing it
+makes a gate impossible to pass; clearly lowers deliverable quality; leaves a
+known bug / logic hole / design contradiction / wrong assumption; causes
+downstream rework or wrong direction; leaves the result "runnable" but not
+complete / reliable / verifiable / maintainable; or it has a clear **causal**
+link to the goal (not merely "looks useful").
+
+**Three classes of change — do not confuse them:**
+
+| change type | handling |
+|-------------|----------|
+| top-level **goal** change (`goal`, `true_intent`, `non_goals`, `deliverable_class`) | request user confirmation (§3); create a new Loop if needed |
+| top-level **governance-skeleton** change | allowed only when a NEW design-time invariant is discovered; record the rationale in `decision.log` |
+| **execution-path** natural growth | the system autonomously creates subgraphs and admits them after an evidence gate passes |
+
+Every growth event is a `subgraph` with `parent_ref`, passes an evidence gate
+before admission, bumps `plan_version` on the affected fragment, and is recorded
+in the ledger and decision log — so growth stays trackable, verifiable, and
+resumable. The unified model is **Stable Goal + Invariant Control Graph + Live
+Runtime Subgraphs + Evidence Gates**. Full spec:
+[`references/live_loop_semantics.md`](references/live_loop_semantics.md).
+
+---
+
+## 5. Mode A — Create a loop
+
+Use this mode when the user is starting fresh or is restarting with a new goal.
+
+Run these in order. Do not skip.
+
+1. **Run the Charter interview.**
+   Follow [`templates/interview_brief.md`](templates/interview_brief.md) and
+   populate [`templates/task_profile.yaml`](templates/task_profile.yaml) as
+   the audit trail. Walk the seven dimensions (A–G). Ask only the single next
+   blocking question. Stop when the interview_brief.md §5 stop condition holds.
+   - Capture: goal, true_intent, deliverable_class, success_criteria,
+     failure_criteria, scope, non_goals, risk_level, irreversible_actions,
+     approval_boundary (three lists), platform_capability (incl.
+     fallback_accepted), state_persistence, human_review_nodes,
+     quality_requirements, evidence_requirements.
+   - **MUST NOT ask up front:** which vendors, which tech stack, which
+     implementation files, which test cases, which compliance clauses. Those
+     go to `research_questions` with an `owner_node`.
+
+2. **Emit `loop.plan v0`.**
+   Build [`templates/loop.plan.yaml`](templates/loop.plan.yaml) from the
+   charter. Top level contains **only `design_invariant: true` governance
+   nodes**. Typical set per `deliverable_class`:
+   `goal_clarification` → `discovery` → `risk_compliance_gate` →
+   `feasibility_gate` → `architecture_gate` → `verification_plan_gate` →
+   `release_gate` (only if `production_launch`) → `closeout`, with
+   `final_approval` where `human_review_nodes` require it.
+   - Every node MUST carry all 20 fields per
+     [`references/loop_plan_spec.md`](references/loop_plan_spec.md) §2.
+   - Edges go in `requires` (a `produces/requires` artifact dependency,
+     not habitual order).
+   - Each `mapper` / `allow_subgraph: true` node has `subgraph: null` and
+     will fill it at runtime.
+   - Use `gate.kind` from the 8-value enum; use `on_failure` from the
+     4-value ladder; use `assignee` from `agent | user | subagent`; use
+     `risk` from `low | med | high`.
+
+3. **Set up the run-id directory and durable state.**
+   Create `<run_id>/` (the idempotency key). Initialise
+   [`templates/checkpoint.yaml`](templates/checkpoint.yaml) (one entry per
+   plan node in `node_states`, every node `pending` or `ready`), start the
+   append-only event log, and stand up
+   [`templates/evidence.ledger.yaml`](templates/evidence.ledger.yaml).
+
+4. **Validate before declaring v0 live.**
+   - `python3 scripts/validate_loop_plan.py <plan>` — schema + graph rules
+     (R1–R5/R7/R8).
+   - `python3 scripts/validate_checkpoint.py <checkpoint>` — initial
+     `node_states` coverage and linkage to `plan_id` + `plan_version`.
+   - `python3 scripts/render_dag.py <plan>` (optional sanity render).
+   - The optional JSON Schemas live in [`schemas/`](schemas/) and validate
+     field types against the locked enum values.
+
+Schema and dictionary are locked, byte-for-byte, in
+[`schemas/loop.plan.schema.json`](schemas/loop.plan.schema.json),
+[`schemas/checkpoint.schema.json`](schemas/checkpoint.schema.json),
+[`schemas/node.contract.schema.json`](schemas/node.contract.schema.json),
+and [`schemas/evidence.ledger.schema.json`](schemas/evidence.ledger.schema.json).
+
+---
+
+## 6. Mode B — Run / advance a loop
+
+Use this mode when `loop.plan v0` exists and the loop is in motion. Execute
+this loop **per node**, until `termination.done_when` holds:
+
+```
+for the chosen ready node:
+  read state              (checkpoint, contract, ledger)
+  execute                 (workflow vs activity; log side-effects)
+  evaluate gate           (verdict pass | fail | inconclusive)
+  append evidence         (evidence.ledger entry with verifier + rationale)
+  transition status       (commit requires an evidence entry)
+  write new checkpoint    (durable snapshot, never in-memory)
+  decide next             (recompute ready_set from the graph)
+```
+
+Hard rules:
+
+- **Autonomy-first at every decision point (§3).** When a node hits a branch,
+  an unknown, a design choice, or a blocker, the default is to spawn an
+  exploration or diagnostic subgraph and resolve it with evidence — NOT to ask
+  the user. Escalate only when the decision crosses a §3 boundary
+  (goal/scope/irreversible/external side effect/cost/legal/value/authorization).
+- A node transitions to `completed` **only** when its latest ledger entry has
+  `verdict: pass`. Anything else routes to `verification_failed`.
+- A node that discovers it is too big/dark/complex and has
+  `allow_subgraph: true` **must** materialise an isomorphic `subgraph` (a
+  `loop.plan` fragment with `parent_ref`) and recurse — never improvise, never
+  pollute the top-level graph with `design_invariant: false` nodes.
+- The retry guard (`attempt < max_attempts`) reads the **persistent**
+  `node.contract.attempt`, never in-memory state. The budget survives a
+  crash.
+- Among simultaneously-ready nodes, `parallelizable: true` ones dispatch
+  concurrently; otherwise pick by highest `priority`. Readiness is
+  recomputed from `requires` + `node_states`; the stored `ready_set` is
+  advisory.
+
+Full control-flow vocabularies (`fixed`, `conditional`, `command`, `fanout`),
+join semantics, and parallel-dispatch rules live in
+[`references/branching_parallelism.md`](references/branching_parallelism.md).
+Gate selection (which of the 8 to assign to which node) is in
+[`references/evidence_gates.md`](references/evidence_gates.md).
+
+Per-node intent and resulting artifact templates:
+[`templates/node.contract.yaml`](templates/node.contract.yaml),
+[`templates/handoff.md`](templates/handoff.md),
+[`templates/run.log.md`](templates/run.log.md),
+[`templates/decision.log.md`](templates/decision.log.md).
+
+---
+
+## 7. Mode C — Resume from a blank session
+
+Use this mode when a fresh agent with no chat memory takes over a half-finished
+loop. The checkpoint is the only source of truth.
+
+Run the algorithm from [`references/state_model.md`](references/state_model.md)
+§"Resume from a blank session", in order:
+
+1. Acquire / confirm the run (locate `run_id/` directory; respect
+   `O_CREAT|O_EXCL` single-flight).
+2. Read state — latest `checkpoint.yaml` for current `plan_id` +
+   `plan_version`.
+3. Verify evidence — every node marked `completed` must have a matching
+   `evidence.ledger` entry with `verdict: pass`. Mismatches demote the node
+   to `verifying` so the gate re-runs.
+4. Verify consistency — recompute readiness from the graph (every
+   `pending` node's `requires` all `completed`). The recomputed `ready_set`
+   wins on conflict. A `running` node in a fresh session means a prior
+   crash — reconcile via the event log.
+5. Check termination against `termination.max_iterations`,
+   `termination.max_cost_units`, and `failure_criteria`.
+6–9. Identify ready → pick next → handle open handoffs in
+`pending_approvals` → execute → checkpoint. Repeat.
+
+Rationale, edge cases, and the cross-agent hand-off schema are in
+[`references/recovery_protocol.md`](references/recovery_protocol.md).
+
+---
+
+## 8. Exceptions & escalation
+
+Every node declares `on_failure` — its starting rung on the bounded, ordered
+ladder:
+
+```
+local_retry  ->  local_patch  ->  replan  ->  escalate
+```
+
+Read [`references/exception_handling.md`](references/exception_handling.md)
+for: exception taxonomy, retry-policy math (`max_attempts`,
+`backoff_base_seconds`, `jitter`), saga `compensation` pairing, and the
+per-exception response table. A `replan` increments `plan_version` and
+spawns a fresh subgraph; an `escalate` produces a `pending_approvals` entry
+on an `approval` node with a `human_approval` gate.
+
+---
+
+## 9. Human approval
+
+Approval is a **bounded exception**, not a routine step (see §3). It is planned
+in advance, never improvised as a first reaction to a branch or blocker. Two
+principles:
+
+- Build `approval` nodes (with `assignee: user` and `gate.kind:
+  human_approval`) into `loop.plan v0` for each row in
+  `task_profile.yaml:human_review_nodes` and each irreversible action in
+  `needs_user_approval` / `user_only`.
+- **Goal-boundary changes** (changes to `goal`, `true_intent`,
+  `non_goals`, `deliverable_class`, or `risk_level`) require user
+  confirmation before any `replan`. Internal progress within
+  `agent_may_decide` proceeds autonomously.
+
+Decision-authority tiers, the cross-session handoff token, and the
+"what-must-be-user-approved-by-default" rules are in
+[`references/human_approval.md`](references/human_approval.md).
+
+---
+
+## 10. Knowledge promotion
+
+Verified, reusable findings may be promoted from transient loop state to
+durable project knowledge (the `self-evolution` skill). The boundary is
+strict: transient plan/checkpoint/ledger state stays local; only findings
+that have passed an evidence gate and survive a `closeout` decision become
+candidates. Promotion ships as a tagged inbox entry; never as an in-place
+mutation of the run.
+
+Full adapter spec, ownership, the trigger table, and failure modes the
+boundary is designed to prevent are in
+[`references/self_evolution_integration.md`](references/self_evolution_integration.md).
+
+Loop closeout itself produces
+[`templates/closeout.md`](templates/closeout.md).
+
+---
+
+## 11. Platform capability & degradation
+
+Do **not** assume the host provides background execution, subagents, a
+durable runtime, or lifecycle hooks. When any are missing, degrade to the
+filesystem primitives that always exist:
+
+| missing capability | fallback |
+|--------------------|----------|
+| background execution | persistent files + explicit checkpoints written at every transition |
+| subagents | the single agent runs nodes serially; `assignee: subagent` collapses to `assignee: agent` |
+| durable runtime | the `run_id/` directory + event log + checkpoint on the filesystem *is* the runtime |
+| lifecycle hooks | a handoff doc per stop + manual re-invocation + the §7 resume algorithm at startup |
+
+Probe via `task_profile.yaml:platform_capability`. Set
+`fallback_accepted` before emitting `loop.plan v0`. "Degraded mode" is the
+same contract with fewer conveniences — not a second implementation.
+
+---
+
+## 12. Reference map (progressive disclosure index)
+
+Every link below points to a real file. Read it when its row says to. Most
+rows only matter in their respective modes.
+
+### References — `references/`
+
+| File | Read when |
+|------|-----------|
+| [`concepts.md`](references/concepts.md) | You want the *why* of the shape (DAG not checklist, top-level invariant rule, recursion, evidence gates, durable primitives, three-layer model, §8 interview as Layer 0). |
+| [`live_loop_semantics.md`](references/live_loop_semantics.md) | The execution path grew, a gate exposed an omission/defect, or you must decide whether new work is goal-necessary growth vs scope creep. Triggers, admission criteria, and the three-classes-of-change table. |
+| [`loop_plan_spec.md`](references/loop_plan_spec.md) | You need the authoritative field dictionary for `loop.plan`, node kinds, gate kinds, `retry_policy`, the escalation ladder, control-flow vocabularies, subgraphs, or the locked **Glossary**. |
+| [`state_model.md`](references/state_model.md) | You need the 15-status enum, the state transition table, **checkpoint** / **node.contract** / **evidence.ledger** field sets, or the §"Resume from a blank session" algorithm. |
+| [`branching_parallelism.md`](references/branching_parallelism.md) | You are dispatching nodes, wiring `fanout`/`join`, choosing serial vs parallel, or designing `branch` / merge / cancellation. |
+| [`evidence_gates.md`](references/evidence_gates.md) | You are picking which of the 8 gate kinds to assign to a node, or deciding between `llm_judge` vs `human_approval` vs `evaluator_optimizer`. |
+| [`exception_handling.md`](references/exception_handling.md) | A node fails, the ladder fires, a saga needs compensation, or you need retry-policy math / per-exception response table. |
+| [`human_approval.md`](references/human_approval.md) | You are deciding what an agent may do autonomously, scoping an `approval` node, or writing a cross-session handoff token. |
+| [`recovery_protocol.md`](references/recovery_protocol.md) | You are resuming mid-flight, handling a stale `running` node, reconciling event-log drift, or building the handoff doc. |
+| [`self_evolution_integration.md`](references/self_evolution_integration.md) | You are promoting verified findings from loop state to durable project knowledge, or stopping cross-boundary leakage. |
+| [`research-sources.md`](references/research-sources.md) | You want the underlying durable-execution and DAG/multi-agent citations the design is grounded in. |
+
+### Templates — `templates/` (copy and fill)
+
+| File | Read when |
+|------|-----------|
+| [`interview_brief.md`](templates/interview_brief.md) | Mode A: you are about to run the Charter interview — load it for the adaptive rules, dimensions A–G, stop condition, and the **MUST NOT ask** table. |
+| [`task_profile.yaml`](templates/task_profile.yaml) | Mode A: the charter / control profile you populate during the interview. |
+| [`loop.plan.yaml`](templates/loop.plan.yaml) | Mode A: the `loop.plan v0` template — every node carries all 20 fields. |
+| [`checkpoint.yaml`](templates/checkpoint.yaml) | Modes B/C: the durable snapshot you read on resume and rewrite after every transition. |
+| [`evidence.ledger.yaml`](templates/evidence.ledger.yaml) | Mode B: the append-only record of gate verdicts a node needs to reach `completed`. |
+| [`node.contract.yaml`](templates/node.contract.yaml) | Mode B: per-node execution contract (`cache_key`, `attempt`, gate copy, evidence pointer). |
+| [`handoff.md`](templates/handoff.md) | Modes B/C: when the session ends mid-node, this is the handoff the next session reads first. |
+| [`run.log.md`](templates/run.log.md) | Mode B: human-readable per-node run narrative (not a source of truth). |
+| [`decision.log.md`](templates/decision.log.md) | Mode B: ADR-style log of major plan/scope decisions. |
+| [`closeout.md`](templates/closeout.md) | Mode B / after done: the closeout summary that drives knowledge promotion. |
+
+### Schemas — `schemas/` (locked JSON Schema; validators are authoritative)
+
+| File | Read when |
+|------|-----------|
+| [`loop.plan.schema.json`](schemas/loop.plan.schema.json) | You need structural validation of `loop.plan.yaml` against the locked field set. |
+| [`checkpoint.schema.json`](schemas/checkpoint.schema.json) | You need structural validation of `checkpoint.yaml` field types. |
+| [`node.contract.schema.json`](schemas/node.contract.schema.json) | You need structural validation of a node's execution contract. |
+| [`evidence.ledger.schema.json`](schemas/evidence.ledger.schema.json) | You need structural validation of an evidence-ledger entry. |
+
+### Scripts — `scripts/` (run before v0 goes live and after every transition)
+
+| File | Use when |
+|------|----------|
+| [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` schema + the hand-rolled graph rules R1–R5/R7/R8. Required gate at v0 and after any `replan`. |
+| [`validate_checkpoint.py`](scripts/validate_checkpoint.py) | Validates initial checkpoint coverage and linkage to `plan_id` + `plan_version`. |
+| [`render_dag.py`](scripts/render_dag.py) | Optional DAG render for human inspection. |
+
+### Examples — `examples/`
+
+| File | Read when |
+|------|-----------|
+| [`example_research_project/`](examples/example_research_project/) | End-to-end worked example for a research deliverable (`research_report`). |
+| [`example_product_delivery/`](examples/example_product_delivery/) | End-to-end worked example for a product/code deliverable (`code_impl`). |
+
+Both example directories contain a `README.md`, a `loop.plan.yaml`, and a
+`checkpoint.yaml`.
+
+### Tests — `tests/`
+
+| File | Read when |
+|------|-----------|
+| [`acceptance_tests.md`](tests/acceptance_tests.md) | You want the acceptance gate for a generated `loop.plan` before declaring v0 live. |
+| [`failure_mode_tests.md`](tests/failure_mode_tests.md) | You want the catalog of named failure modes (stale `running`, missing evidence, circular `requires`, ladder exhaustion) and their expected responses. |
+
+---
+
+## Quick orientation for the model running this skill
+
+1. Did the user hand you a short goal with no plan? → **Mode A** (§5).
+2. Did the user hand you an existing `run_id/` or `loop.plan.yaml` and ask you
+   to continue? → **Mode B** if `loop.plan v0` exists and work was in
+   progress; **Mode C** if the session is blank and you must recover. When
+   unsure, run the §7 resume algorithm first — it is read-only and safe.
+3. Did the user describe a goal that *might* need a loop but is small enough
+   to do in one shot? Then you don't need this skill — say so and do the task.
+   But: if it spans more than a couple of tool calls, may need a decision
+   gate, may be dropped and resumed, or mentions "session" / "resume" /
+   "checkpoint" / "durable" / "long-running", stay in this skill.
+
+Run `python3 scripts/validate_loop_plan.py <plan>` and
+`python3 scripts/validate_checkpoint.py <checkpoint>` before you claim a
+`loop.plan v0` is ready. Never edit `loop.plan.yaml` and
+`checkpoint.yaml` independently — both must agree on `plan_id`,
+`plan_version`, and every `node_id`.

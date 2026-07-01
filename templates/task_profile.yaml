@@ -1,0 +1,241 @@
+# task_profile.yaml: Control Profile / Charter
+# -----------------------------------------------------------------------------
+# Filled by the Loop Startup / Charter Interview described in
+# templates/interview_brief.md. This file IS the charter that the planner
+# reads to emit `loop.plan v0`. It is NOT a requirement dump, NOT a
+# solution spec, and NOT a place to enumerate implementation detail.
+#
+# Validation:
+#   python3 -c "import yaml; yaml.safe_load(open('templates/task_profile.yaml'))"
+#
+# Empty values are always [] or null, never the string "TODO".
+#
+# Canonical tokens (statuses, node kinds, gate kinds, risk, assignee,
+# verdict, verifier) come verbatim from references/loop_plan_spec.md
+# (Glossary) and references/state_model.md.
+#
+# Rule of thumb: if the answer should be produced by later research,
+# feasibility, execution, or verification, it does NOT live here as a
+# fact. It lives in `unknowns`, `assumptions`, or `research_questions`
+# with an `owner_node` that owns the runtime subgraph that will resolve it.
+
+# -----------------------------------------------------------------------------
+# A. Goal & end-state
+# -----------------------------------------------------------------------------
+
+# The user's literal goal, copied verbatim from their first message.
+# Example: "Ship a marketing landing page for the enterprise tier."
+goal: ""
+
+# The underlying intent behind the literal goal. What success really means.
+# Often broader or narrower than `goal`. Required, even if it overlaps.
+true_intent: ""
+
+# The class of deliverable. Decides the loop type and which Release Gate
+# (if any) applies. Does NOT decide how the deliverable is built.
+# Enum: research_report | product_design | code_impl |
+#       production_launch | skill_package | business_plan | other
+deliverable_class: null
+
+# -----------------------------------------------------------------------------
+# B. Success criteria & failure criteria
+# -----------------------------------------------------------------------------
+
+# Measurable success criteria. Each entry: {id, statement, measurable}.
+# When `measurable: false`, the statement is a judgement call that must be
+# routed to an llm_judge or human_approval gate (see loop_plan_spec.md §4.2).
+# Every plan MUST have at least one entry here. The id is stable; renaming
+# is allowed, removing is not. Pattern: SC-1, SC-2, ...
+# Example entry (comments only):
+#   - id: "SC-1"
+#     statement: "Lighthouse performance score >= 95 on the landing page"
+#     measurable: true
+success_criteria: []
+
+# Conditions that mean the task has failed and execution must stop or
+# escalate. Each entry is a single, checkable sentence. `[]` is allowed
+# only when the user has explicitly accepted that there are no failure
+# conditions. Example entry (comments only):
+#   - "Any irreversible action executed without prior approval."
+failure_criteria: []
+
+# -----------------------------------------------------------------------------
+# C. Scope & explicit non-goals
+# -----------------------------------------------------------------------------
+
+# What is in scope for this loop. Free-form, but every entry should be
+# expressible as either an artifact area or a surface area.
+# Example entries (comments only):
+#   - "Marketing copy for the enterprise tier"
+#   - "Public landing page at /enterprise"
+scope: []
+
+# Explicitly out-of-scope outcomes. Non-empty even for small tasks.
+# Drives loop.plan.non_goals. Example entries:
+#   - "No changes to the existing /pricing page"
+#   - "No new pricing tiers"
+#   - "No backend or auth changes"
+non_goals: []
+
+# -----------------------------------------------------------------------------
+# D. Risk & approval boundary
+# -----------------------------------------------------------------------------
+
+# Risk class. Enum, lowercase, one of: low | med | high.
+# Drives on_failure defaults and evidence gate kinds.
+# Example: risk_level: med
+risk_level: null
+
+# Side effects that cannot be rolled back by a compensation node in the
+# saga sense. Each entry is one specific action, not a category.
+# Example entries (comments only):
+#   - "Publishing the new landing page to production DNS"
+#   - "Sending the launch email to the customer list"
+irreversible_actions: []
+
+# Autonomy partition. Three lists; every decision in the task lives in
+# exactly one of them. Drives `assignee` in loop.plan.
+#   - agent_may_decide  -> assignee: agent
+#   - needs_user_approval -> assignee: user  (approval node, human_approval gate)
+#   - user_only          -> reserved; agent MUST NOT execute
+approval_boundary:
+  # Decisions the agent may make and just report. Default for reversible,
+  # internal, non-side-effecting choices. Example entries:
+  #   - "Pick filenames inside the marketing/ tree"
+  #   - "Refactor CSS variable ordering"
+  agent_may_decide: []
+
+  # Decisions the agent must surface for approval before acting. Default
+  # for any non-trivial side effect. Becomes an approval node with
+  # gate.kind = human_approval. Example entries:
+  #   - "Publish the new landing page to production"
+  #   - "Send the launch email blast"
+  needs_user_approval: []
+
+  # Decisions reserved for the user. The agent must NOT execute these.
+  # Default for credentials, payments, external accounts, and any action
+  # that touches another organization's systems. Example entries:
+  #   - "Decide which legal entity signs off on claims"
+  #   - "Approve the final production copy"
+  user_only: []
+
+# -----------------------------------------------------------------------------
+# E. Runtime environment & platform capability
+# -----------------------------------------------------------------------------
+
+# Capability probe of the host. Decides degradation mode for subgraphs
+# (see interview_brief.md §7.E). Each field is true | false | unknown.
+# When any capability is missing AND `fallback_accepted: true`, the loop
+# must degrade to a file-based + manual-recovery fallback for the parts
+# that need the missing capability.
+platform_capability:
+  persistent_files: null      # true|false|unknown, required for state persistence
+  parallel_execution: null    # true|false|unknown, fanout/join support
+  subagents: null             # true|false|unknown, background/parallel agents
+  hooks: null                 # true|false|unknown, lifecycle hook injection
+  scheduled_tasks: null       # true|false|unknown, cron / timer scheduling
+  mcp: null                   # true|false|unknown, Model Context Protocol servers
+  external_db: null           # true|false|unknown, out-of-process DB access
+  background_run: null        # true|false|unknown, long-running detached tasks
+
+  # If a needed capability is missing, may the loop degrade to file-based
+  # state + manual-recovery handoffs? true accepts the fallback; false
+  # means the missing capability is a hard blocker (revisit
+  # `deliverable_class` or escalate).
+  fallback_accepted: null
+
+# -----------------------------------------------------------------------------
+# F. State-persistence requirements
+# -----------------------------------------------------------------------------
+
+# Authoritative state sources for resume. A fresh session with no prior
+# chat memory must read exactly these to continue (see state_model.md
+# "Resume from a blank session"). Chat history is NOT a state source.
+# Example entries (comments only):
+#   - "loop.plan.yaml"
+#   - "checkpoint.yaml"
+#   - "evidence.ledger.yaml"
+#   - "decision.log.md"
+state_persistence:
+  authoritative_sources: []
+
+  # Files that are useful for context but MUST NOT be treated as source
+  # of truth. Lost on resume without consequence. Example entries:
+  #   - "scratch/notes.md"
+  #   - "runs/<run_id>/chat.transcript.txt"
+  transient_only: []
+
+# -----------------------------------------------------------------------------
+# G. User participation
+# -----------------------------------------------------------------------------
+
+# Specific top-level nodes where the user wants a review, an approval,
+# or a takeover. Each entry becomes an `approval` node with
+# `assignee: user` and gate.kind = human_approval in loop.plan.
+# Goal-boundary changes (goal, true_intent, non_goals, deliverable_class,
+# risk_level) MUST be confirmed by the user before replan.
+# Example entries (comments only):
+#   - "After Discovery Gate, before Feasibility & Dependency Gate"
+#   - "Final Release Gate (only if deliverable_class == production_launch)"
+human_review_nodes: []
+
+# -----------------------------------------------------------------------------
+# Quality & evidence
+# -----------------------------------------------------------------------------
+
+# Quality bar beyond correctness: performance, accessibility, security,
+# observability, style, documentation. Each entry names the gate kind
+# that will verify it (see loop_plan_spec.md §4.2).
+# Example entries (comments only):
+#   - "Lighthouse performance >= 95 (gate: automated_check)"
+#   - "WCAG AA conformance on the landing page (gate: test)"
+#   - "Copy passes brand voice review (gate: llm_judge)"
+quality_requirements: []
+
+# Evidence the task must produce. Each entry names what evidence, where,
+# and which gate kind attests it.
+# Example entries (comments only):
+#   - "screenshot diff of old vs new landing page (gate: artifact_exists)"
+#   - "results.json from Lighthouse CI run (gate: automated_check)"
+evidence_requirements: []
+
+# -----------------------------------------------------------------------------
+# Unknowns / Assumptions / Research questions
+# THE KEY STRUCTURES. Items NOT answered at startup. Each entry names an
+# `owner_node` that owns the runtime subgraph that will resolve it.
+# -----------------------------------------------------------------------------
+
+# Genuine unknowns. These will become needs_clarification nodes in the
+# eventual plan, or open_assumptions in the checkpoint.
+# Schema per entry: {id, question, owner_node, impact, blocking}.
+unknowns:
+  - id: U-001
+    question: "Which host environments must be supported?"
+    owner_node: N1_discovery
+    impact: "Affects platform adaptation design"
+    blocking: false
+
+# Working assumptions to verify later. Each entry: {id, statement,
+# owner_node, verify_by}. `verify_by` names the gate or check that will
+# later confirm or refute the assumption.
+assumptions:
+  - id: A-001
+    statement: "Existing CDN will handle added traffic without retune."
+    owner_node: N3_feasibility
+    verify_by: "load test under projected Q3 peak"
+
+# Questions explicitly deferred to research / feasibility / architecture /
+# verification / risk / closeout subgraphs. Schema per entry:
+# {id, question, owner_node}.
+research_questions:
+  - id: RQ-001
+    question: "Which vendors should be compared for the analytics layer?"
+    owner_node: N1_discovery
+
+# -----------------------------------------------------------------------------
+# Free-form notes
+# -----------------------------------------------------------------------------
+
+# Anything that does not fit a structured field above. Keep terse.
+# Do not put implementation detail here; that lives in subgraphs.
+notes: ""

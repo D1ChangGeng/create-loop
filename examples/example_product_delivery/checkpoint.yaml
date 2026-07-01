@@ -1,0 +1,71 @@
+# checkpoint — WORKED EXAMPLE: mid-run snapshot of the product-delivery loop.
+#
+# A fresh session reads exactly this to resume (see references/state_model.md
+# §"Resume from a blank session"). node_states keys match the TOP-LEVEL node ids
+# in loop.plan.yaml byte-for-byte; plan_id and plan_version match the plan.
+#
+# Where the run is right now:
+#   - N0..N8 are completed (charter → review all passed their gates).
+#   - N9_release_approval is OPEN (waiting_user) — the human release gate. It is
+#     surfaced in pending_approvals with a token.
+#   - N10_deploy is BLOCKED — it requires N9, and its precondition (prod DB
+#     credential in the secret store) is not yet met; recorded in `blocked`.
+#   - N10c_rollback_compensation, N11_handoff, N12_closeout stay pending.
+# Because N9 is waiting_user and nothing else is dispatchable, ready_set is empty.
+#
+# Statuses are LOCKED (15): undiscovered | discovered | needs_clarification | pending |
+#   ready | running | waiting_external | waiting_user | blocked | verifying |
+#   verification_failed | retry_pending | completed | cancelled | deprecated
+
+schema_version: "1.0.0"
+plan_id: "plan-product-delivery-0007"     # MUST match loop.plan.yaml plan_id
+plan_version: 1                            # MUST match loop.plan.yaml plan_version
+checkpoint_id: "ckpt-000231"
+created: "2026-07-14T16:20:00Z"
+phase: 1                                   # one continue_as_new rollover has happened
+
+# node_states — one entry per TOP-LEVEL node id in loop.plan.yaml (14 keys).
+node_states:
+  N0_charter: "completed"
+  N1_discovery: "completed"
+  N2_risk_screen: "completed"
+  N3_feasibility: "completed"
+  N4_requirements_baseline: "completed"
+  N5_architecture: "completed"
+  N6_verification_plan: "completed"
+  N7_implementation: "completed"
+  N8_review: "completed"
+  N9_release_approval: "waiting_user"      # open human release gate
+  N10_deploy: "blocked"                    # needs N9 + a provisioned secret
+  N10c_rollback_compensation: "pending"    # saga undo of N10_deploy; not yet relevant
+  N11_handoff: "pending"
+  N12_closeout: "pending"
+
+ready_set: []                              # N9 is waiting_user; nothing else is dispatchable
+
+last_completed:
+  - "N8_review"
+
+blocked:                                   # each item: {node_id, reason}
+  - node_id: "N10_deploy"
+    reason: "Requires N9_release_approval (still waiting_user) and its precondition — the production database credential in the secret store — is not yet provisioned."
+
+pending_approvals:                         # each item: {node_id, token, requested}
+  - node_id: "N9_release_approval"
+    token: "appr-N9-7f3c9a12"
+    requested: "2026-07-14T16:18:30Z"
+
+next_suggested_action: >-
+  Surface approval token appr-N9-7f3c9a12 to the user for N9_release_approval.
+  On approval, provision the production DB credential to clear N10_deploy's
+  precondition, then dispatch N10_deploy (a side-effecting activity — log it and
+  keep N10c_rollback_compensation armed).
+
+open_assumptions:
+  - "The staging deploy target is configuration-identical to production."
+  - "The rehearsed rollback on staging is representative of the production rollback path."
+
+event_log_ref: "state/event_log.jsonl"
+evidence_ledger_ref: "state/evidence.ledger.yaml"
+cost_units_spent: 1142.0                   # of termination.max_cost_units: 2000
+iteration: 37                              # of termination.max_iterations: 60

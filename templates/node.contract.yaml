@@ -1,0 +1,32 @@
+# node.contract — the per-node execution contract (one per node attempt lineage).
+# Holds the PERSISTENT attempt counter and the gate the retry guard reads.
+# Tokens are LOCKED:
+#   statuses:   undiscovered | discovered | needs_clarification | pending | ready | running |
+#               waiting_external | waiting_user | blocked | verifying | verification_failed |
+#               retry_pending | completed | cancelled | deprecated
+#   gate kinds: automated_check | test | llm_judge | self_consistency |
+#               evaluator_optimizer | step_verifier | human_approval | artifact_exists
+#   on_failure: local_retry | local_patch | replan | escalate
+
+node_id: "build"                  # the node this contract governs (matches a plan node id)
+plan_id: "plan-example-0001"      # owning plan
+cache_key: "sha256:REPLACE_WITH_HASH_OF_inputs+prompt+model+config"  # a prior match => resumable skip
+attempt: 1                        # persistent counter; retry guard reads THIS, never memory
+status: "running"                 # current status from the 15-status enum
+
+gate:                             # the node's gate ({kind, threshold, rubric, evidence_ref})
+  kind: "test"
+  threshold: null                 # null for pass/fail gates; 0..1 for scored gates
+  rubric: null                    # path to rubric doc for judged gates, else null
+  evidence_ref: "evidence/build_tests.json"
+
+retry_policy:
+  max_attempts: 3                 # attempts before escalating past local_retry
+  backoff_base_seconds: 5.0
+  jitter: true
+
+on_failure: "local_patch"         # where this node starts on the escalation ladder
+evidence_ref: "evidence/build_tests.json"  # path to this node's evidence artifact
+started: "2026-07-02T10:15:00Z"   # ISO-8601 when the current attempt started, or null
+finished: null                    # ISO-8601 when finished, or null (still running)
+compensation_of: null             # if a compensation node, the node_id it undoes; else null

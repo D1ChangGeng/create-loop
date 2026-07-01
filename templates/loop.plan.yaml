@@ -1,0 +1,183 @@
+# loop.plan — the top-level plan artifact for a create-loop run.
+# Fill every field. Edges are implicit: a node depends on another via `requires`.
+# Keep the node DAG acyclic and reference only real node ids.
+# Tokens are LOCKED — do not rename or invent values.
+#   node kinds:  milestone | gate | mapper | branch | fanout | join | approval | compensation
+#   statuses:    undiscovered | discovered | needs_clarification | pending | ready | running |
+#                waiting_external | waiting_user | blocked | verifying | verification_failed |
+#                retry_pending | completed | cancelled | deprecated
+#   gate kinds:  automated_check | test | llm_judge | self_consistency |
+#                evaluator_optimizer | step_verifier | human_approval | artifact_exists
+#   on_failure:  local_retry | local_patch | replan | escalate
+#   risk:        low | med | high
+#   assignee:    agent | user | subagent
+
+schema_version: "1.0.0"           # version of THIS schema (not the plan revision)
+plan_id: "plan-example-0001"      # stable primary key; referenced by checkpoint/contracts/ledger
+goal: "State the user's goal verbatim here."
+true_intent: "What success really means, surfaced by the interview."
+non_goals:                        # explicitly out of scope (may be empty [])
+  - "Anything not required to satisfy the success criteria."
+
+success_criteria:                 # measurable definitions of done
+  - id: "sc-1"
+    statement: "The built artifact passes its automated checks."
+    measurable: true              # true => objective test; false => judgement call (gate it)
+  - id: "sc-2"
+    statement: "A human approves the final result."
+    measurable: false
+
+failure_criteria:                 # conditions that mean STOP/escalate (may be empty [])
+  - "Budget exhausted before success_criteria are met."
+
+termination:                      # bounds + the single overriding done condition
+  max_iterations: 25
+  max_wall_clock_hours: 8         # number, or null for unbounded
+  max_cost_units: 500             # number, or null for unbounded
+  done_when: "all success_criteria met and all top-level nodes completed"
+
+constraints:                      # hard constraints (may be empty [])
+  - "Respect the stated budget and tech stack."
+
+# ---------------------------------------------------------------------------
+# nodes — the DAG. Every node MUST carry ALL 20 fields.
+# Mini-loop shape: goal_clarification -> discovery -> build (gated) -> approval
+# ---------------------------------------------------------------------------
+nodes:
+  # (1) ROOT — clarify the goal. No dependencies. approval-adjacent clarification.
+  - id: "goal_clarification"
+    kind: "milestone"
+    title: "Clarify the goal and true intent"
+    design_invariant: true        # true => belongs at top level; false => runtime-discovered
+    status: "completed"
+    requires: []                  # root node: empty
+    produces:
+      - "artifacts/clarified_brief.md"
+    inputs: []                    # feeds cache_key; may be empty
+    preconditions: []
+    postconditions:
+      - "The true_intent is agreed and recorded."
+    gate:                         # milestone is gate-required; use artifact_exists here
+      kind: "artifact_exists"
+      threshold: null             # null for pass/fail gates
+      rubric: null                # path to rubric doc for judged gates, else null
+      evidence_ref: "evidence/goal_clarification.json"
+    retry_policy:
+      max_attempts: 2
+      backoff_base_seconds: 1.0
+      jitter: true
+    on_failure: "escalate"
+    priority: 100                 # higher runs first among ready nodes
+    risk: "low"
+    parallelizable: false
+    allow_subgraph: false
+    subgraph: null
+    assignee: "agent"
+    notes: ""
+
+  # (2) DISCOVERY — investigate. May materialise a subgraph if the space is dark.
+  - id: "discovery"
+    kind: "milestone"
+    title: "Discover context and constraints"
+    design_invariant: true
+    status: "completed"
+    requires:
+      - "goal_clarification"
+    produces:
+      - "artifacts/findings.md"
+    inputs:
+      - "artifacts/clarified_brief.md"
+    preconditions:
+      - "The clarified brief exists."
+    postconditions:
+      - "Key unknowns are enumerated with evidence."
+    gate:
+      kind: "llm_judge"           # judged discovery quality
+      threshold: 0.8              # scored gate: 0..1
+      rubric: "rubrics/discovery_quality.md"
+      evidence_ref: "evidence/discovery.json"
+    retry_policy:
+      max_attempts: 3
+      backoff_base_seconds: 2.0
+      jitter: true
+    on_failure: "local_retry"
+    priority: 90
+    risk: "med"
+    parallelizable: false
+    allow_subgraph: true          # if discovery proves too big, a subgraph attaches here.
+    # subgraph: at runtime this becomes a nested loop.plan fragment, e.g.
+    #   subgraph:
+    #     parent_ref: "discovery"
+    #     schema_version: "1.0.0"
+    #     plan_version: 1
+    #     nodes: [ ...runtime-discovered nodes, design_invariant: false... ]
+    subgraph: null                # null until a fragment is materialised
+    assignee: "subagent"
+    notes: "Set allow_subgraph so a deep investigation can expand into its own mini-plan."
+
+  # (3) BUILD — the work. Gated by a test gate (non-null gate required example).
+  - id: "build"
+    kind: "milestone"
+    title: "Build the deliverable"
+    design_invariant: true
+    status: "ready"
+    requires:
+      - "discovery"
+    produces:
+      - "artifacts/deliverable/"
+    inputs:
+      - "artifacts/findings.md"
+    preconditions:
+      - "Findings are verified."
+    postconditions:
+      - "The deliverable builds and its tests pass."
+    gate:
+      kind: "test"                # non-null gate: the build must pass tests
+      threshold: null
+      rubric: null
+      evidence_ref: "evidence/build_tests.json"
+    retry_policy:
+      max_attempts: 3
+      backoff_base_seconds: 5.0
+      jitter: true
+    on_failure: "local_patch"
+    priority: 80
+    risk: "high"
+    parallelizable: false
+    allow_subgraph: false
+    subgraph: null
+    assignee: "agent"
+    notes: ""
+
+  # (4) APPROVAL — gate-exempt by kind (self-gates via human_approval handoff).
+  - id: "final_approval"
+    kind: "approval"
+    title: "Human sign-off on the deliverable"
+    design_invariant: true
+    status: "pending"
+    requires:
+      - "build"
+    produces:
+      - "artifacts/approval_record.md"
+    inputs:
+      - "artifacts/deliverable/"
+    preconditions:
+      - "The build gate has passed."
+    postconditions:
+      - "A human has approved the result."
+    gate: null                    # approval nodes are gate-exempt (self-gating handoff)
+    retry_policy:
+      max_attempts: 1
+      backoff_base_seconds: 0.0
+      jitter: false
+    on_failure: "escalate"
+    priority: 70
+    risk: "low"
+    parallelizable: false
+    allow_subgraph: false
+    subgraph: null
+    assignee: "user"
+    notes: "Waits on a human_approval handoff; surfaced via checkpoint.pending_approvals."
+
+created: "2026-07-02"             # ISO-8601 date or date-time
+plan_version: 1                   # monotonic; bumped on each replan

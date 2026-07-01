@@ -1,0 +1,56 @@
+# checkpoint — durable MID-RUN snapshot of this research loop. A fresh session
+# reads exactly this to resume. Keyed by plan_id (+ plan_version). node_states
+# keys match the top-level node ids in loop.plan.yaml exactly.
+#
+# Mid-run state on display:
+#   N0..N4  completed; the N5 subgraph ran to completion, but the parent
+#   N6_findings_verification gate FAILED (step_verifier 0.71 < 0.85). Its
+#   on_failure=replan put N5_experiment_or_analysis into `blocked` — the loop is
+#   re-materialising N5's subgraph (a new fragment plan_version) to control the
+#   confound before re-verifying. Nothing is dispatchable until that resolves.
+#
+# Statuses are LOCKED (15): undiscovered | discovered | needs_clarification | pending |
+#   ready | running | waiting_external | waiting_user | blocked | verifying |
+#   verification_failed | retry_pending | completed | cancelled | deprecated
+
+schema_version: "1.0.0"
+plan_id: "plan-research-survey-0007"      # MUST match loop.plan.yaml plan_id
+plan_version: 1                            # MUST match loop.plan.yaml plan_version
+checkpoint_id: "ckpt-000318"
+created: "2026-06-27T16:20:00Z"
+phase: 0
+
+# node_states — one entry per TOP-LEVEL plan node id.
+node_states:
+  N0_charter: "completed"
+  N1_scoping: "completed"
+  N2_source_gathering: "completed"
+  N2b_protocol_preregistration: "completed"
+  N3_evidence_appraisal: "completed"
+  N4_hypothesis_framing: "completed"
+  N5_experiment_or_analysis: "blocked"     # replan in flight: re-materialising its subgraph
+  N6_findings_verification: "verification_failed"  # step_verifier 0.71 < 0.85
+  N6b_route_on_findings: "pending"         # waits on N6 producing a passing verdict
+  N7_synthesis: "pending"
+  N8_peer_review: "pending"
+  N9_recommendation_approval: "pending"
+  N10_handoff: "pending"
+  N11_closeout: "pending"
+
+ready_set: []                              # N5 is blocked (replan); no top-level node dispatchable
+last_completed:
+  - "N4_hypothesis_framing"                # most recent top-level node to reach completed
+blocked:
+  - node_id: "N5_experiment_or_analysis"
+    reason: "N6_findings_verification failed at step_verifier 0.71 (< 0.85 threshold): dataset A analysis did not control for context-length as a confound. on_failure=replan is regenerating N5's subgraph (new fragment plan_version) to add a length-matched control arm before re-running S5b/S5c and re-verifying."
+pending_approvals: []                      # N9_recommendation_approval not yet reachable
+
+next_suggested_action: "Resolve the N5_experiment_or_analysis replan: materialise the superseding subgraph fragment with a length-matched control arm, re-run S5b_analyze_dataset_A and S5c_run_comparison_B, re-join at S5d_validate_result_C, then re-run the N6_findings_verification gate. Do NOT advance to N6b_route_on_findings until N6 records a passing verdict."
+open_assumptions:
+  - "Benchmark B is representative of long-context QA workloads; revisit if the length-matched control changes the ranking."
+  - "The pre-registered stopping rule (three strategies compared with CIs) still holds after the added control arm."
+  - "Cost remaining (about 172 units) is sufficient for one replan cycle of N5; escalate if a second cycle is needed."
+event_log_ref: "state/event_log.jsonl"
+evidence_ledger_ref: "state/evidence.ledger.yaml"
+cost_units_spent: 428.0                    # of termination.max_cost_units 600
+iteration: 17                              # of termination.max_iterations 30
