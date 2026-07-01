@@ -24,7 +24,7 @@ different readers, different consumers, and different failure surfaces.
 ### 1.1 `create-loop` owns transient task-control state
 
 All run-scoped execution state for ONE complex task lives under
-`.agents/loop/<run-id>/` (the canonical `run_id_directory` from
+`.agents/loops/<run-id>/` (the canonical `run_id_directory` from
 [`concepts.md` §7](./concepts.md#7-why-durability-primitives) and
 [`recovery_protocol.md`](./recovery_protocol.md)). This state is
 **disposable once the task closes out**. The artifacts in this directory
@@ -113,7 +113,7 @@ The following MUST NEVER be written from `create-loop` into
 - `pending_approvals` open tokens
 - `open_assumptions` entries that were resolved during this run
 
-These belong in `.agents/loop/<run-id>/`. They are not knowledge. They
+These belong in `.agents/loops/<run-id>/`. They are not knowledge. They
 are execution residue.
 
 ---
@@ -148,7 +148,7 @@ A finding from a `create-loop` run may cross into
    for cost review" does.
 
 If any criterion fails, the finding stays in the run's
-`.agents/loop/<run-id>/closeout.md` and is NOT promoted.
+`.agents/loops/<run-id>/closeout.md` and is NOT promoted.
 
 ### 2.2 The mechanism — append to the inbox
 
@@ -166,7 +166,7 @@ If any criterion fails, the finding stays in the run's
 - Bullets: 2–5, in the agent's own words, capturing what surprised
   or wasn't obvious.
 - Source line: `[source: ...]` referencing the originating run, e.g.
-  `[source: .agents/loop/<run-id>/evidence.ledger.yaml#<entry_id>]`.
+  `[source: .agents/loops/<run-id>/evidence.ledger.yaml#<entry_id>]`.
 
 ### 2.3 Proposed channel marker: `[LOOP]`
 
@@ -229,16 +229,16 @@ Every promoted entry carries a `[source: ...]` line that traces the
 finding back to its run-scoped origin. The canonical form is:
 
 ```
-[source: .agents/loop/<run-id>/evidence.ledger.yaml#<entry_id>]
+[source: .agents/loops/<run-id>/evidence.ledger.yaml#<entry_id>]
 ```
 
 Alternative source shapes, used when the finding's strongest evidence
 is elsewhere in the run:
 
 ```
-[source: .agents/loop/<run-id>/decision.log#L42]
-[source: .agents/loop/<run-id>/node.contract.yaml#<node_id>]
-[source: .agents/loop/<run-id>/closeout.md#<section>]
+[source: .agents/loops/<run-id>/decision.log#L42]
+[source: .agents/loops/<run-id>/node.contract.yaml#<node_id>]
+[source: .agents/loops/<run-id>/closeout.md#<section>]
 ```
 
 `self-evolution`'s Mode 4 traceability — "summaries must trace to
@@ -255,7 +255,7 @@ evidence.
 Not every event in a `create-loop` run is a knowledge candidate. The
 table below is exhaustive for the events we have defined so far.
 
-| event | source artifact | stays in `.agents/loop/` | eligible for `.agents/knowledge/` (marker) |
+| event | source artifact | stays in `.agents/loops/` | eligible for `.agents/knowledge/` (marker) |
 |---|---|---|---|
 | Node transitions to a terminal status (`completed`, `cancelled`, `deprecated`) | `checkpoint.node_states` | yes (always) | no — terminal status is a per-node fact, not project knowledge |
 | Node transitions to `verifying → completed` with `verdict: pass` AND finding is reusable and decision-influencing | `evidence.ledger` (pass entry) | yes (the evidence stays) | yes (`[LOOP]`); only the reusable, decision-influencing finding, not the node outcome itself |
@@ -295,7 +295,7 @@ dependency on each other.
 
 Per [`recovery_protocol.md`](./recovery_protocol.md) §2 and
 [`state_model.md` §resume-from-blank-session](./state_model.md#resume-from-a-blank-session),
-the recovery algorithm reads ONLY `.agents/loop/<run-id>/` artifacts:
+the recovery algorithm reads ONLY `.agents/loops/<run-id>/` artifacts:
 
 1. Locate the `run_id_directory` (single-flight check).
 2. Read the latest `checkpoint`.
@@ -333,7 +333,7 @@ The two recoveries are independent:
 
 | failure | effect on `create-loop` recovery | effect on `self-evolution` recovery |
 |---|---|---|
-| `.agents/loop/<run-id>/` corrupted or missing | resume fails; loop escalates to `blocked` and surfaces a `pending_approval` | none |
+| `.agents/loops/<run-id>/` corrupted or missing | resume fails; loop escalates to `blocked` and surfaces a `pending_approval` | none |
 | `.agents/knowledge/` corrupted or missing | none — `create-loop` does not depend on it | `self-evolution` rebuilds from filesystem per SKILL.md Mode 4 manifest recovery |
 | Both missing | fresh start (loop from `pending`, knowledge from empty) | fresh start |
 | Only one present | the present one works normally | the present one works normally |
@@ -350,7 +350,7 @@ entries, `evidence.ledger` entries, `cost_units_spent`, or
 `iteration` into `.agents/knowledge/`. This is the same rule as
 §1.4 restated for the recovery path: even the temptation to "snapshot
 the checkpoint for future reference" is forbidden — that's what
-`.agents/loop/<run-id>/` already is.
+`.agents/loops/<run-id>/` already is.
 
 ---
 
@@ -372,11 +372,11 @@ The check is cheap: `if [.agents/knowledge/ exists]` gates the
 promotion step. The check is performed once per closeout, not per
 finding.
 
-### 5.2 When `.agents/loop/` is absent
+### 5.2 When `.agents/loops/` is absent
 
-If `.agents/loop/` does not exist, this spec does not apply — there
+If `.agents/loops/` does not exist, this spec does not apply — there
 is no `create-loop` run in progress. The agent either starts a new
-run (which creates `.agents/loop/<run-id>/` per the single-flight
+run (which creates `.agents/loops/<run-id>/` per the single-flight
 rule) or is not using `create-loop`.
 
 ### 5.3 No copy of self-evolution internals
@@ -474,7 +474,7 @@ All three pass. `create-loop` writes to the inbox:
   0.82.
 - The threshold "two consecutive <0.4" is now a candidate heuristic
   for choosing the on_failure ladder step at plan-design time.
-- [source: .agents/loop/r-0c4a/evidence.ledger.yaml#e-003]
+- [source: .agents/loops/r-0c4a/evidence.ledger.yaml#e-003]
 ```
 
 The entry uses the channel marker `[LOOP]`. It enters the inbox as
@@ -484,7 +484,7 @@ directory.
 
 ### 6.4 What does NOT get promoted
 
-For the same run, the following stay in `.agents/loop/r-0c4a/`
+For the same run, the following stay in `.agents/loops/r-0c4a/`
 only:
 
 - the three `node.contract.attempt` values (`1`, `2`, `3`),
@@ -519,11 +519,11 @@ checkpoint snapshot, a `node.contract` blob, or a status-transition
 log.
 
 Detection: `self-evolution` Mode 5 (Health Check) flags a domain
-file whose `scope:` field points at `.agents/loop/` (or whose sources
+file whose `scope:` field points at `.agents/loops/` (or whose sources
 are all run-scoped artifacts). Mode 4 (Evolve) review of new domain
 content catches it earlier.
 
-Repair: move the offending content back to `.agents/loop/<run-id>/`,
+Repair: move the offending content back to `.agents/loops/<run-id>/`,
 leave a `[DOMAIN-FIX]` inbox entry explaining the move.
 
 ### 7.2 Over-promotion — findings written without the gate
@@ -558,7 +558,7 @@ Symptom: `[LOOP]` is used for findings that did not originate from a
 candidates (status churn, retries).
 
 Detection: spot-check: do `[LOOP]` entries cite a
-`.agents/loop/<run-id>/` source path?
+`.agents/loops/<run-id>/` source path?
 
 Repair: edit or remove the offending entries; reaffirm the marker's
 intended meaning at next team sync. (If `[LOOP]` is formally accepted
@@ -576,7 +576,7 @@ on import surface; integration test that runs `create-loop` against a
 fresh project with no `.agents/knowledge/`.
 
 Repair: revert the dependency; the resume algorithm reads only
-`.agents/loop/<run-id>/`.
+`.agents/loops/<run-id>/`.
 
 ---
 
@@ -598,7 +598,7 @@ attention.
   "this month the loops produced N knowledge candidates"? This would
   require a `self-evolution` schema change; the spec does not
   presume it.
-- How should archived runs (`.agents/loop/<run-id>/` moved to a
+- How should archived runs (`.agents/loops/<run-id>/` moved to a
   long-term archive) affect the `[source: ...]` traceability? The
   source path becomes stale once the run directory is archived or
   pruned. Resolution options: re-point to the archive path, or
