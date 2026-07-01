@@ -1,6 +1,23 @@
 ---
 name: create-loop
-description: USE THIS SKILL whenever the user wants to plan, drive, resume, or survive a complex long-running task — including: building an execution-control loop or `loop.plan` instead of a one-shot prompt; designing multi-session, cross-session, durable, resumable, long-horizon agent work; turning a fuzzy goal into a recursive task DAG with checkpoints, evidence gates, recovery, branches, parallelism, retries, and human-in-the-loop approval nodes; any project that spans many sessions, exceeds one context window, must survive context loss or session switch or compaction, or needs to be handed off between agents; "write the loop not the prompt"; orchestration of multi-step work with dependencies, fanout/join, sagas, escalations. TRIGGER on phrases like "this is a big task", "this will take many sessions", "I need this to survive a crash", "resume the work", "I lost context", "plan the steps", "set up an agent loop", "build me a control plan", "we need checkpoints", "we need approval gates", "long-running agent task", "durable execution", or any time a user wants to drive an ambitious multi-step project even if they never say "loop". If the work might be picked up tomorrow by a fresh agent in a fresh session with no memory, this skill applies.
+description: >-
+  USE THIS SKILL whenever the user wants to plan, drive, resume, or survive a
+  complex long-running task — including: building an execution-control loop or
+  `loop.plan` instead of a one-shot prompt; designing multi-session, cross-
+  session, durable, resumable, long-horizon agent work; turning a fuzzy goal
+  into a recursive task DAG with checkpoints, evidence gates, recovery,
+  branches, parallelism, retries, and human-in-the-loop approval nodes; any
+  project that spans many sessions, exceeds one context window, must survive
+  context loss or session switch or compaction, or needs to be handed off
+  between agents; "write the loop not the prompt"; orchestration of multi-step
+  work with dependencies, fanout/join, sagas, escalations. TRIGGER on phrases
+  like "this is a big task", "this will take many sessions", "I need this to
+  survive a crash", "resume the work", "I lost context", "plan the steps",
+  "set up an agent loop", "build me a control plan", "we need checkpoints",
+  "we need approval gates", "long-running agent task", "durable execution", or
+  any time a user wants to drive an ambitious multi-step project even if they
+  never say "loop". If the work might be picked up tomorrow by a fresh agent
+  in a fresh session with no memory, this skill applies.
 ---
 
 # create-loop
@@ -459,8 +476,7 @@ rows only matter in their respective modes.
 | [`example_research_project/`](examples/example_research_project/) | End-to-end worked example for a research deliverable (`research_report`). |
 | [`example_product_delivery/`](examples/example_product_delivery/) | End-to-end worked example for a product/code deliverable (`code_impl`). |
 
-Both example directories contain a `README.md`, a `loop.plan.yaml`, and a
-`checkpoint.yaml`.
+Each example directory contains a `README.md`, `loop.plan.yaml`, and `checkpoint.yaml`.
 
 ### Tests — `tests/`
 
@@ -486,6 +502,6 @@ Both example directories contain a `README.md`, a `loop.plan.yaml`, and a
 
 Run `python3 scripts/validate_loop_plan.py <plan>` and
 `python3 scripts/validate_checkpoint.py <checkpoint>` before you claim a
-`loop.plan v0` is ready. Never edit `loop.plan.yaml` and
-`checkpoint.yaml` independently — both must agree on `plan_id`,
-`plan_version`, and every `node_id`.
+`loop.plan v0` is ready. Never edit `loop.plan.yaml` and `checkpoint.yaml`
+independently — both must agree on `plan_id`, `plan_version`, and every
+`node_id`.

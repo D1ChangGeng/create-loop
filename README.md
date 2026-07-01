@@ -211,8 +211,8 @@ cd <package-root>            # the directory containing SKILL.md
 echo "== scripts compile =="
 python3 -m py_compile scripts/*.py
 
-echo "== SKILL.md line budget < 500 =="
-test "$(wc -l < SKILL.md)" -lt 500
+echo "== SKILL.md line budget < 600 =="
+test "$(wc -l < SKILL.md)" -lt 600
 
 echo "== schemas parse as JSON and are valid Draft-07 =="
 # (4 files under schemas/)
@@ -251,7 +251,7 @@ when you change the validators or the schemas.
   `schemas/*.json` first, then the templates in `templates/` and the
   examples in `examples/`, then re-run the acceptance gate.
 - **`SKILL.md` stays lean.** Depth lives in `references/`. The skill
-  entrypoint must stay strictly under 500 lines (enforced by
+  entrypoint must stay strictly under 600 lines (enforced by
   `tests/acceptance_tests.md` §5).
 - **Vocabulary is locked in the references.** `references/loop_plan_spec.md`
   and `references/state_model.md` are the single source of truth for

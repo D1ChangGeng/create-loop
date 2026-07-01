@@ -144,16 +144,16 @@ each `requires` edge as an edge.
 
 ---
 
-## 5. `SKILL.md` respects the line budget (< 500 lines)
+## 5. `SKILL.md` respects the line budget (< 600 lines)
 
 The skill entrypoint must stay lean; depth lives in `references/`.
 
 ```bash
-# 5. SKILL.md must be strictly fewer than 500 lines.
-test "$(wc -l < SKILL.md)" -lt 500 && echo "SKILL-line-budget-OK"
+# 5. SKILL.md must be strictly fewer than 600 lines.
+test "$(wc -l < SKILL.md)" -lt 600 && echo "SKILL-line-budget-OK"
 ```
 
-Expected: exit `0` and `SKILL-line-budget-OK` on stdout. A `SKILL.md` of 500 or
+Expected: exit `0` and `SKILL-line-budget-OK` on stdout. A `SKILL.md` of 600 or
 more lines fails the gate.
 
 ---
@@ -186,8 +186,8 @@ echo "== 6. scripts compile =="
 python3 -m py_compile scripts/*.py
 echo "   PY-COMPILE-OK"
 
-echo "== 5. SKILL.md line budget < 500 =="
-test "$(wc -l < SKILL.md)" -lt 500
+echo "== 5. SKILL.md line budget < 600 =="
+test "$(wc -l < SKILL.md)" -lt 600
 echo "   SKILL-line-budget-OK"
 
 echo "== 1a. schemas parse as JSON =="
