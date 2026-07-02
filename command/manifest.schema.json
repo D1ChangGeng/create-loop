@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/D1ChangGeng/create-loop/command/manifest.schema.json",
+  "title": "create-loop command manifest",
+  "description": "Declares the canonical create-loop slash commands. Host-specific command files are rendered from these entries by bin/create-loop.js.",
+  "type": "object",
+  "required": ["version", "commands"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": "integer", "const": 1 },
+    "description": { "type": "string" },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "body", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "description": "Command slug. Becomes /<id> in the host and the rendered filename <id>.md."
+          },
+          "body": {
+            "type": "string",
+            "pattern": "\\.md$",
+            "description": "Path (relative to command/) to the frontmatter-free command body. Shared verbatim across every host."
+          },
+          "description": {
+            "type": "string",
+            "description": "One-line command description; rendered into each host's frontmatter."
+          },
+          "argumentHint": {
+            "type": "string",
+            "description": "Optional argument hint. Rendered as `argument-hint` (Claude Code) where the host supports it."
+          }
+        }
+      }
+    }
+  }
+}

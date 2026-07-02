@@ -1,0 +1,31 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": 1,
+  "description": "Canonical source of truth for the create-loop slash commands. The standalone installer (bin/create-loop.js) and the render step generate host-specific command files (.opencode/command/*.md, .claude/commands/*.md) from these entries. Edit commands HERE, then run `create-loop render` to regenerate the committed host artifacts.",
+  "commands": [
+    {
+      "id": "loop-new",
+      "body": "loop-new.md",
+      "description": "Create a new create-loop control plan from a fuzzy goal — runs the Charter interview and emits loop.plan v0 (Mode A).",
+      "argumentHint": "<goal text>"
+    },
+    {
+      "id": "loop-run",
+      "body": "loop-run.md",
+      "description": "Advance an existing create-loop by executing the next ready node(s) (Mode B).",
+      "argumentHint": "[node-id]"
+    },
+    {
+      "id": "loop-resume",
+      "body": "loop-resume.md",
+      "description": "Resume a create-loop from its checkpoint in a fresh session after interruption (Mode C).",
+      "argumentHint": "[loop-dir]"
+    },
+    {
+      "id": "loop-status",
+      "body": "loop-status.md",
+      "description": "Show a create-loop status snapshot — goal, current node, ready set, blockers, next action (read-only).",
+      "argumentHint": "[loop-id]"
+    }
+  ]
+}

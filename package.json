@@ -1,0 +1,46 @@
+{
+  "name": "create-loop",
+  "version": "1.0.0",
+  "description": "Standalone installer for the create-loop meta-skill and its /loop-new /loop-run /loop-resume /loop-status slash commands. Installs the skill AND commands into OpenCode / Claude Code in one command; re-run to upgrade in place.",
+  "keywords": [
+    "agent-skill",
+    "create-loop",
+    "opencode",
+    "claude-code",
+    "slash-commands",
+    "installer",
+    "durable-execution",
+    "loop"
+  ],
+  "homepage": "https://github.com/D1ChangGeng/create-loop#readme",
+  "bugs": {
+    "url": "https://github.com/D1ChangGeng/create-loop/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/D1ChangGeng/create-loop.git"
+  },
+  "license": "BUSL-1.1",
+  "author": "D1ChangGeng",
+  "type": "commonjs",
+  "bin": {
+    "create-loop": "bin/create-loop.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "render": "node bin/create-loop.js render",
+    "test": "node test/installer.test.js"
+  },
+  "files": [
+    "bin/",
+    "command/",
+    ".opencode/",
+    ".claude/",
+    "skills/",
+    "install-commands.sh",
+    "LICENSE",
+    "README.md"
+  ]
+}

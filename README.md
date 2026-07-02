@@ -11,8 +11,46 @@ full documentation is in [`skills/create-loop/README.md`](skills/create-loop/REA
 
 ## Install
 
-Using the [`skills`](https://github.com/vercel-labs/skills) CLI (OpenCode,
-Claude Code, Codex, Cursor, and more):
+There are two ways to install, depending on whether you want the slash commands
+too. The difference matters because `npx skills add` installs **only the skill
+directory** — it has no post-install hook and never writes a host's command
+directory. The commands are a separate, per-host concept.
+
+### Path A — one command, skill + slash commands (recommended)
+
+The standalone installer copies the skill **and** renders the
+`/loop-new`, `/loop-run`, `/loop-resume`, `/loop-status` commands into each
+detected host, then records a manifest so a re-run upgrades in place. No npm
+publish, no global install — it runs straight from the repo:
+
+```bash
+# Auto-detect hosts (OpenCode, Claude Code) and install into the current project.
+npx github:D1ChangGeng/create-loop
+
+# Global (user-level), for all projects.
+npx github:D1ChangGeng/create-loop -g
+
+# Preview without writing anything, or target one host.
+npx github:D1ChangGeng/create-loop --dry-run
+npx github:D1ChangGeng/create-loop --host claude -g
+```
+
+Re-run any time to **upgrade**: managed files are refreshed, files you hand-edit
+are preserved (pass `--force` to overwrite). `npx github:D1ChangGeng/create-loop
+uninstall` removes exactly what it wrote. Full flags: `--help`.
+
+> Slash commands work by reusing each host's **native** command support —
+> OpenCode reads `.opencode/command/*.md`, Claude Code reads
+> `.claude/commands/*.md` (both verified). On a host without a slash-command
+> convention, the commands simply aren't installed there; the skill still
+> activates from natural language ("create a loop", "resume the loop"). The
+> installer never claims a capability a host doesn't have.
+
+### Path B — `skills` CLI (skill only)
+
+If you only want the skill (and will drive it by natural language, or install
+commands separately), use the [`skills`](https://github.com/vercel-labs/skills)
+CLI (OpenCode, Claude Code, Codex, Cursor, and more):
 
 ```bash
 # Install globally (user-level), for all projects.
@@ -26,6 +64,22 @@ Re-running the command updates the skill in place. Use it without installing:
 
 ```bash
 npx skills use D1ChangGeng/create-loop --skill create-loop --agent claude-code
+```
+
+To add the slash commands afterward, either run the bundled installer from a
+clone of this repo, or run the standalone installer in commands-only mode
+(no clone needed):
+
+```bash
+# Option 1 — bundled shell installer (from a clone of this repo, at its root).
+git clone https://github.com/D1ChangGeng/create-loop.git
+cd create-loop
+./install-commands.sh              # current project, both hosts
+./install-commands.sh --global     # user-level, both hosts
+
+# Option 2 — standalone installer, commands only (no clone needed).
+npx github:D1ChangGeng/create-loop --commands-only        # current project
+npx github:D1ChangGeng/create-loop --commands-only -g     # global
 ```
 
 ## What it does
@@ -56,9 +110,13 @@ loop is independently governed, rescheduled, and replayable.
 create-loop/
 ├── LICENSE                     Business Source License 1.1
 ├── README.md                   this file
-├── install-commands.sh         copies the slash commands into an agent's command dir
-├── .opencode/command/          loop-new / loop-run / loop-resume / loop-status (OpenCode)
-├── .claude/commands/           loop-new / loop-run / loop-resume / loop-status (Claude Code)
+├── package.json                standalone installer package (bin: create-loop)
+├── bin/create-loop.js          standalone installer CLI (skill + commands, hash-tracked upgrade)
+├── install-commands.sh         copies the slash commands into an agent's command dir (Path B)
+├── command/                    CANONICAL slash-command source (manifest.json + bodies)
+├── test/                       installer regression tests
+├── .opencode/command/          rendered OpenCode commands (loop-new/run/resume/status)
+├── .claude/commands/           rendered Claude Code commands (loop-new/run/resume/status)
 └── skills/
     └── create-loop/            the installable skill
         ├── SKILL.md            core protocol (progressive disclosure)
@@ -71,10 +129,18 @@ create-loop/
         └── tests/              acceptance + failure-mode specs
 ```
 
+The slash commands have a **single source of truth** in
+[`command/`](command/): `command/manifest.json` declares each command's
+metadata and points at a frontmatter-free body. The host-specific files under
+`.opencode/command/` and `.claude/commands/` are **rendered artifacts** —
+regenerate them with `npx github:D1ChangGeng/create-loop render` (or
+`node bin/create-loop.js render`) after editing anything in `command/`. See
+[`command/README.md`](command/README.md).
+
 `npx skills add` installs only `skills/create-loop/`. The slash commands are a
-separate agent concept, so they ship at the repo root — run `./install-commands.sh`
-(or copy them by hand) to enable `/loop-new`, `/loop-run`, `/loop-resume`,
-`/loop-status`. See [`skills/create-loop/references/command_system.md`](skills/create-loop/references/command_system.md).
+separate agent concept, so they ship at the repo root — install them with the
+standalone installer (Path A), `./install-commands.sh`, or by hand. See
+[`skills/create-loop/references/command_system.md`](skills/create-loop/references/command_system.md).
 
 ## License
 

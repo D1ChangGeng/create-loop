@@ -22,10 +22,31 @@ improvises plan changes.
 
 `npx skills add` installs only the skill directory (`SKILL.md` + its supporting
 files). Slash commands are a separate, per-runtime concept, so the command files
-live at the **repository root** (`.opencode/command/` and `.claude/commands/`)
-and are copied into place with the bundled installer or by hand.
+live at the **repository root** (`.opencode/command/` and `.claude/commands/`),
+rendered from the canonical source in `command/`. There are three ways to place
+them.
 
-### With the installer
+### With the standalone installer (recommended)
+
+The repo ships a standalone installer that copies the skill **and** the commands
+in one command, then tracks them for idempotent upgrade:
+
+```bash
+# Auto-detect hosts, install into the current project.
+npx github:D1ChangGeng/create-loop
+
+# Global (user-level); or one host; or preview.
+npx github:D1ChangGeng/create-loop -g
+npx github:D1ChangGeng/create-loop --host claude -g
+npx github:D1ChangGeng/create-loop --dry-run
+
+# Commands only (skill already installed via `npx skills add`).
+npx github:D1ChangGeng/create-loop --commands-only
+```
+
+Re-running upgrades in place; hand-edited files are preserved unless `--force`.
+
+### With the bundled shell installer
 
 ```bash
 # From the repo root. Installs both runtimes into the current project.
