@@ -204,7 +204,76 @@ Runtime Subgraphs + Evidence Gates**. Full spec:
 
 ---
 
-## 5. Execution units: action / subgraph / subloop
+## 5. High-Ceiling Execution (behavioral contract — read before Mode B)
+
+The machinery in this skill guarantees a loop runs *safely and reproducibly*. It
+does not, alone, guarantee the loop runs *well*. This section is the execution
+temperament that closes that gap: **not mechanical checklist completion, but
+responsible autonomy** — preserve the goal, actively raise the quality and
+completeness of the outcome, within the boundaries the enforceable machinery
+already sets.
+
+This is a **behavioral** policy, not a validator. Nothing here has a rule number
+or fixture — "found the root cause" is not machine-checkable. It is a standing
+instruction to *you, the runner*. Full spec:
+[`references/execution_intelligence_policy.md`](references/execution_intelligence_policy.md).
+
+**Governing principle — Bounded Maximalism:** maximize final-outcome quality
+under the current goal, evidence, authorization boundaries, risk limits, and
+resource budget. *Bounded* is load-bearing: pursue completeness/quality **only
+where a gap would materially affect whether the goal holds**, and stop at a
+boundary, over budget, or at diminishing returns. Materiality gates both
+directions — it licenses work a mechanical runner skips and forbids work an
+expansionist runner invents.
+
+**Default disposition:** solve root causes not symptoms; explore autonomously
+(spawn an analysis/diagnostic subgraph) before asking a low-context question;
+challenge a stale/unverifiable plan and patch it *through the admission gate*;
+repair upstream artifacts when downstream work exposes a defect; record material
+reasoning; deepen **selectively** (see triggers below); verify before claiming
+done.
+
+**Never:** follow a stale plan blindly · treat execution as completion · ignore a
+defect because "it still runs" · ask the user to solve what you could explore ·
+add optional scope without admission · change the top-level goal without approval
+· hide uncertainty or failed attempts · keep deepening past diminishing returns.
+
+**Two judgment points augment the Mode B loop:**
+
+- **Pre-execution review** (before acting on a ready node): is this node still
+  relevant? are its inputs current? any known gap? has a plan assumption been
+  invalidated? — else you execute stale or ill-founded work.
+- **Quality-uplift decision** (after the gate passes): the gate is the *floor*,
+  not the ceiling. If the artifact passes but has a **material** weakness and a
+  **low-risk, verifiable, in-budget** improvement would substantially help the
+  outcome, do it — else you ship the-moment-it-turns-green. Do **not** uplift for
+  taste, speculation, or over-budget polish.
+
+**Deepen only when triggered** — ambiguity that materially affects the outcome,
+conflicting evidence, repeated failure, formally-passing-but-substantively-weak
+artifacts, an implementation-revealed gap, unprovable verification, a
+high-leverage low-risk improvement, an invalidated assumption, or a downstream
+node that would otherwise be weakened. Do **not** deepen on cosmetic issues,
+speculative benefit, over-budget work, goal-altering changes, boundary-crossing
+actions, or after diminishing returns.
+
+**Node completion** under this policy needs more than output: gate passed +
+artifacts current + material gaps resolved-or-admitted-or-deferred-with-reason +
+material quality defects handled + state/evidence/checkpoint transactionally
+updated.
+
+**Goal Alignment Check** — before every subgraph spawn, subloop promotion, major
+change, or branch merge: does this still serve the *original* goal, or has an
+optimization become a new objective? (Backed enforceably by the goal/intent-hash
+invariant, R26.) The full deepening triggers, root-cause protocol, counterexample
+review, quality-uplift policy, execution profiles
+(`conservative` / `balanced` / `high_ceiling` (default) / `research_max`), and the
+anti-risk table are in
+[`references/execution_intelligence_policy.md`](references/execution_intelligence_policy.md).
+
+---
+
+## 6. Execution units: action / subgraph / subloop
 
 Three tiers, distinguished by **governance need, not size**. Start at the
 lightest tier; promote only when governance demands it (Promotion Gate below).
@@ -252,7 +321,7 @@ Full spec: [`references/recursive_loops.md`](references/recursive_loops.md) and
 
 ---
 
-## 6. Mode A — Create a loop
+## 7. Mode A — Create a loop
 
 Use this mode when the user is starting fresh or is restarting with a new goal.
 
@@ -283,7 +352,7 @@ Run these in order. Do not skip.
 - Every node MUST carry all 21 fields per
       [`references/loop_plan_spec.md`](references/loop_plan_spec.md) §2
       (the 21st is `child_loops` — the directory-materialized child-loop
-      reference list; see §5).
+      reference list; see §6).
    - Edges go in `requires` (a `produces/requires` artifact dependency,
      not habitual order).
    - Each `mapper` / `allow_subgraph: true` node has `subgraph: null` and
@@ -322,10 +391,12 @@ and [`schemas/evidence.ledger.schema.json`](schemas/evidence.ledger.schema.json)
 
 ---
 
-## 7. Mode B — Run / advance a loop
+## 8. Mode B — Run / advance a loop
 
 Use this mode when `loop.plan v0` exists and the loop is in motion. Execute
-this loop **per node**, until `termination.done_when` holds:
+this loop **per node**, until `termination.done_when` holds. Run it with the
+§5 High-Ceiling temperament — a **pre-execution review** before acting and a
+**quality-uplift decision** after the gate passes bracket the raw loop:
 
 ```
 for the chosen ready node:
@@ -389,7 +460,7 @@ Per-node intent and resulting artifact templates:
 
 ---
 
-## 8. Mode C — Resume from a blank session
+## 9. Mode C — Resume from a blank session
 
 Use this mode when a fresh agent with no chat memory takes over a half-finished
 loop. The checkpoint is the only source of truth.
@@ -419,7 +490,7 @@ Rationale, edge cases, and the cross-agent hand-off schema are in
 
 ---
 
-## 9. Exceptions & escalation
+## 10. Exceptions & escalation
 
 Every node declares `on_failure` — its starting rung on the bounded, ordered
 ladder:
@@ -437,7 +508,7 @@ on an `approval` node with a `human_approval` gate.
 
 ---
 
-## 10. Human approval
+## 11. Human approval
 
 Approval is a **bounded exception**, not a routine step (see §3). It is planned
 in advance, never improvised as a first reaction to a branch or blocker. Two
@@ -468,7 +539,7 @@ protocol in [`references/human_approval.md`](references/human_approval.md) §7.
 
 ---
 
-## 11. Knowledge promotion
+## 12. Knowledge promotion
 
 Verified, reusable findings may be promoted from transient loop state to
 durable project knowledge (the `self-evolution` skill). The boundary is
@@ -486,7 +557,7 @@ Loop closeout itself produces
 
 ---
 
-## 12. Platform capability & degradation
+## 13. Platform capability & degradation
 
 Do **not** assume the host provides background execution, subagents, a
 durable runtime, or lifecycle hooks. When any are missing, degrade to the
@@ -497,7 +568,7 @@ filesystem primitives that always exist:
 | background execution | persistent files + explicit checkpoints written at every transition |
 | subagents | the single agent runs nodes serially; `assignee: subagent` collapses to `assignee: agent` |
 | durable runtime | the `.agents/loops/L<seq>-<slug>/` directory tree + event log + checkpoint on the filesystem *is* the runtime (see [`references/recursive_loops.md`](references/recursive_loops.md)) |
-| lifecycle hooks | a handoff doc per stop + manual re-invocation + the §8 resume algorithm at startup |
+| lifecycle hooks | a handoff doc per stop + manual re-invocation + the §9 resume algorithm at startup |
 
 Probe via `task_profile.yaml:platform_capability`. Set
 `fallback_accepted` before emitting `loop.plan v0`. "Degraded mode" is the
@@ -505,7 +576,7 @@ same contract with fewer conveniences — not a second implementation.
 
 ---
 
-## 13. Reference map (progressive disclosure index)
+## 14. Reference map (progressive disclosure index)
 
 Every link below points to a real file. Read it when its row says to. Most
 rows only matter in their respective modes.
@@ -516,6 +587,7 @@ rows only matter in their respective modes.
 |------|-----------|
 | [`concepts.md`](references/concepts.md) | You want the *why* of the shape (DAG not checklist, top-level invariant rule, recursion, evidence gates, durable primitives, three-layer model, §8 interview as Layer 0). |
 | [`live_loop_semantics.md`](references/live_loop_semantics.md) | The execution path grew, a gate exposed an omission/defect, or you must decide whether new work is goal-necessary growth vs scope creep. Triggers, admission criteria, and the three-classes-of-change table. |
+| [`execution_intelligence_policy.md`](references/execution_intelligence_policy.md) | You are *running* a loop (Mode B) and want the high-ceiling execution temperament: Bounded Maximalism, root-cause protocol, deepening triggers, quality-uplift vs the gate floor, Goal Alignment Check, counterexample review, execution profiles, and the anti-risk table. Behavioral policy (no schema), backs SKILL §5. |
 | [`loop_plan_spec.md`](references/loop_plan_spec.md) | You need the authoritative field dictionary for `loop.plan`, node kinds, gate kinds, `retry_policy`, the escalation ladder, control-flow vocabularies, subgraphs, or the locked **Glossary**. |
 | [`state_model.md`](references/state_model.md) | You need the 15-status enum, the state transition table, **checkpoint** / **node.contract** / **evidence.ledger** field sets, or the §"Resume from a blank session" algorithm. |
 | [`recursive_loops.md`](references/recursive_loops.md) | You need the isomorphic per-loop directory layout, `loop.meta.yaml` field set, `child_loops[]` reference shape, `return_contract` / `closeout.md`, child-checkpoint additions, the Sub-loop Admission Gate, the isolation rule, or the INDEX files. Read when promoting to or working inside a **subloop**. |
@@ -598,11 +670,11 @@ Each example directory contains a `README.md`, `loop.plan.yaml`, and `checkpoint
 
 ## Quick orientation for the model running this skill
 
-1. Did the user hand you a short goal with no plan? → **Mode A** (§6).
+1. Did the user hand you a short goal with no plan? → **Mode A** (§7).
 2. Did the user hand you an existing `.agents/loops/L<seq>-<slug>/` or
    `loop.plan.yaml` and ask you to continue? → **Mode B** if `loop.plan v0`
-   exists and work was in progress; **Mode C** (§8) if the session is blank
-   and you must recover. When unsure, run the §8 resume algorithm first — it is
+   exists and work was in progress; **Mode C** (§9) if the session is blank
+   and you must recover. When unsure, run the §9 resume algorithm first — it is
    read-only and safe.
 3. Did the user describe a goal that *might* need a loop but is small enough
    to do in one shot? Then you don't need this skill — say so and do the task.
