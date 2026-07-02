@@ -152,7 +152,7 @@ a `running` node is disambiguated by its claim:
 | lease **unexpired** | a worker is live on this node | leave it; do NOT re-dispatch |
 | lease **expired** | the prior owner crashed | reclaim: reconcile via the `event_log`, then re-run/`retry_pending` |
 | `delegated_to` set | delegated to a live child loop | await the child's `closeout`; never re-dispatch |
-| **no claim** but status `running` | invalid — a crash leaves an *expired* claim, not none | rejected by rule R22 (`[R22 UNCLAIMED-RUNNING]`) |
+| **no claim** but status `running` | in concurrency mode: invalid (a crash leaves an *expired* claim, not none) | rejected by R22 under `--enforce-claims`; in the default single-agent model there are no claims and this is legitimate |
 
 This is why a `running` node is never ambiguous on resume: the claim, not the
 status alone, tells a fresh session whether work is live, crashed, or delegated.

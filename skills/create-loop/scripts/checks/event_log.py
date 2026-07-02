@@ -56,12 +56,6 @@ def validate_event_log(doc: Any, errors: list[str]) -> None:
                     f"{sorted(MUTATION_TYPES)}); got {mtype!r}. Live plan changes must "
                     f"be typed, not untracked edits."
                 )
-            if not e.get("reason"):
-                errors.append(
-                    f"[R39 UNTRACKED-MUTATION] event_log entries[{idx}]: a mutation "
-                    f"event must carry a non-empty 'reason' — a change without a reason "
-                    f"is how a live plan corrupts into scope creep."
-                )
 
     resolved: set[tuple[Any, Any]] = set()
     for e in entries:

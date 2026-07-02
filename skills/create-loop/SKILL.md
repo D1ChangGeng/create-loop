@@ -645,7 +645,7 @@ rows only matter in their respective modes.
 | File | Use when |
 |------|----------|
 | [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` + hand-rolled graph/provenance/cap/lifecycle rules (R1–R41). Required gate at v0 and after any `replan` or mutation. `--kind loop_plan \| node_contract \| evidence_ledger \| loop_meta \| loops_index \| node_runtime \| claim \| event_log \| loop_state \| artifact_index`; `--plan` (ledger R36), `--root` (index R37). Covers evidence lifecycle (R38), node retirement (R40), artifact authority (R41), plan-mutation events (R39, via `event_log`). |
-| [`validate_checkpoint.py`](scripts/validate_checkpoint.py) | Validates checkpoint schema + `--plan` consistency (R6), transition-closure (R19/R20), `--claims` single-flight (R22), `--meta` child-loop fields (R33). |
+| [`validate_checkpoint.py`](scripts/validate_checkpoint.py) | Validates checkpoint schema + `--plan` consistency (R6), transition-closure (R19/R20), `--claims` + `--enforce-claims` single-flight in concurrency mode (R22), `--meta` child-loop fields (R33). |
 | [`check_loop_integrity.py`](scripts/check_loop_integrity.py) | **Whole-loop-directory anti-corruption gate.** Composes the per-file validators AND the cross-file reconciliation (checkpoint↔plan↔ledger↔index, completed-needs-active-evidence, evidence-artifact-exists). Run at every session start, after every node completion, and after every mutation; a violation means enter recovery instead of advancing. |
 | [`render_dag.py`](scripts/render_dag.py) | Optional DAG render for human inspection. |
 

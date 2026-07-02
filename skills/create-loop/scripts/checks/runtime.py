@@ -49,14 +49,17 @@ def validate_node_runtime(doc: Any, errors: list[str]) -> None:
 
         status = sg.get("status")
         if "status" in sg and status not in SUBGRAPH_STATUSES:
-            hint = (
-                " (that is a node status, not a subgraph status)"
-                if status in NODE_STATUSES else ""
-            )
-            errors.append(
-                f"[R14 BAD subgraph status] {label}: status {status!r} is not one "
-                f"of the 8 subgraph statuses {sorted(SUBGRAPH_STATUSES)}{hint}"
-            )
+            if status in NODE_STATUSES:
+                errors.append(
+                    f"[R15 SUBGRAPH-STATUS-CROSSOVER] {label}: status {status!r} is a "
+                    f"node status, not a subgraph status — the two enums are disjoint; "
+                    f"use one of {sorted(SUBGRAPH_STATUSES)}"
+                )
+            else:
+                errors.append(
+                    f"[R14 BAD subgraph status] {label}: status {status!r} is not one "
+                    f"of the 8 subgraph statuses {sorted(SUBGRAPH_STATUSES)}"
+                )
 
         sg_nodes = sg.get("nodes")
         if isinstance(sg_nodes, list):
@@ -65,14 +68,17 @@ def validate_node_runtime(doc: Any, errors: list[str]) -> None:
                     continue
                 n_status = sg_node.get("status")
                 if "status" in sg_node and n_status not in SUBGRAPH_STATUSES:
-                    n_hint = (
-                        " (that is a node status, not a subgraph status)"
-                        if n_status in NODE_STATUSES else ""
-                    )
-                    errors.append(
-                        f"[R14 BAD subgraph status] {label} nodes[{nidx}]: status "
-                        f"{n_status!r} is not one of the 8 subgraph statuses{n_hint}"
-                    )
+                    if n_status in NODE_STATUSES:
+                        errors.append(
+                            f"[R15 SUBGRAPH-STATUS-CROSSOVER] {label} nodes[{nidx}]: "
+                            f"status {n_status!r} is a node status, not a subgraph "
+                            f"status — the two enums are disjoint"
+                        )
+                    else:
+                        errors.append(
+                            f"[R14 BAD subgraph status] {label} nodes[{nidx}]: status "
+                            f"{n_status!r} is not one of the 8 subgraph statuses"
+                        )
                 # R25: a completed subgraph node must carry its evidence artifact.
                 if n_status == "completed" and not sg_node.get("output"):
                     errors.append(

@@ -224,13 +224,19 @@ def validate_transition_closure(doc: Any, plan: Any, errors: list[str]) -> None:
             )
 
 
-def validate_claims(doc: Any, claims_dir: str, errors: list[str]) -> None:
-    """R22: every node in status ``running`` must hold a claim file, and a
-    delegated claim must name a child loop. Single-flight at the node grain."""
+def validate_claims(doc: Any, claims_dir: str, enforce: bool, errors: list[str]) -> None:
+    """R22 (concurrency mode only): when the loop has opted into lease-based
+    concurrency, every ``running`` node must hold a claim file — single-flight at
+    the node grain. In the default single-agent, manual-reentry model a loop has
+    no claim files, so absence is NOT a violation there; R22 only fires under
+    ``--enforce-claims`` (explicit concurrency opt-in). A present claim file is
+    still validated for shape regardless."""
     if not isinstance(doc, dict):
         return
     node_states = doc.get("node_states")
     if not isinstance(node_states, dict):
+        return
+    if not enforce:
         return
     base = Path(claims_dir)
     for nid, status in node_states.items():
@@ -240,8 +246,9 @@ def validate_claims(doc: Any, claims_dir: str, errors: list[str]) -> None:
         if not claim_path.exists():
             errors.append(
                 f"[R22 UNCLAIMED-RUNNING] node {nid!r} is 'running' but has no claim "
-                f"file at {claim_path} — a running node must hold a claim "
-                f"(single-flight). A crashed run leaves an expired claim, not none."
+                f"file at {claim_path} — under concurrency mode a running node must "
+                f"hold a claim (single-flight). A crashed run leaves an expired "
+                f"claim, not none."
             )
 
 
@@ -249,7 +256,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate a checkpoint YAML artifact.")
     parser.add_argument("file", help="Path to the checkpoint YAML.")
     parser.add_argument("--plan", help="Path to the loop.plan YAML for R6 consistency.")
-    parser.add_argument("--claims", help="Path to the contracts/ dir holding <node>.claim files (R22).")
+    parser.add_argument("--claims", help="Path to the contracts/ dir holding <node>.claim files.")
+    parser.add_argument(
+        "--enforce-claims",
+        action="store_true",
+        help="Opt into concurrency mode: require every running node to hold a claim (R22). "
+             "Omit for the default single-agent, manual-reentry model where claims are optional.",
+    )
     parser.add_argument("--meta", help="Path to the loop.meta.yaml (R33: require child fields when type==child_loop).")
     args = parser.parse_args()
 
@@ -263,7 +276,7 @@ def main() -> int:
         validate_transition_closure(doc, plan, errors)
 
     if args.claims:
-        validate_claims(doc, args.claims, errors)
+        validate_claims(doc, args.claims, args.enforce_claims, errors)
 
     if args.meta:
         validate_child_checkpoint(doc, load_yaml(args.meta), errors)

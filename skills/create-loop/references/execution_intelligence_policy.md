@@ -134,6 +134,15 @@ A "no" opens the correction path:
 `gap detected → analysis subgraph → correction proposal → evidence → patch plan`
 (through the Live Loop admission gate — never a silent edit).
 
+When that patch lands as a `kind: mutation` event, the validator enforces only
+the *typed* half (a valid `mutation_type`, R39). The **reason must be
+substantive** — a real justification tied to the evidence that opened the gap,
+not a placeholder to satisfy a field. That quality is a runner discipline, not a
+validator rule: a validator can only confirm a `reason` string is non-empty,
+which is trivially gameable and would falsely programmatize judgment the runner
+must actually exercise. Write the reason as if a fresh session must understand
+*why the plan changed* from it alone.
+
 ### 3.2 Solve the root cause, not the symptom
 
 When something fails, the runner does not patch until the symptom disappears. It

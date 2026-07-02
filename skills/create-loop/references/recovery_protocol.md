@@ -111,8 +111,11 @@ A node whose `status == running` in a fresh session is disambiguated by its
   `event_log`: if the activity already produced a recorded completion, demote to
   `verifying`; otherwise demote to `retry_pending` (subject to
   `retry_policy.max_attempts`; if exhausted, `blocked`).
-- **No claim at all** — invalid state; a crash leaves an *expired* claim, not
-  none. Rejected by rule R22 (`[R22 UNCLAIMED-RUNNING]`).
+- **No claim at all** — in **concurrency mode** this is an invalid state (a crash
+  leaves an *expired* claim, not none), rejected by rule R22
+  (`[R22 UNCLAIMED-RUNNING]`, enforced under `--enforce-claims`). In the default
+  single-agent, manual-reentry model there are no claim files at all, so absence
+  is legitimate and R22 stays silent.
 
 ### Step 5. Check termination
 

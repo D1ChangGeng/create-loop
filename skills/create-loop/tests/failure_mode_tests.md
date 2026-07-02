@@ -2175,11 +2175,15 @@ python3 scripts/validate_loop_plan.py --kind claim /tmp/fx_bad_claim.yaml
 
 ---
 
-## R22 — unclaimed running node
+## R22 — unclaimed running node (concurrency mode)
 
-**What's wrong:** a checkpoint has a node in status `running`, but no claim file
-exists for it in the `contracts/` directory. A running node MUST hold a claim
-(single-flight); a crash leaves an *expired* claim, never none.
+**What's wrong:** under **concurrency mode** a checkpoint has a node in status
+`running`, but no claim file exists for it in the `contracts/` directory. A
+running node MUST hold a claim (single-flight); a crash leaves an *expired*
+claim, never none. R22 fires **only** when the loop opts into concurrency via
+`--enforce-claims` — in the default single-agent, manual-reentry model a loop has
+no claim files and their absence is legitimate, so R22 stays silent (this avoids
+false-positives on the skill's default degraded runtime).
 
 Checkpoint fixture (validated with an empty claims dir):
 
@@ -2209,10 +2213,14 @@ iteration: 1
 
 ```bash
 mkdir -p /tmp/fx_r22_claims_empty
-python3 scripts/validate_checkpoint.py /tmp/fx_r22_unclaimed.yaml --claims /tmp/fx_r22_claims_empty && echo FAIL || echo PASS-rejected
+# Default (no concurrency opt-in): absence of a claim is NOT a violation.
+python3 scripts/validate_checkpoint.py /tmp/fx_r22_unclaimed.yaml --claims /tmp/fx_r22_claims_empty && echo "default-mode: allowed (correct)"
+# Concurrency mode: --enforce-claims makes the unclaimed running node a violation.
+python3 scripts/validate_checkpoint.py /tmp/fx_r22_unclaimed.yaml --claims /tmp/fx_r22_claims_empty --enforce-claims && echo FAIL || echo PASS-rejected
 ```
 
-**Expected:** exit nonzero; message tags `[R22 UNCLAIMED-RUNNING]` naming `n1`.
+**Expected:** the default run exits `0` (claims optional); the `--enforce-claims`
+run exits nonzero with `[R22 UNCLAIMED-RUNNING]` naming `n1`.
 
 ---
 
@@ -2496,9 +2504,13 @@ python3 scripts/validate_loop_plan.py --kind evidence_ledger /tmp/fx_evidence_li
 
 ## R39 — untracked plan mutation
 
-**What's wrong:** an `event_log` entry of `kind: mutation` omits `mutation_type`
-and/or `reason`. Live plan changes must be typed and reasoned, never untracked
-edits — that is how a living plan corrupts into scope creep.
+**What's wrong:** an `event_log` entry of `kind: mutation` omits a valid
+`mutation_type`. A live plan change must be *typed* with one of the locked
+mutation types, never an untracked edit — that is the machine-checkable half.
+(Whether the change is *well-reasoned* is a behavioral discipline in
+`references/execution_intelligence_policy.md`, not a validator rule — a validator
+can only check that a `reason` string is non-empty, which is gameable and would
+be programmatizing judgment the runner must actually exercise.)
 
 ```yaml
 schema_version: "1.0"
@@ -2512,7 +2524,7 @@ entries:
 python3 scripts/validate_loop_plan.py --kind event_log /tmp/fx_untracked_mutation.yaml
 ```
 
-**Expected:** exit nonzero; message tags `[R39 UNTRACKED-MUTATION]`.
+**Expected:** exit nonzero; message tags `[R39 UNTRACKED-MUTATION]` (missing/invalid `mutation_type`).
 
 ---
 
