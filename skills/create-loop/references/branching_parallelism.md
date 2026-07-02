@@ -299,6 +299,24 @@ warns against. `create-loop` enforces isolation structurally through
 the per-branch working directory, not by trusting the LLM to
 self-isolate.
 
+### 7.4 Scratch-dir isolation vs. git-worktree isolation
+
+The per-branch working directory above isolates a subagent's **notes and
+scratch state** — it is enough for read-mostly *exploration* subagents that
+compare options and return a structured `output.json`. It is **not** enough for
+subagents that develop code in parallel: two units editing files against one
+git working tree share a single `index`, `HEAD`, and `MERGE_HEAD`, and git's
+`index.lock` will fail-fast one of them rather than serialise it — so their edits
+collide and corrupt.
+
+Concurrent **code development** therefore uses a stronger primitive: **one `git
+worktree` per unit** over the shared object store, so each unit has its own
+working tree, index, and branch. That layer — split, isolate, merge, converge,
+with an owner-gate on `push`/`merge` and a defined rollback ladder — is specified
+in [`parallel_development_protocol.md`](./parallel_development_protocol.md). Use
+scratch-dir isolation (§7.1–§7.3) for exploration; use worktree isolation (that
+protocol) for code that ships.
+
 ---
 
 ## 8. Concurrency limits and cost bounds
@@ -364,3 +382,7 @@ the cost cap.
 - [`./research_dags_multiagent.md`](./research_dags_multiagent.md) covers
   LangGraph edge vocabulary, LangGraph Supervisor, LangGraph Swarm,
   OpenAI Agents SDK handoffs, Anthropic multi-agent research system.
+- [`parallel_development_protocol.md`](./parallel_development_protocol.md)
+  is the git-worktree layer for concurrent *code* development — split,
+  isolate, merge, converge, with owner-gated publish and a rollback ladder —
+  built on top of the parallelism rules in this document.
