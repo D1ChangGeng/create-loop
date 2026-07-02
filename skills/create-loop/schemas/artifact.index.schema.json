@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/artifact.index.schema.json",
+  "title": "artifact.index",
+  "description": "An artifacts/INDEX.yaml registry. Complex loops produce many artifacts and many versions of the same artifact; without a registry an agent cannot tell which version is authoritative and keeps consuming a stale one. Each entry gives an artifact a lifecycle status and an explicit supersedes chain so exactly one version at a given logical path is authoritative (rule R41).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "One entry per artifact version.",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "path",
+        "status"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "description": "Immutable id (e.g. A-014)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the artifact file."
+        },
+        "type": {
+          "type": "string",
+          "description": "Free-form kind (spec, report, test_result, ...)."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "candidate",
+            "accepted",
+            "verified",
+            "published",
+            "superseded",
+            "deprecated",
+            "retired"
+          ],
+          "description": "Lifecycle state. Only one non-terminal (draft..published) entry per logical path may be authoritative at once (R41)."
+        },
+        "owner_node": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Node that owns/produces it."
+        },
+        "produced_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Subgraph/loop id that produced it."
+        },
+        "consumed_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Node ids that consume it (a required artifact with no consumer and no closeout value is a smell)."
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "supersedes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "artifact_ids this version replaces; each must exist."
+        }
+      }
+    }
+  }
+}

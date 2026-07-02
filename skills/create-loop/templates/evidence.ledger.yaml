@@ -20,8 +20,10 @@ entries:                          # append-only; newest last. Each entry has all
     rationale: "3 of 40 unit tests failed on the first build attempt."
     recorded: "2026-07-02T10:20:00Z"   # ISO-8601 date-time
     verifier: "script"
+    status: "superseded"          # lifecycle: replaced by the re-attempt below
+    superseded_by: "ev-0002"      # must name an existing entry
 
-  # Example: a PASS verdict from the successful re-attempt.
+  # Example: a PASS verdict from the successful re-attempt (the AUTHORITATIVE one).
   - entry_id: "ev-0002"
     node_id: "build"
     gate_kind: "test"
@@ -31,3 +33,5 @@ entries:                          # append-only; newest last. Each entry has all
     rationale: "All 40 unit tests pass after the local patch."
     recorded: "2026-07-02T10:42:00Z"
     verifier: "script"
+    status: "active"              # only 'active' evidence may back a gate (R38)
+    superseded_by: null

@@ -107,6 +107,25 @@
             "null"
           ],
           "description": "entry_id of a prior ledger entry this entry corrects/supersedes, or null. Lets 'latest entry governs' pick the correction rather than the stale verdict."
+        },
+        "status": {
+          "type": "string",
+          "description": "Lifecycle state of this evidence entry. Evidence is not a permanent fact; it can be superseded by a re-run, invalidated when its artifact is deleted/disproven, go stale past a freshness window, or be retired with its node. Only 'active' evidence may back an active gate (rule R38). Defaults to 'active' when omitted.",
+          "enum": [
+            "active",
+            "challenged",
+            "superseded",
+            "stale",
+            "invalid",
+            "retired"
+          ]
+        },
+        "superseded_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "entry_id of the newer entry that replaces this one (set when status is 'superseded'). Must reference an existing entry."
         }
       }
     }

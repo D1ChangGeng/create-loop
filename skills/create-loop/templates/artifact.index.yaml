@@ -1,0 +1,23 @@
+# artifacts/INDEX.yaml — the artifact registry for a loop. Gives each artifact a
+# lifecycle status + supersedes chain so exactly ONE version per path is
+# authoritative (rule R41). Read this before consuming any artifact.
+schema_version: "1.0"
+artifacts:
+  - artifact_id: A-001
+    path: artifacts/requirements.md
+    type: spec
+    status: superseded          # older version, replaced by A-002
+    owner_node: n4_requirements
+    produced_by: SG-n4-001
+    consumed_by: []
+    evidence_refs: []
+    supersedes: []
+  - artifact_id: A-002
+    path: artifacts/requirements.md
+    type: spec
+    status: verified            # the authoritative version
+    owner_node: n4_requirements
+    produced_by: SG-n4-002
+    consumed_by: [n5_architecture]
+    evidence_refs: [E-014]
+    supersedes: [A-001]

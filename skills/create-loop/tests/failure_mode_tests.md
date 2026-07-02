@@ -2470,6 +2470,98 @@ directory does not exist under the root).
 
 ---
 
+## R38 — inactive evidence still backing a gate
+
+**What's wrong:** a ledger entry is marked `superseded`/`stale`/`invalid`/`retired`
+but still carries `verdict: pass`. Inactive evidence must not justify a completed
+node — evidence has a lifecycle; a re-run supersedes the old verdict.
+
+```yaml
+schema_version: "1.0"
+entries:
+  - {entry_id: E1, node_id: n1, gate_kind: automated_check, verdict: pass, score: null, artifact_path: a, rationale: old, recorded: "2026-07-02", verifier: script, status: superseded, superseded_by: E2}
+  - {entry_id: E2, node_id: n1, gate_kind: automated_check, verdict: pass, score: null, artifact_path: a2, rationale: redo, recorded: "2026-07-02", verifier: script, status: active}
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_loop_plan.py --kind evidence_ledger /tmp/fx_evidence_lifecycle.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R38 EVIDENCE-LIFECYCLE]` (the
+`superseded` entry still has verdict `pass`).
+
+---
+
+## R39 — untracked plan mutation
+
+**What's wrong:** an `event_log` entry of `kind: mutation` omits `mutation_type`
+and/or `reason`. Live plan changes must be typed and reasoned, never untracked
+edits — that is how a living plan corrupts into scope creep.
+
+```yaml
+schema_version: "1.0"
+entries:
+  - {seq: 1, node_id: n1, ts: "2026-07-02T10:00:00Z", kind: mutation}
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_loop_plan.py --kind event_log /tmp/fx_untracked_mutation.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R39 UNTRACKED-MUTATION]`.
+
+---
+
+## R40 — retired node without a tombstone
+
+**What's wrong:** a node is `deprecated`/`cancelled` but carries no `retirement`
+object (type + reason). Retired work must be tombstoned, not silently left
+dangling, so the retirement is auditable and reconcilable.
+
+```bash
+python3 - <<'PY'
+import yaml, hashlib, re
+_WS=re.compile(r"\s+"); h=lambda t:hashlib.sha256(_WS.sub(" ",str(t)).strip().encode()).hexdigest()
+def node(nid, **kw):
+    d={"id":nid,"kind":"milestone","title":"T","design_invariant":True,"status":"pending","requires":[],"produces":[],"inputs":[],"preconditions":[],"postconditions":[],"gate":{"kind":"artifact_exists","threshold":None,"rubric":None,"evidence_ref":"e"},"retry_policy":{"max_attempts":1,"backoff_base_seconds":1,"jitter":False},"on_failure":"local_retry","priority":1,"risk":"low","parallelizable":False,"allow_subgraph":False,"subgraph":None,"child_loops":[],"assignee":"agent","notes":""}
+    d.update(kw); return d
+d={"schema_version":"1.0","plan_id":"p","goal":"g","true_intent":"t","non_goals":[],"success_criteria":[{"id":"s1","statement":"s","measurable":True}],"failure_criteria":["f"],"termination":{"max_iterations":50,"max_wall_clock_hours":None,"max_cost_units":None,"done_when":"d","max_depth":2,"max_child_loops":5},"constraints":[],"nodes":[node("n1",status="deprecated"), node("n2")],"created":"2026-07-02","plan_version":1,"plan_history":[{"plan_version":1,"reason":"init","superseded_at":None,"goal_hash":h("g"),"true_intent_hash":h("t")}]}
+yaml.safe_dump(d, open("/tmp/fx_retire_no_tombstone.yaml","w"), sort_keys=False, width=120)
+PY
+python3 scripts/validate_loop_plan.py /tmp/fx_retire_no_tombstone.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R40 RETIREMENT]`.
+
+---
+
+## R41 — two authoritative artifact versions at one path
+
+**What's wrong:** an `artifacts/INDEX.yaml` lists two entries at the same `path`
+that are both in an active status (`draft`..`published`). Exactly one version may
+be authoritative; older ones must be `superseded`.
+
+```yaml
+schema_version: "1.0"
+artifacts:
+  - {artifact_id: A1, path: artifacts/spec.md, status: verified}
+  - {artifact_id: A2, path: artifacts/spec.md, status: draft}
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_loop_plan.py --kind artifact_index /tmp/fx_artifact_authority.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R41 ARTIFACT-AUTHORITY]`.
+
+---
+
 ## Fixture-to-rule map
 
 | rule | fixture file |

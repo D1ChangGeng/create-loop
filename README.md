@@ -65,8 +65,8 @@ create-loop/
         ├── README.md           full usage / maintain / extend guide
         ├── references/         concepts, spec, state model, live-loop, recursive-loops, subgraph/subloop policy, command system
         ├── templates/          fill-in run artifacts
-        ├── schemas/            JSON Schemas for the artifacts (10)
-        ├── scripts/            validators (checks/*) + DAG renderer
+        ├── schemas/            JSON Schemas for the artifacts (11)
+        ├── scripts/            validators (checks/*) + integrity gate + DAG renderer
         ├── examples/           three worked loops (incl. recursive child-loop tree)
         └── tests/              acceptance + failure-mode specs
 ```

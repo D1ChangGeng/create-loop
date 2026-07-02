@@ -146,9 +146,29 @@ python3 scripts/validate_loop_plan.py --kind loops_index <INDEX.yaml>
 
 # Per-node runtime hosting record (`node.runtime.yaml`, subgraph tier).
 python3 scripts/validate_loop_plan.py --kind node_runtime <node.runtime.yaml>
+
+# Artifact registry (`artifacts/INDEX.yaml`): one authoritative version per path.
+python3 scripts/validate_loop_plan.py --kind artifact_index <artifacts/INDEX.yaml>
 ```
 
 Exit `0` means valid. Nonzero exit prints the rule the input violated.
+
+### Whole-loop-directory integrity gate
+
+The per-file validators each see one artifact; corruption in a long-running
+loop is usually cross-file. Run the integrity gate over an entire loop directory
+at every session start, after every node completion, and after every plan
+mutation:
+
+```bash
+python3 scripts/check_loop_integrity.py <loop-dir>
+```
+
+It composes the per-file validators AND cross-file reconciliation (checkpoint↔
+plan↔ledger↔index, a `completed` node needs active passing evidence, every
+evidence `artifact_path` exists). Exit `0` = safe to advance; nonzero = enter a
+recovery subgraph instead of advancing (see
+[`references/recovery_protocol.md`](references/recovery_protocol.md) §6.0).
 
 ### Validate a checkpoint against its plan
 
@@ -297,7 +317,7 @@ echo "== SKILL.md line budget < 1000 =="
 test "$(wc -l < SKILL.md)" -lt 1000
 
 echo "== schemas parse as JSON and are valid Draft-07 =="
-# (10 files under schemas/)
+# (11 files under schemas/)
 
 echo "== templates validate =="
 python3 scripts/validate_loop_plan.py            templates/loop.plan.yaml

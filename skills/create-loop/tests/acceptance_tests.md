@@ -263,7 +263,8 @@ for f in schemas/loop.plan.schema.json schemas/node.contract.schema.json \
          schemas/checkpoint.schema.json schemas/evidence.ledger.schema.json \
          schemas/loop.meta.schema.json schemas/loops.index.schema.json \
          schemas/node.runtime.schema.json schemas/claim.schema.json \
-         schemas/event_log.schema.json schemas/loop.state.schema.json; do
+         schemas/event_log.schema.json schemas/loop.state.schema.json \
+         schemas/artifact.index.schema.json; do
   python3 -c "import json,sys; json.load(open(sys.argv[1])); print('   OK', sys.argv[1])" "$f"
 done
 
@@ -275,7 +276,8 @@ files = ["schemas/loop.plan.schema.json","schemas/node.contract.schema.json",
          "schemas/checkpoint.schema.json","schemas/evidence.ledger.schema.json",
          "schemas/loop.meta.schema.json","schemas/loops.index.schema.json",
          "schemas/node.runtime.schema.json","schemas/claim.schema.json",
-         "schemas/event_log.schema.json","schemas/loop.state.schema.json"]
+         "schemas/event_log.schema.json","schemas/loop.state.schema.json",
+         "schemas/artifact.index.schema.json"]
 for f in files:
     s = json.load(open(f))
     assert s.get("$schema","").rstrip("#").endswith("draft-07/schema"), f+": not draft-07"
@@ -294,6 +296,7 @@ python3 scripts/validate_loop_plan.py --kind node_runtime templates/node.runtime
 python3 scripts/validate_loop_plan.py --kind claim templates/claim.yaml
 python3 scripts/validate_loop_plan.py --kind event_log templates/event_log.yaml
 python3 scripts/validate_loop_plan.py --kind loop_state templates/loop.state.yaml
+python3 scripts/validate_loop_plan.py --kind artifact_index templates/artifact.index.yaml
 python3 scripts/validate_loop_plan.py --kind node_runtime templates/node.runtime.yaml
 echo "   templates OK"
 
@@ -313,6 +316,12 @@ find examples/example_child_loop_tree -name loop.plan.yaml \
 find examples/example_child_loop_tree -name INDEX.yaml \
   -exec python3 scripts/validate_loop_plan.py --kind loops_index {} \;
 echo "   child-loop tree OK"
+
+echo "== 3c. whole-loop-directory integrity gate passes on the examples =="
+python3 scripts/check_loop_integrity.py examples/example_child_loop_tree/L001-example-delivery
+python3 scripts/check_loop_integrity.py \
+  examples/example_child_loop_tree/L001-example-delivery/_loops/L001.01-fix-effectiveness-bug
+echo "   integrity OK"
 
 echo "== 4. render_dag emits mermaid + dot =="
 python3 scripts/render_dag.py examples/example_product_delivery/loop.plan.yaml > /tmp/dag_out.txt

@@ -326,6 +326,34 @@ The checkpoint can be missing, corrupt, or inconsistent with the
 ledger. The repair ladder is layered so cheaper recovery runs first
 and more expensive recovery runs only when needed.
 
+### 6.0 State Authority Order (who to trust when files disagree)
+
+A resuming agent reads many files; when they disagree it must know which one
+wins. The authority order, highest first:
+
+| # | File | Authority role |
+|---|------|----------------|
+| 1 | `loop.meta.yaml` | Identity and parent/child relation. Never derived from anything else. |
+| 2 | `event_log` | **Primary source of truth for what happened.** Append-only; every other state file is a projection of it. |
+| 3 | `evidence.ledger.yaml` | Source of truth for gate verdicts (which nodes legitimately passed). |
+| 4 | `checkpoint.yaml` | Fast-resume **snapshot** — trusted only when it agrees with the log + ledger; on conflict it is rebuilt from them. Highest `checkpoint_seq` wins between snapshots. |
+| 5 | `loop.state.yaml` | Live pointer (active node, ready set, lease index) — a convenience cache, always rederivable. |
+| 6 | `loop.plan.yaml` | Structure/DAG. Immutable per `plan_version`; a mismatch triggers §6.4. |
+| 7 | `INDEX.yaml` | Path index — reconciled against the tree (R37), never authoritative over it. |
+| 8–9 | `decision.log.md`, `run.log.md` | Human-readable narration; never a source of machine truth. |
+
+Conflict handling (run [`check_loop_integrity.py`](../scripts/check_loop_integrity.py)
+first; any violation means enter recovery instead of advancing):
+
+| Conflict | Handling |
+|----------|----------|
+| checkpoint points at a node absent from the plan | recovery mode; rebuild `node_states` from the log/ledger (§6.1) |
+| node `completed` but no active passing evidence | degrade the node to `verification_failed` |
+| child loop in `INDEX.yaml` but its directory is gone | mark `missing_child_loop`; reconcile the index (R37) |
+| evidence `artifact_path` referenced but file missing | mark that evidence `invalid` (R38); re-verify the node |
+| `event_log` disagrees with `checkpoint` | rebuild the checkpoint from the log (log wins) |
+| `loop.plan` has a cycle / dangling edge | block execution; open a plan-repair subgraph |
+
 ### 6.1 Missing node_states, intact ledger
 
 Recompute `node_states` from the `evidence.ledger`:

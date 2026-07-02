@@ -350,6 +350,19 @@ Hard rules:
   (goal/scope/irreversible/external side effect/cost/legal/value/authorization).
 - A node transitions to `completed` **only** when its latest ledger entry has
   `verdict: pass`. Anything else routes to `verification_failed`.
+- **Evidence has a lifecycle.** An entry marked `superseded`/`stale`/`invalid`/
+  `retired` must NOT keep `verdict: pass` — inactive evidence can never back a
+  gate (R38). Re-verify, or degrade the node.
+- **Every live plan change is a typed, reasoned `mutation` event** appended to
+  the `event_log` (`kind: mutation` with `mutation_type` + `reason`, R39) — never
+  an untracked edit. This is what keeps live growth from becoming scope creep.
+- **A retired node is tombstoned, not deleted** (R40): a `deprecated`/`cancelled`
+  node carries a `retirement{type, reason}`; `superseded`/`merged` names its
+  replacement. Deleting it would dangle every reference that points at it.
+- **Run [`check_loop_integrity.py`](scripts/check_loop_integrity.py) at every
+  session start, after every node completion, and after every mutation.** A
+  cross-file violation (checkpoint↔plan↔ledger↔index, completed-without-evidence,
+  missing artifact) means enter a recovery subgraph — do NOT advance normal work.
 - A node that discovers it is too big/dark/complex and has
   `allow_subgraph: true` **must** materialise an isomorphic `subgraph` (a
   `loop.plan` fragment with `parent_ref`) and recurse — never improvise, never
@@ -526,12 +539,13 @@ rows only matter in their respective modes.
 | [`loop.plan.yaml`](templates/loop.plan.yaml) | Mode A: the `loop.plan v0` template — every node carries all 21 fields (incl. `child_loops`). |
 | [`loops.index.yaml`](templates/loops.index.yaml) | Mode A / Mode C: the global `.agents/loops/INDEX.yaml` (and the per-loop `_loops/INDEX.yaml`) — read the index before traversing the directory tree. |
 | [`checkpoint.yaml`](templates/checkpoint.yaml) | Modes B/C: the durable snapshot you read on resume and rewrite after every transition. |
-| [`evidence.ledger.yaml`](templates/evidence.ledger.yaml) | Mode B: the append-only record of gate verdicts a node needs to reach `completed`. |
+| [`evidence.ledger.yaml`](templates/evidence.ledger.yaml) | Mode B: the append-only record of gate verdicts a node needs to reach `completed`. Each entry carries a lifecycle `status` — only `active` evidence may back a gate (R38). |
 | [`node.contract.yaml`](templates/node.contract.yaml) | Mode B: per-node execution contract (`cache_key`, `attempt`, gate copy, evidence pointer). |
 | [`node.runtime.yaml`](templates/node.runtime.yaml) | Mode B: per-node runtime hosting for in-node `subgraph`s (`nodes/<node_id>/node.runtime.yaml`, the `runtime_subgraphs[]` list). |
 | [`claim.yaml`](templates/claim.yaml) | Mode B: the per-node claim/lease (`contracts/<node-id>.claim`) that makes `ready → running` single-flight — acquire before executing, on resume it says whether a `running` node is live, crashed, or delegated. |
-| [`event_log.yaml`](templates/event_log.yaml) | Modes B/C: the append-only, primary-source-of-truth event log (pre/post-effect entries) the checkpoint counters are reconciled from. |
+| [`event_log.yaml`](templates/event_log.yaml) | Modes B/C: the append-only, primary-source-of-truth event log (pre/post-effect entries) the checkpoint counters are reconciled from. Also hosts `kind: mutation` events — the typed, reasoned record of every live plan change (R39). |
 | [`loop.state.yaml`](templates/loop.state.yaml) | Mode B: the live pointer file (active node, ready set, lease index) — cheap "what is running now" without replaying the log. |
+| [`artifact.index.yaml`](templates/artifact.index.yaml) | Any mode: the `artifacts/INDEX.yaml` registry — one authoritative version per path via lifecycle status + supersedes chain (R41). |
 | [`handoff.md`](templates/handoff.md) | Modes B/C: when the session ends mid-node, this is the handoff the next session reads first. |
 | [`human_decision_request.md`](templates/human_decision_request.md) | You must ask the user to decide: fill this context-complete Human Decision Package (options, trade-offs, recommendation, YAML answer schema) instead of a bare question. |
 | [`run.log.md`](templates/run.log.md) | Mode B: human-readable per-node run narrative (not a source of truth). |
@@ -552,13 +566,15 @@ rows only matter in their respective modes.
 | [`claim.schema.json`](schemas/claim.schema.json) | You need structural validation of a per-node `contracts/<node>.claim` (lease fields). |
 | [`event_log.schema.json`](schemas/event_log.schema.json) | You need structural validation of the append-only `event_log` (monotonic `seq`, pre/post-effect entries). |
 | [`loop.state.schema.json`](schemas/loop.state.schema.json) | You need structural validation of the live `loop.state.yaml` pointer file. |
+| [`artifact.index.schema.json`](schemas/artifact.index.schema.json) | You need structural validation of an `artifacts/INDEX.yaml` registry (lifecycle status + supersedes chain; one authoritative version per path). |
 
 ### Scripts — `scripts/` (run before v0 goes live and after every transition)
 
 | File | Use when |
 |------|----------|
-| [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` + hand-rolled graph/provenance/cap rules (R1–R37). Required gate at v0 and after any `replan`. `--kind loop_plan \| node_contract \| evidence_ledger \| loop_meta \| loops_index \| node_runtime \| claim \| event_log \| loop_state`; `--plan` (ledger R36 verifier-independence), `--root` (index R37 reconciliation). |
+| [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` + hand-rolled graph/provenance/cap/lifecycle rules (R1–R41). Required gate at v0 and after any `replan` or mutation. `--kind loop_plan \| node_contract \| evidence_ledger \| loop_meta \| loops_index \| node_runtime \| claim \| event_log \| loop_state \| artifact_index`; `--plan` (ledger R36), `--root` (index R37). Covers evidence lifecycle (R38), node retirement (R40), artifact authority (R41), plan-mutation events (R39, via `event_log`). |
 | [`validate_checkpoint.py`](scripts/validate_checkpoint.py) | Validates checkpoint schema + `--plan` consistency (R6), transition-closure (R19/R20), `--claims` single-flight (R22), `--meta` child-loop fields (R33). |
+| [`check_loop_integrity.py`](scripts/check_loop_integrity.py) | **Whole-loop-directory anti-corruption gate.** Composes the per-file validators AND the cross-file reconciliation (checkpoint↔plan↔ledger↔index, completed-needs-active-evidence, evidence-artifact-exists). Run at every session start, after every node completion, and after every mutation; a violation means enter recovery instead of advancing. |
 | [`render_dag.py`](scripts/render_dag.py) | Optional DAG render for human inspection. |
 
 ### Examples — `examples/`

@@ -51,6 +51,8 @@ from checks.nodes import validate_nodes_recursive
 from checks.provenance import check_plan_provenance, check_ledger_verifier_independence
 from checks.claim import validate_claim
 from checks.caps import check_caps, check_contract_cost
+from checks.retirement import check_retirement
+from checks.artifact_index import validate_artifact_index
 from checks.event_log import validate_event_log
 from checks.loop_state import validate_loop_state
 from checks.runtime import validate_node_runtime
@@ -65,6 +67,7 @@ SCHEMA_BY_KIND: dict[str, str] = {
     "claim": "claim.schema.json",
     "event_log": "event_log.schema.json",
     "loop_state": "loop.state.schema.json",
+    "artifact_index": "artifact.index.schema.json",
 }
 
 
@@ -147,6 +150,7 @@ def validate_loop_plan(doc: Any, errors: list[str]) -> None:
         check_human_intervention_policy(doc.get("human_intervention_policy"), errors)
     check_plan_provenance(doc, errors)
     check_caps(doc, errors)
+    check_retirement(doc, errors)
     validate_nodes_recursive(doc.get("nodes"), "", errors)
 
 
@@ -180,6 +184,9 @@ def validate_evidence_ledger(doc: Any, errors: list[str]) -> None:
         return
     valid_verdicts = {"pass", "fail", "inconclusive"}
     valid_verifiers = {"agent", "subagent", "user", "script"}
+    valid_status = {"active", "challenged", "superseded", "stale", "invalid", "retired"}
+    inactive_status = {"superseded", "stale", "invalid", "retired"}
+    ids = {e.get("entry_id") for e in entries if isinstance(e, dict)}
     for idx, entry in enumerate(entries):
         scope = f"ledger entry[{idx}]"
         if not isinstance(entry, dict):
@@ -195,6 +202,29 @@ def validate_evidence_ledger(doc: Any, errors: list[str]) -> None:
             errors.append(f"[R4 BAD VERDICT] {scope}: verdict {entry.get('verdict')!r} invalid")
         if entry.get("verifier") not in valid_verifiers and "verifier" in entry:
             errors.append(f"[R4 BAD VERIFIER] {scope}: verifier {entry.get('verifier')!r} invalid")
+        status = entry.get("status")
+        if status is not None and status not in valid_status:
+            errors.append(
+                f"[R38 EVIDENCE-LIFECYCLE] {scope}: status {status!r} is not one of "
+                f"{sorted(valid_status)}"
+            )
+        if status == "superseded" and not entry.get("superseded_by"):
+            errors.append(
+                f"[R38 EVIDENCE-LIFECYCLE] {scope}: status is 'superseded' but "
+                f"superseded_by is empty — a superseded entry must name its replacement"
+            )
+        sb = entry.get("superseded_by")
+        if sb and sb not in ids:
+            errors.append(
+                f"[R38 EVIDENCE-LIFECYCLE] {scope}: superseded_by {sb!r} references no "
+                f"existing entry_id"
+            )
+        if status in inactive_status and entry.get("verdict") == "pass":
+            errors.append(
+                f"[R38 EVIDENCE-LIFECYCLE] {scope}: a {status!r} entry still carries "
+                f"verdict 'pass' — inactive evidence must not back a gate; re-verify "
+                f"or mark the node verification_failed"
+            )
 
 
 def run_jsonschema_bonus(doc: Any, kind: str, errors: list[str]) -> None:
@@ -227,6 +257,7 @@ def main() -> int:
         choices=(
             "loop_plan", "node_contract", "evidence_ledger", "loop_meta",
             "loops_index", "node_runtime", "claim", "event_log", "loop_state",
+            "artifact_index",
         ),
         default="loop_plan",
         help="Artifact kind (default: loop_plan).",
@@ -260,8 +291,10 @@ def main() -> int:
         validate_claim(doc, errors)
     elif args.kind == "event_log":
         validate_event_log(doc, errors)
-    else:
+    elif args.kind == "loop_state":
         validate_loop_state(doc, errors)
+    else:
+        validate_artifact_index(doc, errors)
 
     # Bonus jsonschema layer, merged in (deduplicated against hand-rolled errors).
     schema_errors: list[str] = []

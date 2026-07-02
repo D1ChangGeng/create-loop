@@ -602,6 +602,58 @@
         "notes": {
           "type": "string",
           "description": "Free-form notes. May be empty string."
+        },
+        "retirement": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Tombstone metadata for a retired/deprecated/cancelled node. Complex systems must be able to retire work, not only grow it; a retired node is never deleted (dangling references), it is tombstoned here so the retirement is auditable and reconcilable (rule R40). Null/omitted for live nodes.",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "reason"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "cancelled",
+                "superseded",
+                "merged",
+                "deprecated",
+                "failed_closed",
+                "abandoned"
+              ],
+              "description": "Why the node left active service."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Human-readable justification."
+            },
+            "retired_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "ISO-8601 timestamp."
+            },
+            "superseded_by": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "node id (or loop/subgraph id) that replaces this node; required-in-spirit when type is 'superseded' or 'merged'. Must reference an existing node when it names one."
+            },
+            "evidence_refs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "evidence entry_ids justifying retirement."
+            }
+          }
         }
       }
     }

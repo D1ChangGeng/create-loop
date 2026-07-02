@@ -20,3 +20,11 @@ entries:
     kind: post_effect
     outcome: ok
     result_hash: "sha256:abc123"
+  # A structured plan mutation (kind:mutation): typed + reasoned + evidenced (R39).
+  - seq: 2
+    node_id: n4_requirements
+    ts: "2026-07-02T14:10:00Z"
+    kind: mutation
+    mutation_type: add_subgraph
+    reason: "Gate found 3 acceptance criteria that are not verifiable."
+    evidence_refs: ["ev-0002"]

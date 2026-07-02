@@ -7,7 +7,13 @@ from __future__ import annotations
 
 from typing import Any
 
-EVENT_KINDS = frozenset({"pre_effect", "post_effect", "note"})
+EVENT_KINDS = frozenset({"pre_effect", "post_effect", "note", "mutation"})
+MUTATION_TYPES = frozenset({
+    "add_action", "add_subgraph", "promote_subgraph_to_subloop", "add_child_loop",
+    "update_dependency", "split_node", "merge_nodes", "cancel_node",
+    "deprecate_node", "update_gate", "update_artifact_contract",
+    "update_assumption", "update_risk",
+})
 
 
 def validate_event_log(doc: Any, errors: list[str]) -> None:
@@ -41,6 +47,21 @@ def validate_event_log(doc: Any, errors: list[str]) -> None:
                 f"[R31 BAD-EVENT-KIND] event_log entries[{idx}]: kind {kind!r} is not "
                 f"one of {sorted(EVENT_KINDS)}"
             )
+        if kind == "mutation":
+            mtype = e.get("mutation_type")
+            if mtype not in MUTATION_TYPES:
+                errors.append(
+                    f"[R39 UNTRACKED-MUTATION] event_log entries[{idx}]: a mutation "
+                    f"event must carry a valid 'mutation_type' (one of "
+                    f"{sorted(MUTATION_TYPES)}); got {mtype!r}. Live plan changes must "
+                    f"be typed, not untracked edits."
+                )
+            if not e.get("reason"):
+                errors.append(
+                    f"[R39 UNTRACKED-MUTATION] event_log entries[{idx}]: a mutation "
+                    f"event must carry a non-empty 'reason' — a change without a reason "
+                    f"is how a live plan corrupts into scope creep."
+                )
 
     resolved: set[tuple[Any, Any]] = set()
     for e in entries:
