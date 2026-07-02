@@ -449,6 +449,15 @@ Hard rules:
 Full control-flow vocabularies (`fixed`, `conditional`, `command`, `fanout`),
 join semantics, and parallel-dispatch rules live in
 [`references/branching_parallelism.md`](references/branching_parallelism.md).
+When more than one **code-development** unit runs at once (parallel actions,
+sibling subgraphs, concurrent sub-loops, or a multi-role team), follow
+[`references/parallel_development_protocol.md`](references/parallel_development_protocol.md):
+one git worktree per unit (isolation), a non-mutating `git merge-tree`
+pre-flight before integration, an **owner-gate** where local commits are
+autonomous but `push`/`merge`/PR are owner-only, host-capability detection with
+a sequential filesystem fallback, and a defined rollback ladder. SKILL.md and
+other single-owner artifacts are single-writer — never let two units edit the
+same file concurrently; give each its own worktree.
 Gate selection (which of the 8 to assign to which node) is in
 [`references/evidence_gates.md`](references/evidence_gates.md).
 
@@ -593,6 +602,7 @@ rows only matter in their respective modes.
 | [`recursive_loops.md`](references/recursive_loops.md) | You need the isomorphic per-loop directory layout, `loop.meta.yaml` field set, `child_loops[]` reference shape, `return_contract` / `closeout.md`, child-checkpoint additions, the Sub-loop Admission Gate, the isolation rule, or the INDEX files. Read when promoting to or working inside a **subloop**. |
 | [`subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md) | You need the action / subgraph / subloop three-tier model, the **Promotion Gate** (when a subgraph must be promoted to a subloop), the 8-value subgraph status enum, `node.runtime.yaml` hosting, or the subgraph ↔ parent-node permission table. |
 | [`branching_parallelism.md`](references/branching_parallelism.md) | You are dispatching nodes, wiring `fanout`/`join`, choosing serial vs parallel, or designing `branch` / merge / cancellation. |
+| [`parallel_development_protocol.md`](references/parallel_development_protocol.md) | You are running MORE THAN ONE code-development unit at once (parallel actions / sibling subgraphs / concurrent sub-loops / a multi-role team). The git-worktree-per-unit isolation, non-mutating merge pre-flight, owner-gate on push/merge, capability detection + filesystem fallback, and the rollback ladder. Behavioral protocol — no schema. |
 | [`evidence_gates.md`](references/evidence_gates.md) | You are picking which of the 8 gate kinds to assign to a node, or deciding between `llm_judge` vs `human_approval` vs `evaluator_optimizer`. |
 | [`exception_handling.md`](references/exception_handling.md) | A node fails, the ladder fires, a saga needs compensation, or you need retry-policy math / per-exception response table. |
 | [`human_approval.md`](references/human_approval.md) | You are deciding what an agent may do autonomously, scoping an `approval` node, or writing a cross-session handoff token. |
