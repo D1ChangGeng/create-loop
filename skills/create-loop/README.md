@@ -216,6 +216,7 @@ directory and populates it from `templates/`:
 | `run.log.md` | `templates/run.log.md` | append-only run narrative |
 | `handoff.md` | `templates/handoff.md` | handoff doc written at each stop so a fresh agent can pick up |
 | `closeout.md` | `templates/closeout.md` | end-of-run summary |
+| `human_decision_request.md` | `templates/human_decision_request.md` | when the loop must ask the user to decide: a context-complete, YAML-answerable Human Decision Package (options, trade-offs, recommendation) rather than a bare question |
 | `loops.index.yaml` | `templates/loops.index.yaml` | tree index over the run root (one per `_loops/`) |
 
 The append-only event log referenced by `checkpoint.event_log_ref` is

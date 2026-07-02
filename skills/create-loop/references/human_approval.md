@@ -350,7 +350,238 @@ guard is the `approval` node plus the user-confirmation rule.
 
 ---
 
-## 7. Approval is not optional scaffolding
+## 7. Human Decision Request Protocol
+
+§6 lists *which* actions must be user-approved. §3 explains *how* the
+`approval` node suspends a loop on `waiting_user`. This section defines
+*the content* the loop presents to the user when it asks. The shape of
+that content is part of the protocol, not an ad-hoc phrasing the agent
+improvises at suspend time.
+
+### 7.1 Principle
+
+When a loop must request a human decision, the human input is a **formal
+external control signal** — comparable to a sensor reading, a CI verdict,
+or an `evidence.ledger` entry — not a casual chat reply. Three properties
+follow:
+
+1. **Context-complete.** The decision package carries every fact the
+   decider needs to answer: loop context, evidence, attempted actions,
+   candidate options, reversibility, system recommendation, consequence of
+   silence. A fresh AI session with no prior history must be able to
+   answer from the package alone.
+2. **Copy-pasteable.** The package is one Markdown document, structured,
+   path-complete, and re-readable end-to-end. The decider pastes the
+   returned YAML answer back; the runner writes it into `decision.log.md`,
+   `loop.state.yaml`, `checkpoint.yaml`, and any affected `loop.plan.yaml`
+   without translation.
+3. **Machine-ingestible.** The required answer format is a typed YAML
+   block (see [§7.5](#75-required-answer-format)). The runner parses it;
+   free-form prose answers are NOT accepted, because the runner cannot
+   safely translate them into a node transition, a `plan_version` bump,
+   or a `decision.log` entry.
+
+The template that realises these properties is
+[`templates/human_decision_request.md`](../templates/human_decision_request.md).
+Fill every placeholder; do not abbreviate, do not summarise, do not omit
+sections.
+
+### 7.2 When a decision package is REQUIRED
+
+A package is required at tier 3 or higher (see §2). Concretely, the
+runner MUST emit a `Human Decision Package` whenever the candidate
+decision falls into one or more of the categories below. These
+categories are the same boundary set owned by `SKILL.md` §3 and the §6
+table; this section restates the operational checklist, not the
+underlying authority rule. Read `SKILL.md` §3 and §6 first; use this
+list at emit time.
+
+- [ ] **Change the top-level `goal` or `true_intent`.** Touches the
+      anchor every downstream decision is measured against
+      (§6, `goal_changed`).
+- [ ] **Expand committed scope.** Add or remove an in-scope item, a
+      `success_criteria` entry, or a hard constraint recorded in
+      `task_profile.yaml`.
+- [ ] **Introduce major new requirements.** Any requirement whose cost
+      or scope exceeds what was committed in `task_profile.yaml` at
+      charter time.
+- [ ] **Commit significant additional resources.** Budget, time, compute,
+      tokens, external API spend, or human hours beyond the original
+      estimate. The runner reports the delta against `task_profile.yaml`.
+- [ ] **Cause an external side effect.** Publishing, sending mail,
+      opening a PR, writing to a remote system, paying, deploying, or any
+      action whose blast radius extends beyond the local repository.
+- [ ] **Perform an irreversible or hard-to-reverse action.** Delete,
+      overwrite, migrate, public release — anything `local_retry` /
+      `local_patch` cannot undo.
+- [ ] **Touch legal / security / compliance / licensing / privacy /
+      safety risk.** Regulated data, vulnerable populations, license
+      boundaries, secrets, threat surface.
+- [ ] **Require a new permission or credential.** New scope of
+      authority, new API key, new repository write, new deployment
+      target.
+- [ ] **Resolve a user value preference.** A choice between alternatives
+      where the decider's value judgement (fast vs robust, aggressive vs
+      conservative, thorough vs minimal) overrides evidence-based
+      ranking.
+- [ ] **Resolve a fork with no evidence-backed dominant option.**
+      Multiple viable candidates with comparable evidence and no rubric
+      that resolves the tie.
+- [ ] **Promote a high-impact conclusion into long-term knowledge.** A
+      self-evolution promotion, a new ADR, or a runbook change that
+      should not happen silently.
+
+If none of these apply, the runner MUST NOT emit the package — the
+decision is autonomous (tier 1 or 2) and proceeds under the §1
+autonomy-first rule.
+
+### 7.3 Anti-pattern: vague questions are FORBIDDEN
+
+The runner MUST NOT ask a low-context question. The following phrasings
+are forbidden at tier 3 or higher, regardless of how polite or
+well-intentioned they read:
+
+- "What do you think?"
+- "Should we do this?"
+- "Which option do you prefer?"
+- "Is this OK?"
+- "Continue?"
+- "Any preference?"
+
+These phrasings fail all three properties of §7.1: they are not
+context-complete (no evidence, no candidates, no reversibility), not
+copy-pasteable (the answer is a one-liner that drops on the floor), and
+not machine-ingestible (the runner cannot parse "yes" into a
+`selected_option` and a `plan_version` bump). If the runner finds itself
+about to emit one of these, it MUST stop, fill the
+[`human_decision_request.md`](../templates/human_decision_request.md)
+template, and present the package instead.
+
+### 7.4 The 15 required package components
+
+Every decision package carries the following 15 components in order. Each
+maps to a section of the template:
+
+1. **Decision ID** — the stable id `HD-<loop-id>-<seq>` the runner uses
+   to thread the answer through write-back.
+2. **Required Decision** — one sentence stating the decision needed;
+   cites the owning `node_id`, `plan_version`, `risk` class, and tier.
+3. **Why Human Decision Is Required** — checklist of categories from
+   §7.2, at least one ticked.
+4. **Current Loop Context** — root loop, current loop, current node,
+   parent loop, parent node, current status, trigger event, relevant
+   files, relevant artifacts, relevant evidence (all paths, no prose).
+5. **Top-level Goal, Non-goals, Hard Constraints** — verbatim from
+   `task_profile.yaml` and `loop.plan.yaml`.
+6. **Evidence Gathered So Far** — the evidence table the loop has
+   accumulated, with claim / path / verifier / verdict / confidence per
+   row.
+7. **What Has Already Been Tried** — every attempted action and its
+   outcome, including negated paths, with the `decision.log.md`
+   timestamp that recorded each.
+8. **Candidate Options** — for each option (A, B, C, ...): description,
+   pros, cons, risks, cost, reversibility, evidence, impact on the
+   current loop, impact on the final goal.
+9. **System Recommendation** — the runner's recommended choice, its
+   rationale, and its confidence level (`high` / `med` / `low`); when
+   `med` or `low`, the tie-breaker is named.
+10. **Consequence of No Decision** — whether the decision blocks this
+    node, is safe to defer, degrades gracefully, or affects the final
+    goal; each with a concrete answer.
+11. **Required Answer Format** — the YAML block in §7.5, with every key
+    named and typed.
+
+(The template also carries four structural components that wrap the
+11 above: the leading context-complete notice, the write-back contract,
+the trailing write-back targets list, and the runner reminder. Those
+are part of every package, not optional.)
+
+### 7.5 Required answer format
+
+The decider returns one of three answers
+([`state_model.md` §state transition table](../references/state_model.md#state-transition-table)
+informs the node transition; this section fixes the answer's shape):
+
+- **`approve`** — `selected_option: <letter>` and
+  `approval_status: approved`.
+- **`reject`** — `selected_option: reject` and
+  `approval_status: rejected`.
+- **`amend`** — `selected_option: custom` or `selected_option: <letter>`
+  with `approval_status: needs_revision` plus the amendment in
+  `constraints`, `allowed_actions`, or `disallowed_actions`.
+
+A defer (`selected_option: defer`, `approval_status: defer`) is a
+fourth legal shape — the decider is asking the loop to come back later,
+possibly with more evidence. The runner treats `defer` as
+`waiting_user` continuing, not as a transition out of the suspend
+state.
+
+The YAML block the decider fills is locked — keys and types below are
+the canonical schema for the write-back. The full block, with comments,
+lives in
+[`templates/human_decision_request.md`](../templates/human_decision_request.md):
+
+```yaml
+decision_id: "{{decision_id}}"
+selected_option: "<A | B | C | defer | reject | custom>"
+approval_status: "<approved | rejected | needs_revision | defer>"
+rationale: >
+  ...
+constraints:
+  - "..."
+allowed_actions:
+  - "..."
+disallowed_actions:
+  - "..."
+fallback_policy: >
+  ...
+additional_notes: >
+  ...
+```
+
+The runner parses this block and writes it back to:
+
+- **`decision.log.md`** — new append-only entry, header
+  `## {ISO}: Human decision HD-<loop-id>-<seq> — {selected_option}`,
+  with fields filled from the YAML.
+- **`loop.state.yaml`** — appended to `human_decisions[]`;
+  `last_decision_at` timestamp updated; `active_constraints` recorded
+  from the `constraints` list.
+- **`checkpoint.yaml`** — the matching `pending_approvals` entry (by
+  `node_id` and `token`) is removed once the approval node transitions
+  (`verifying → completed` on approved / `→ cancelled` on rejected).
+- **`loop.plan.yaml`** (when affected) — `meta.plan_version` bumps and
+  the old version is recorded under `meta.plan_history[]`.
+
+### 7.6 Composition with the `approval` node
+
+This protocol is the *content* half of the `approval` node, not a
+replacement. The two compose as follows:
+
+- The `approval` node (§3) is the **structural control point**: it sets
+  `waiting_user` and appends the `pending_approvals` entry to
+  `checkpoint.yaml`. It is what the planner declares in
+  `loop.plan.yaml`; the user knows they may be asked because the node is
+  on the page.
+- The Human Decision Package (§7) is the **content presented for that
+  approval**: it is the artifact the runner emits when the `approval`
+  node reaches `running`, carrying the 15 components of §7.4 and the
+  answer format of §7.5.
+- The runner emits the package once per `approval` node dispatch. If
+  the user returns `needs_revision`, the runner may re-emit an
+  amended package under the same `decision_id` (bumping `seq` is NOT
+  required for amendments — `seq` identifies the question; the answer's
+  `approval_status` identifies the round).
+- The `evidence.ledger` entry that records the verdict follows the
+  rules of §3.4 (`verifier: user`, `gate_kind: human_approval`), and
+  references this package path under `evidence_ref`.
+
+In short: §3 builds the gate; §6 names which actions cross it; §7
+defines the artifact that crosses it.
+
+---
+
+## 8. Approval is not optional scaffolding
 
 `approval` is a first-class node kind, planned in advance, with its own
 `gate`, its own `subgraph` recursion option, and the same readiness and
@@ -377,7 +608,7 @@ Three corollaries:
 
 ---
 
-## 8. See also
+## 9. See also
 
 - [`loop_plan_spec.md` §2](./loop_plan_spec.md#2-node-object) — the node object and its `assignee`, `risk`, `kind`, `gate` fields.
 - [`loop_plan_spec.md` §4](./loop_plan_spec.md#4-evidence-gates) — the `gate` object and the `human_approval` gate kind.
@@ -394,5 +625,6 @@ Three corollaries:
 - [`exception_handling.md`](./exception_handling.md) — the bounded ladder, the per-exception response table, and the saga machinery that approvals often gate.
 - [`recovery_protocol.md`](./recovery_protocol.md) — the operational procedure for approvals and escalations.
 - [`evidence_gates.md`](./evidence_gates.md) — `human_approval` as one of the 8 gate kinds.
+- [`templates/human_decision_request.md`](../templates/human_decision_request.md) — the Human Decision Package template (§7). Copy this, fill the `{{...}}` placeholders, present to the decider, parse the YAML answer into `decision.log.md` / `loop.state.yaml` / `checkpoint.yaml` / affected `loop.plan.yaml`.
 - [`./research_durable_loops.md`](./research_durable_loops.md) — §3.3 (Wire, *Why every agent handoff corrupts your context*; the four-field handoff schema), §3.x (LangGraph `interrupt()`, `HumanInTheLoopMiddleware`, multi-agent handoff).
 - [`./research_dags_multiagent.md`](./research_dags_multiagent.md) — §0.1 (Graph Harness, three-layer framing) and the DAG research on multi-agent handoff patterns.

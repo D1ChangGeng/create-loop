@@ -193,3 +193,47 @@ nodes:
 
 created: "2026-07-02"             # ISO-8601 date or date-time
 plan_version: 1                   # monotonic; bumped on each replan
+
+# ---------------------------------------------------------------------------
+# human_intervention_policy — OPTIONAL. The Human Decision Package policy
+# (references/human_approval.md): when the agent must surface a structured
+# decision package to the human, and what that package must contain. Omit the
+# whole block on a plan that does not need it — a plan without it stays valid.
+# Tokens are LOCKED:
+#   default_mode:           structured_decision_package | direct_question
+#   preferred_answer_format: yaml | json | structured_text
+# ---------------------------------------------------------------------------
+human_intervention_policy:
+  default_mode: structured_decision_package   # surface a full package, not a bare question
+  forbid_low_context_questions: true          # never ask a question lacking the package
+  require_context_complete_package: true      # every surfaced decision carries full context
+  require_machine_ingestible_answer: true     # the human's answer parses back into the loop
+  preferred_answer_format: yaml
+  decision_package_required_when:             # the 10 boundary triggers (locked tokens)
+    - top_level_goal_change
+    - scope_expansion
+    - major_resource_cost
+    - external_side_effect
+    - irreversible_operation
+    - legal_security_compliance_licensing_risk
+    - permission_or_credential_required
+    - user_value_preference_required
+    - no_evidence_backed_dominant_option
+    - long_term_knowledge_promotion
+  package_must_include:                        # the 15 decision-package components
+    - decision_id
+    - required_decision
+    - reason_human_decision_is_required
+    - current_loop_context
+    - top_level_goal
+    - non_goals
+    - hard_constraints
+    - evidence_summary
+    - attempted_actions
+    - candidate_options
+    - tradeoff_analysis
+    - reversibility
+    - risk_profile
+    - system_recommendation
+    - consequence_of_no_decision
+    - required_answer_schema

@@ -77,9 +77,66 @@
     "plan_version": {
       "type": "integer",
       "description": "Monotonic integer, incremented each time the plan is re-generated (replan). The plan for a given plan_version is immutable."
+    },
+    "human_intervention_policy": {
+      "$ref": "#/$defs/human_intervention_policy",
+      "description": "OPTIONAL. Plan-level policy encoding the Human Decision Package rules (references/human_approval.md): when a decision package is required, and the shape that package must take. Absent on legacy plans; a plan without it stays valid."
     }
   },
   "$defs": {
+    "human_intervention_policy": {
+      "type": "object",
+      "description": "The Human Decision Package policy. Declares the default intervention mode, the conditions that force a structured decision package, and the components that package must include. Every field is optional; an empty object is valid.",
+      "additionalProperties": false,
+      "properties": {
+        "default_mode": {
+          "type": "string",
+          "description": "How the agent surfaces a decision to the human by default. Default: structured_decision_package.",
+          "enum": ["structured_decision_package", "direct_question"]
+        },
+        "forbid_low_context_questions": {
+          "type": "boolean",
+          "description": "true if the agent must not ask the human a low-context question (a question lacking the full decision package)."
+        },
+        "require_context_complete_package": {
+          "type": "boolean",
+          "description": "true if every decision surfaced to the human must carry a context-complete package."
+        },
+        "require_machine_ingestible_answer": {
+          "type": "boolean",
+          "description": "true if the human's answer must be machine-ingestible (parseable back into the loop)."
+        },
+        "preferred_answer_format": {
+          "type": "string",
+          "description": "The preferred serialization for the human's machine-ingestible answer.",
+          "enum": ["yaml", "json", "structured_text"]
+        },
+        "decision_package_required_when": {
+          "type": "array",
+          "description": "The boundary conditions that force a structured decision package. Each item is one of the 10 canonical trigger tokens.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "top_level_goal_change",
+              "scope_expansion",
+              "major_resource_cost",
+              "external_side_effect",
+              "irreversible_operation",
+              "legal_security_compliance_licensing_risk",
+              "permission_or_credential_required",
+              "user_value_preference_required",
+              "no_evidence_backed_dominant_option",
+              "long_term_knowledge_promotion"
+            ]
+          }
+        },
+        "package_must_include": {
+          "type": "array",
+          "description": "The components a decision package must include (e.g. the 15 canonical components: decision_id, required_decision, ... required_answer_schema).",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "status": {
       "type": "string",
       "description": "Node status. The canonical, complete set of 15 node statuses. Terminal: completed, cancelled, deprecated.",

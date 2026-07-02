@@ -439,6 +439,16 @@ Decision-authority tiers, the cross-session handoff token, and the
 "what-must-be-user-approved-by-default" rules are in
 [`references/human_approval.md`](references/human_approval.md).
 
+When you must ask the user to decide, never ask a bare question. Emit a
+**Human Decision Package** — a context-complete, copy-pasteable, YAML-answerable
+brief (goal, constraints, evidence, options with trade-offs, a recommendation,
+and the answer schema) so a fresh reader or another AI can answer systematically
+and the reply can be written straight back into `decision.log.md` /
+`loop.state.yaml` / `checkpoint.yaml`. A plan may declare a
+`human_intervention_policy` block to make this mandatory. Template:
+[`templates/human_decision_request.md`](templates/human_decision_request.md);
+protocol in [`references/human_approval.md`](references/human_approval.md) §7.
+
 ---
 
 ## 11. Knowledge promotion
@@ -515,6 +525,7 @@ rows only matter in their respective modes.
 | [`node.contract.yaml`](templates/node.contract.yaml) | Mode B: per-node execution contract (`cache_key`, `attempt`, gate copy, evidence pointer). |
 | [`node.runtime.yaml`](templates/node.runtime.yaml) | Mode B: per-node runtime hosting for in-node `subgraph`s (`nodes/<node_id>/node.runtime.yaml`, the `runtime_subgraphs[]` list). |
 | [`handoff.md`](templates/handoff.md) | Modes B/C: when the session ends mid-node, this is the handoff the next session reads first. |
+| [`human_decision_request.md`](templates/human_decision_request.md) | You must ask the user to decide: fill this context-complete Human Decision Package (options, trade-offs, recommendation, YAML answer schema) instead of a bare question. |
 | [`run.log.md`](templates/run.log.md) | Mode B: human-readable per-node run narrative (not a source of truth). |
 | [`decision.log.md`](templates/decision.log.md) | Mode B: ADR-style log of major plan/scope decisions. |
 | [`closeout.md`](templates/closeout.md) | Mode B / after done: the closeout summary — also the **return interface** for a child loop to its parent. |

@@ -57,6 +57,23 @@ SUBGRAPH_STATUSES: frozenset[str] = frozenset({
 # loop.meta.yaml.type enum (2 values).
 LOOP_META_TYPES: frozenset[str] = frozenset({"root_loop", "child_loop"})
 
+# human_intervention_policy enums (OPTIONAL top-level plan field). The policy
+# encodes the Human Decision Package rules (references/human_approval.md). The
+# field is optional: a plan without it stays valid; when present, its enum-typed
+# members are checked here (rule R18).
+HIP_DEFAULT_MODES: frozenset[str] = frozenset({
+    "structured_decision_package", "direct_question",
+})
+HIP_ANSWER_FORMATS: frozenset[str] = frozenset({"yaml", "json", "structured_text"})
+# The 10 canonical decision-package trigger tokens.
+HIP_REQUIRED_WHEN_TOKENS: frozenset[str] = frozenset({
+    "top_level_goal_change", "scope_expansion", "major_resource_cost",
+    "external_side_effect", "irreversible_operation",
+    "legal_security_compliance_licensing_risk",
+    "permission_or_credential_required", "user_value_preference_required",
+    "no_evidence_backed_dominant_option", "long_term_knowledge_promotion",
+})
+
 # loop_id pattern (recursive_loops.md §3.3): top-level L<seq> (3-digit
 # zero-padded) plus one ".<local-seq>" (2-digit zero-padded) per recursion
 # level. e.g. L001, L001.02, L001.02.01.
@@ -310,6 +327,52 @@ def validate_nodes_recursive(nodes: Any, scope: str, errors: list[str]) -> None:
     check_graph(nodes, scope, errors)
 
 
+def check_human_intervention_policy(policy: Any, errors: list[str]) -> None:
+    """Validate the OPTIONAL human_intervention_policy block (R18).
+
+    Absent -> no-op (the field is optional; legacy plans stay valid). Present ->
+    the enum-typed members are checked against their canonical token sets.
+    """
+    if policy is None:
+        return
+    if not isinstance(policy, dict):
+        errors.append(
+            "[R18 BAD human_intervention_policy] human_intervention_policy must "
+            "be a mapping when present"
+        )
+        return
+
+    default_mode = policy.get("default_mode")
+    if "default_mode" in policy and default_mode not in HIP_DEFAULT_MODES:
+        errors.append(
+            f"[R18 BAD human_intervention_policy] default_mode {default_mode!r} "
+            f"is not one of {sorted(HIP_DEFAULT_MODES)}"
+        )
+
+    answer_format = policy.get("preferred_answer_format")
+    if "preferred_answer_format" in policy and answer_format not in HIP_ANSWER_FORMATS:
+        errors.append(
+            f"[R18 BAD human_intervention_policy] preferred_answer_format "
+            f"{answer_format!r} is not one of {sorted(HIP_ANSWER_FORMATS)}"
+        )
+
+    required_when = policy.get("decision_package_required_when")
+    if "decision_package_required_when" in policy:
+        if not isinstance(required_when, list):
+            errors.append(
+                "[R18 BAD human_intervention_policy] decision_package_required_when "
+                "must be a list of trigger tokens"
+            )
+        else:
+            for idx, token in enumerate(required_when):
+                if token not in HIP_REQUIRED_WHEN_TOKENS:
+                    errors.append(
+                        f"[R18 BAD human_intervention_policy] "
+                        f"decision_package_required_when[{idx}] {token!r} is not one "
+                        f"of the 10 trigger tokens {sorted(HIP_REQUIRED_WHEN_TOKENS)}"
+                    )
+
+
 def validate_loop_plan(doc: Any, errors: list[str]) -> None:
     """Structural + graph validation for a loop.plan document."""
     if not isinstance(doc, dict):
@@ -326,6 +389,8 @@ def validate_loop_plan(doc: Any, errors: list[str]) -> None:
                 errors.append(
                     f"[R5 MISSING REQUIRED FIELD] termination: missing {field!r}"
                 )
+    if "human_intervention_policy" in doc:
+        check_human_intervention_policy(doc.get("human_intervention_policy"), errors)
     validate_nodes_recursive(doc.get("nodes"), "", errors)
 
 

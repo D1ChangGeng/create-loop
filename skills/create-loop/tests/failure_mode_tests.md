@@ -4,7 +4,7 @@
 rejection contract for the `create-loop` validators. It is written
 **test-first**: `scripts/validate_loop_plan.py` and
 `scripts/validate_checkpoint.py` are authored afterwards to reject exactly the
-inputs below. Each rule `R1`–`R17` has **one** minimal fixture that is complete,
+inputs below. Each rule `R1`–`R18` has **one** minimal fixture that is complete,
 well-formed YAML and valid in every respect **except the single defect** that
 rule targets. A correct validator exits **nonzero** on each fixture and prints a
 message naming the violated rule.*
@@ -45,6 +45,7 @@ All paths are relative to `/root/create-loop/create-loop/`.
 | `R15` | subgraph status crossover | schema: subgraph uses a NODE status (`verification_failed`), not a subgraph status | `validate_loop_plan.py --kind node_runtime` |
 | `R16` | bad INDEX shape | schema: index has BOTH `loops` and `children` keys (violates oneOf) | `validate_loop_plan.py --kind loops_index` |
 | `R17` | child_loop with no parent | schema: `type: child_loop` but `parent` is null/absent | `validate_loop_plan.py --kind loop_meta` |
+| `R18` | bad human_intervention_policy | schema: optional `human_intervention_policy.default_mode` outside its enum | `validate_loop_plan.py` |
 
 Canonical enums exercised (verbatim):
 
@@ -1095,6 +1096,91 @@ python3 scripts/validate_loop_plan.py --kind loop_meta /tmp/fx_child_no_parent.y
 
 ---
 
+## R18 — bad human_intervention_policy (loop.plan.yaml)
+
+**What's wrong:** the OPTIONAL top-level `human_intervention_policy` block is
+present but its `default_mode` is `"vibes"`, which is outside the 2-value enum
+(`structured_decision_package` | `direct_question`). The
+`human_intervention_policy` field is optional (a plan omitting it entirely stays
+valid); this fixture proves that **when the block is present**, its enum-typed
+members are still checked. Every one of the 12 required top-level fields is
+present, `child_loops: []` is set on the node, and every other value is
+in-enum — the sole defect is the bad `default_mode`.
+
+```yaml
+schema_version: "1.0.0"
+plan_id: fixture_bad_hip
+goal: "demonstrate an out-of-enum human_intervention_policy default_mode"
+true_intent: "isolate bad-human_intervention_policy detection"
+non_goals: []
+success_criteria:
+  - id: sc1
+    statement: "human_intervention_policy default_mode is one of the 2 modes"
+    measurable: true
+failure_criteria: []
+termination:
+  max_iterations: 10
+  max_wall_clock_hours: null
+  max_cost_units: null
+  done_when: "all success_criteria met and all top-level nodes completed"
+constraints: []
+human_intervention_policy:
+  default_mode: "vibes"
+  forbid_low_context_questions: true
+  require_context_complete_package: true
+  require_machine_ingestible_answer: true
+  preferred_answer_format: yaml
+  decision_package_required_when:
+    - top_level_goal_change
+    - irreversible_operation
+  package_must_include:
+    - decision_id
+    - required_decision
+nodes:
+  - id: a
+    kind: milestone
+    title: Node A
+    design_invariant: true
+    status: pending
+    requires: []
+    produces: []
+    inputs: []
+    preconditions: []
+    postconditions: []
+    gate:
+      kind: artifact_exists
+      threshold: null
+      rubric: null
+      evidence_ref: evidence/a.json
+    retry_policy:
+      max_attempts: 3
+      backoff_base_seconds: 2
+      jitter: true
+    on_failure: local_retry
+    priority: 1
+    risk: low
+    parallelizable: false
+    allow_subgraph: false
+    subgraph: null
+    child_loops: []
+    assignee: agent
+    notes: ""
+created: "2026-07-01"
+plan_version: 1
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_loop_plan.py /tmp/fx_bad_hip.yaml
+```
+
+**Expected:** exit **nonzero**; message mentions the
+**human_intervention_policy** field — `default_mode` `vibes` is not one of
+`structured_decision_package`, `direct_question` (rule `R18`).
+
+---
+
 ## Materialize fixtures and assert rejection
 
 Copy-paste this block. Run it from `/root/create-loop/create-loop/`. It writes
@@ -1789,10 +1875,68 @@ return_contract:
 YAML
 echo -n "R17 child_no_parent: "
 python3 scripts/validate_loop_plan.py --kind loop_meta /tmp/fx_child_no_parent.yaml && echo FAIL || echo PASS-rejected
+
+# ---- R18 bad human_intervention_policy (optional field, bad default_mode enum) ----
+cat > /tmp/fx_bad_hip.yaml <<'YAML'
+schema_version: "1.0.0"
+plan_id: fixture_bad_hip
+goal: "demonstrate an out-of-enum human_intervention_policy default_mode"
+true_intent: "isolate bad-human_intervention_policy detection"
+non_goals: []
+success_criteria:
+  - id: sc1
+    statement: "human_intervention_policy default_mode is one of the 2 modes"
+    measurable: true
+failure_criteria: []
+termination:
+  max_iterations: 10
+  max_wall_clock_hours: null
+  max_cost_units: null
+  done_when: "all success_criteria met and all top-level nodes completed"
+constraints: []
+human_intervention_policy:
+  default_mode: "vibes"
+  forbid_low_context_questions: true
+  require_context_complete_package: true
+  require_machine_ingestible_answer: true
+  preferred_answer_format: yaml
+  decision_package_required_when:
+    - top_level_goal_change
+    - irreversible_operation
+  package_must_include:
+    - decision_id
+    - required_decision
+nodes:
+  - id: a
+    kind: milestone
+    title: Node A
+    design_invariant: true
+    status: pending
+    requires: []
+    produces: []
+    inputs: []
+    preconditions: []
+    postconditions: []
+    gate: {kind: artifact_exists, threshold: null, rubric: null, evidence_ref: evidence/a.json}
+    retry_policy: {max_attempts: 3, backoff_base_seconds: 2, jitter: true}
+    on_failure: local_retry
+    priority: 1
+    risk: low
+    parallelizable: false
+    allow_subgraph: false
+    subgraph: null
+    child_loops: []
+    assignee: agent
+    notes: ""
+created: "2026-07-01"
+plan_version: 1
+YAML
+echo -n "R18 bad_human_intervention_policy: "
+python3 scripts/validate_loop_plan.py /tmp/fx_bad_hip.yaml && echo FAIL || echo PASS-rejected
 ```
 
-**Expected:** seventeen lines, each ending `PASS-rejected` — one per rule
-`R1`–`R17`. No `FAIL` may appear.
+**Expected:** eighteen lines, each ending `PASS-rejected` — one per rule
+`R1`–`R18`. No `FAIL` may appear.
 
 ---
 
@@ -1817,3 +1961,4 @@ python3 scripts/validate_loop_plan.py --kind loop_meta /tmp/fx_child_no_parent.y
 | `R15` subgraph status crossover | `/tmp/fx_subgraph_status_crossover.yaml` |
 | `R16` bad INDEX shape | `/tmp/fx_bad_index_shape.yaml` |
 | `R17` child_loop with no parent | `/tmp/fx_child_no_parent.yaml` |
+| `R18` bad human_intervention_policy | `/tmp/fx_bad_hip.yaml` |

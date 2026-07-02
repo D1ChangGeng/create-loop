@@ -114,6 +114,14 @@ etc.; and for the new artifacts `loop_id`, `type`, `parent`, `root`,
 `return_contract`; `loops[]`/`children[]`; `node_id`, `runtime_subgraphs[]`)
 with in-enum values.
 
+> **Note (illustrative human_intervention_policy).** `templates/loop.plan.yaml`
+> now also carries an illustrative, valid **optional** top-level
+> `human_intervention_policy` block (the Human Decision Package policy). It is
+> optional — plans and examples that omit it stay valid — so command **2a**
+> already covers it: exit `0` there confirms the populated policy validates
+> (in-enum `default_mode`, `preferred_answer_format`, and
+> `decision_package_required_when` tokens). No new command is required.
+
 ---
 
 ## 3. Both worked examples validate (plan + checkpoint)
