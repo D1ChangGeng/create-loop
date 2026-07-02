@@ -41,6 +41,12 @@ directory-materialized subloop is governed by the Admission Gate. Full
 spec in [`references/recursive_loops.md`](references/recursive_loops.md)
 and the tier / Promotion Gate vocabulary in
 [`references/subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md).
+When more than one such unit develops code **at once** — parallel actions,
+sibling subgraphs, concurrent sub-loops, or a multi-role team — the
+[`references/parallel_development_protocol.md`](references/parallel_development_protocol.md)
+governs how to split, isolate each unit in its own git worktree, merge through a
+non-mutating pre-flight, and converge (with an owner-gate on publish and a
+rollback ladder).
 
 Full reasoning lives in `references/concepts.md`. The vocabulary
 (vocabulary, enums, transitions) lives in `references/loop_plan_spec.md`

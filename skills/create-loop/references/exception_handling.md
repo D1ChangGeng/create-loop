@@ -575,3 +575,4 @@ the loop.
 - [`human_approval.md`](./human_approval.md) — the `approval` node, decision tiers, and handoff schema.
 - [`./research_durable_loops.md`](./research_durable_loops.md) — §1.4 (Step Functions retry + jitter math), §1.6 (idempotency keys), §1.7 (saga / García-Molina 1987), §3.x (`interrupt()` and HITL).
 - [`./research_dags_multiagent.md`](./research_dags_multiagent.md) — §0.1 Graph Harness (arXiv 2604.11378) for the three-layer framing and bounded escalation invariant.
+- [`parallel_development_protocol.md`](./parallel_development_protocol.md) — conflict / failure / blocked / rollback for concurrent code development map onto this taxonomy and ladder (a merge conflict is an `inconsistent_result`, a stuck unit is `no_progress`); §8 there is the git rollback ladder.

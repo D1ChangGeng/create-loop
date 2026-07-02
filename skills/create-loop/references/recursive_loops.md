@@ -945,3 +945,15 @@ state, evidence, checkpoint, or closeout, it should be a child loop.*
 - The existing node fields `subgraph`, `allow_subgraph`, `parent_ref`,
   `plan_version` — unchanged; defined in
   [`loop_plan_spec.md`](./loop_plan_spec.md).
+
+## See also
+
+- [`parallel_development_protocol.md`](./parallel_development_protocol.md) — a
+  directory-materialized child loop is exactly a **parallel sub-loop** with its
+  own isolated workspace and return contract; that protocol adds the
+  git-worktree isolation, merge pre-flight, owner-gate, and rollback ladder for
+  running several such units concurrently.
+- [`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md) — the tier rules
+  that decide when a unit is an inline `subgraph` vs a materialized `subloop`.
+- [`state_model.md`](./state_model.md#node-status-enum) — the status enum and the
+  per-node claim/lease this layer reuses.
