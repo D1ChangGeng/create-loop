@@ -41,6 +41,7 @@ directory-materialized subloop is governed by the Admission Gate. Full
 spec in [`references/recursive_loops.md`](references/recursive_loops.md)
 and the tier / Promotion Gate vocabulary in
 [`references/subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md).
+
 When more than one such unit develops code **at once** — parallel actions,
 sibling subgraphs, concurrent sub-loops, or a multi-role team — the
 [`references/parallel_development_protocol.md`](references/parallel_development_protocol.md)
