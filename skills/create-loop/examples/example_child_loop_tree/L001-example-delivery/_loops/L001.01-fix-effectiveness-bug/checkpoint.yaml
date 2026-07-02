@@ -38,3 +38,4 @@ last_valid_artifacts:
   - artifacts/repro.md
 next_recommended_action: "Complete root-cause doc, then apply the fix and verify the regression test."
 open_blockers: []                 # each: {node_id, reason}; none open in this child loop
+checkpoint_seq: 1

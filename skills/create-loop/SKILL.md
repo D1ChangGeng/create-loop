@@ -14,10 +14,11 @@ description: >-
   like "this is a big task", "this will take many sessions", "I need this to
   survive a crash", "resume the work", "I lost context", "plan the steps",
   "set up an agent loop", "build me a control plan", "we need checkpoints",
-  "we need approval gates", "long-running agent task", "durable execution", or
-  any time a user wants to drive an ambitious multi-step project even if they
-  never say "loop". If the work might be picked up tomorrow by a fresh agent
-  in a fresh session with no memory, this skill applies.
+  "we need approval gates", "long-running agent task", "durable execution",
+  "create a loop", "run the loop", "advance the loop", "resume the loop",
+  "loop status", "where are we on the loop", or any time a user wants to drive
+  an ambitious multi-step project even if they never say "loop". If the work
+  might be picked up tomorrow by a fresh agent with no memory, this applies.
 ---
 
 # create-loop
@@ -328,12 +329,15 @@ this loop **per node**, until `termination.done_when` holds:
 
 ```
 for the chosen ready node:
+  acquire claim           (contracts/<node>.claim, O_CREAT|O_EXCL — single-flight)
   read state              (checkpoint, contract, ledger)
-  execute                 (workflow vs activity; log side-effects)
+  append pre_effect        (event_log — the primary source of truth)
+  execute                 (workflow vs activity; skip if idempotency_key already recorded)
+  append post_effect       (event_log: outcome + result_hash)
   evaluate gate           (verdict pass | fail | inconclusive)
   append evidence         (evidence.ledger entry with verifier + rationale)
   transition status       (commit requires an evidence entry)
-  write new checkpoint    (durable snapshot, never in-memory)
+  write new checkpoint    (LAST: temp file + atomic rename; counters reconcile from event_log)
   decide next             (recompute ready_set from the graph)
 ```
 
@@ -509,6 +513,7 @@ rows only matter in their respective modes.
 | [`human_approval.md`](references/human_approval.md) | You are deciding what an agent may do autonomously, scoping an `approval` node, or writing a cross-session handoff token. |
 | [`recovery_protocol.md`](references/recovery_protocol.md) | You are resuming mid-flight, handling a stale `running` node, reconciling event-log drift, or building the handoff doc. |
 | [`self_evolution_integration.md`](references/self_evolution_integration.md) | You are promoting verified findings from loop state to durable project knowledge, or stopping cross-boundary leakage. |
+| [`command_system.md`](references/command_system.md) | You want the `/loop-new`, `/loop-run`, `/loop-resume`, `/loop-status` slash commands (OpenCode + Claude Code) that map to Modes A/B/C + status, how to install them, and the natural-language fallback. |
 | [`research-sources.md`](references/research-sources.md) | You want the underlying durable-execution and DAG/multi-agent citations the design is grounded in. |
 
 ### Templates — `templates/` (copy and fill)
@@ -524,6 +529,9 @@ rows only matter in their respective modes.
 | [`evidence.ledger.yaml`](templates/evidence.ledger.yaml) | Mode B: the append-only record of gate verdicts a node needs to reach `completed`. |
 | [`node.contract.yaml`](templates/node.contract.yaml) | Mode B: per-node execution contract (`cache_key`, `attempt`, gate copy, evidence pointer). |
 | [`node.runtime.yaml`](templates/node.runtime.yaml) | Mode B: per-node runtime hosting for in-node `subgraph`s (`nodes/<node_id>/node.runtime.yaml`, the `runtime_subgraphs[]` list). |
+| [`claim.yaml`](templates/claim.yaml) | Mode B: the per-node claim/lease (`contracts/<node-id>.claim`) that makes `ready → running` single-flight — acquire before executing, on resume it says whether a `running` node is live, crashed, or delegated. |
+| [`event_log.yaml`](templates/event_log.yaml) | Modes B/C: the append-only, primary-source-of-truth event log (pre/post-effect entries) the checkpoint counters are reconciled from. |
+| [`loop.state.yaml`](templates/loop.state.yaml) | Mode B: the live pointer file (active node, ready set, lease index) — cheap "what is running now" without replaying the log. |
 | [`handoff.md`](templates/handoff.md) | Modes B/C: when the session ends mid-node, this is the handoff the next session reads first. |
 | [`human_decision_request.md`](templates/human_decision_request.md) | You must ask the user to decide: fill this context-complete Human Decision Package (options, trade-offs, recommendation, YAML answer schema) instead of a bare question. |
 | [`run.log.md`](templates/run.log.md) | Mode B: human-readable per-node run narrative (not a source of truth). |
@@ -541,13 +549,16 @@ rows only matter in their respective modes.
 | [`checkpoint.schema.json`](schemas/checkpoint.schema.json) | You need structural validation of `checkpoint.yaml` field types. |
 | [`node.contract.schema.json`](schemas/node.contract.schema.json) | You need structural validation of a node's execution contract. |
 | [`evidence.ledger.schema.json`](schemas/evidence.ledger.schema.json) | You need structural validation of an evidence-ledger entry. |
+| [`claim.schema.json`](schemas/claim.schema.json) | You need structural validation of a per-node `contracts/<node>.claim` (lease fields). |
+| [`event_log.schema.json`](schemas/event_log.schema.json) | You need structural validation of the append-only `event_log` (monotonic `seq`, pre/post-effect entries). |
+| [`loop.state.schema.json`](schemas/loop.state.schema.json) | You need structural validation of the live `loop.state.yaml` pointer file. |
 
 ### Scripts — `scripts/` (run before v0 goes live and after every transition)
 
 | File | Use when |
 |------|----------|
-| [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` schema + the hand-rolled graph rules R1–R5/R7/R8. Required gate at v0 and after any `replan`. Supports `--kind loop_plan \| node_contract \| evidence_ledger \| loop_meta \| loops_index \| node_runtime` (the last three cover the recursive / three-tier machinery). |
-| [`validate_checkpoint.py`](scripts/validate_checkpoint.py) | Validates initial checkpoint coverage and linkage to `plan_id` + `plan_version`. |
+| [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` + hand-rolled graph/provenance/cap rules (R1–R37). Required gate at v0 and after any `replan`. `--kind loop_plan \| node_contract \| evidence_ledger \| loop_meta \| loops_index \| node_runtime \| claim \| event_log \| loop_state`; `--plan` (ledger R36 verifier-independence), `--root` (index R37 reconciliation). |
+| [`validate_checkpoint.py`](scripts/validate_checkpoint.py) | Validates checkpoint schema + `--plan` consistency (R6), transition-closure (R19/R20), `--claims` single-flight (R22), `--meta` child-loop fields (R33). |
 | [`render_dag.py`](scripts/render_dag.py) | Optional DAG render for human inspection. |
 
 ### Examples — `examples/`

@@ -1,707 +1,657 @@
-# loop.plan — WORKED EXAMPLE: a long-running RESEARCH investigation.
-#
-# Scenario: produce a rigorous, cited survey + a defensible recommendation on a
-# technical question (retrieval-augmentation vs hallucination in long-context QA).
-# Deliverable class: research_report. This is investigation/synthesis — NOTHING
-# is shipped. Contrast with example_product_delivery (which builds/ships code).
-#
-# Three-layer model on display:
-#   Layer 0  = N0_charter            (the Loop Startup / Charter interview gate)
-#   Layer 1  = N1..N11 governance    (design-time-invariant research phases only)
-#   Layer 2  = the subgraph inside N5_experiment_or_analysis (runtime-discovered
-#              analyses: which datasets, which comparisons — only knowable once
-#              N5 runs, so they live in a subgraph, never at the top level).
-#
-# Tokens are LOCKED — see references/loop_plan_spec.md Glossary.
-#   node kinds:  milestone | gate | mapper | branch | fanout | join | approval | compensation
-#   statuses:    undiscovered | discovered | needs_clarification | pending | ready | running |
-#                waiting_external | waiting_user | blocked | verifying | verification_failed |
-#                retry_pending | completed | cancelled | deprecated
-#   gate kinds:  automated_check | test | llm_judge | self_consistency |
-#                evaluator_optimizer | step_verifier | human_approval | artifact_exists
-#   on_failure:  local_retry | local_patch | replan | escalate
-#   risk:        low | med | high
-#   assignee:    agent | user | subagent
-
-schema_version: "1.0.0"
-plan_id: "plan-research-survey-0007"
-goal: "Produce a rigorous survey and a defensible recommendation on which retrieval-augmentation strategy best reduces hallucination in long-context question answering, with cited evidence."
-true_intent: "Deliver a peer-reviewable research report whose recommendation withstands expert scrutiny — the value is the strength and transparency of the evidence, not merely naming a winner."
+schema_version: 1.0.0
+plan_id: plan-research-survey-0007
+goal: Produce a rigorous survey and a defensible recommendation on which retrieval-augmentation strategy
+  best reduces hallucination in long-context question answering, with cited evidence.
+true_intent: "Deliver a peer-reviewable research report whose recommendation withstands expert scrutiny\
+  \ \u2014 the value is the strength and transparency of the evidence, not merely naming a winner."
 non_goals:
-  - "Shipping or productionising any retrieval system; this is an investigation, not an implementation."
-  - "Vendor procurement, pricing, or contract negotiation."
-
+- Shipping or productionising any retrieval system; this is an investigation, not an implementation.
+- Vendor procurement, pricing, or contract negotiation.
 success_criteria:
-  - id: "sc-1"
-    statement: "Every claim in the final recommendation is traceable to at least one cited primary source recorded in the evidence ledger."
-    measurable: true
-  - id: "sc-2"
-    statement: "At least three candidate strategies are compared on a common benchmark with reported effect sizes and confidence intervals."
-    measurable: true
-  - id: "sc-3"
-    statement: "The recommendation passes an independent peer-review-style rubric at >= 0.9."
-    measurable: false
-  - id: "sc-4"
-    statement: "A human research lead approves the recommendation for release."
-    measurable: false
-
+- id: sc-1
+  statement: Every claim in the final recommendation is traceable to at least one cited primary source
+    recorded in the evidence ledger.
+  measurable: true
+- id: sc-2
+  statement: At least three candidate strategies are compared on a common benchmark with reported effect
+    sizes and confidence intervals.
+  measurable: true
+- id: sc-3
+  statement: The recommendation passes an independent peer-review-style rubric at >= 0.9.
+  measurable: false
+- id: sc-4
+  statement: A human research lead approves the recommendation for release.
+  measurable: false
 failure_criteria:
-  - "Cost budget exhausted before at least three strategies are compared on a common benchmark."
-  - "No strategy shows a statistically distinguishable effect and the evidence base cannot be expanded within budget."
-
+- Cost budget exhausted before at least three strategies are compared on a common benchmark.
+- No strategy shows a statistically distinguishable effect and the evidence base cannot be expanded within
+  budget.
 termination:
   max_iterations: 30
-  max_wall_clock_hours: null        # research is bounded by cost/iteration, not a clock
+  max_wall_clock_hours: null
   max_cost_units: 600
-  done_when: "all success_criteria met and all top-level nodes completed"
-
+  done_when: all success_criteria met and all top-level nodes completed
+  max_depth: 3
+  max_child_loops: 20
 constraints:
-  - "Deliverable class is research_report; no software is shipped."
-  - "Only openly licensed or properly attributed sources may be cited."
-  - "Respect the 600 cost-unit budget."
-
-# ---------------------------------------------------------------------------
-# nodes — top level holds ONLY design-time-invariant research governance phases.
-# Runtime-discovered analysis work lives in the N5 subgraph (design_invariant:false).
-# ---------------------------------------------------------------------------
+- Deliverable class is research_report; no software is shipped.
+- Only openly licensed or properly attributed sources may be cited.
+- Respect the 600 cost-unit budget.
 nodes:
-  # (N0) CHARTER — Layer 0. The Loop Startup interview IS the first node.
-  - id: "N0_charter"
-    kind: "gate"
-    title: "Charter / control-profile sign-off"
-    design_invariant: true
-    status: "completed"
-    requires: []
-    produces:
-      - "artifacts/charter/task_profile.yaml"
-    inputs: []
-    preconditions: []
-    postconditions:
-      - "True intent, deliverable class (research_report), success/failure criteria, and approval boundary are agreed and recorded."
-    gate:
-      kind: "human_approval"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N0_charter.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 1.0
-      jitter: true
-    on_failure: "escalate"
-    priority: 100
-    risk: "low"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "user"
-    notes: "Layer 0. Collects only design-time invariants; open unknowns are routed to owner nodes as assumptions/research questions."
-
-  # (N1) SCOPING — bound the question, define the review protocol.
-  - id: "N1_scoping"
-    kind: "milestone"
-    title: "Scope the question and cutoff"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N0_charter"
-    produces:
-      - "artifacts/scoping/research_questions.md"
-      - "artifacts/scoping/inclusion_criteria.md"
-    inputs:
-      - "artifacts/charter/task_profile.yaml"
-    preconditions:
-      - "The charter is approved."
-    postconditions:
-      - "The research question, sub-questions, and source inclusion/exclusion criteria are fixed with a dated cutoff."
-    gate:
-      kind: "llm_judge"
-      threshold: 0.8
-      rubric: "rubrics/scoping_quality.md"
-      evidence_ref: "evidence/N1_scoping.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "local_retry"
-    priority: 95
-    risk: "low"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: ""
-
-  # (N2) SOURCE GATHERING — parallel pair #1 (top level): runs concurrently with N2b.
-  - id: "N2_source_gathering"
-    kind: "milestone"
-    title: "Gather candidate sources"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N1_scoping"
-    produces:
-      - "artifacts/sources/source_corpus.jsonl"
-    inputs:
-      - "artifacts/scoping/inclusion_criteria.md"
-    preconditions:
-      - "Inclusion criteria are fixed."
-    postconditions:
-      - "A de-duplicated corpus of candidate sources is assembled with provenance."
-    gate:
-      kind: "llm_judge"
-      threshold: 0.8
-      rubric: "rubrics/source_relevance.md"
-      evidence_ref: "evidence/N2_source_gathering.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 3.0
-      jitter: true
-    on_failure: "local_retry"
-    priority: 90
-    risk: "med"
-    parallelizable: true              # PARALLEL with N2b_protocol_preregistration
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "subagent"
-    notes: "Both N2 and N2b depend only on N1 and not on each other, so they dispatch concurrently."
-
-  # (N2b) PROTOCOL PRE-REGISTRATION — parallel pair #1 (top level): concurrent with N2.
-  - id: "N2b_protocol_preregistration"
-    kind: "milestone"
-    title: "Pre-register the review protocol"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N1_scoping"
-    produces:
-      - "artifacts/protocol/preregistration.md"
-    inputs:
-      - "artifacts/scoping/research_questions.md"
-    preconditions:
-      - "Research questions are fixed."
-    postconditions:
-      - "The appraisal method, benchmark, and stopping rule are pre-registered before any evidence is judged."
-    gate:
-      kind: "artifact_exists"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N2b_protocol_preregistration.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 1.0
-      jitter: false
-    on_failure: "local_retry"
-    priority: 90
-    risk: "low"
-    parallelizable: true              # PARALLEL with N2_source_gathering
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "Pre-registration is design-invariant for a rigorous survey; guards against post-hoc criteria drift."
-
-  # (N3) EVIDENCE APPRAISAL — gate; joins the two parallel gathering streams.
-  - id: "N3_evidence_appraisal"
-    kind: "gate"
-    title: "Appraise evidence quality"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N2_source_gathering"
-      - "N2b_protocol_preregistration"
-    produces:
-      - "artifacts/appraisal/graded_evidence.md"
-    inputs:
-      - "artifacts/sources/source_corpus.jsonl"
-      - "artifacts/protocol/preregistration.md"
-    preconditions:
-      - "Sources are gathered and the protocol is pre-registered."
-    postconditions:
-      - "Each source is graded for methodological quality against the pre-registered rubric."
-    gate:
-      kind: "llm_judge"
-      threshold: 0.8
-      rubric: "rubrics/evidence_appraisal.md"
-      evidence_ref: "evidence/N3_evidence_appraisal.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "replan"              # if the evidence base grades inadequate, replan gathering
-    priority: 85
-    risk: "med"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "Fan-in join of N2 + N2b. on_failure=replan sends inadequate evidence bases back to gathering."
-
-  # (N4) HYPOTHESIS FRAMING — state falsifiable comparisons.
-  - id: "N4_hypothesis_framing"
-    kind: "milestone"
-    title: "Frame testable hypotheses"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N3_evidence_appraisal"
-    produces:
-      - "artifacts/hypotheses/hypotheses.md"
-    inputs:
-      - "artifacts/appraisal/graded_evidence.md"
-    preconditions:
-      - "Evidence has been appraised."
-    postconditions:
-      - "Each candidate strategy is expressed as a falsifiable hypothesis with a chosen benchmark and metric."
-    gate:
-      kind: "self_consistency"
-      threshold: 0.75
-      rubric: "rubrics/hypothesis_wellformed.md"
-      evidence_ref: "evidence/N4_hypothesis_framing.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "local_patch"
-    priority: 80
-    risk: "med"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: ""
-
-  # (N5) EXPERIMENT / ANALYSIS — CARRIES THE SUBGRAPH (Layer 2).
-  # Which datasets/comparisons to run is runtime-discovered, so it materialises
-  # here as an isomorphic fragment, NOT at the top level.
-  - id: "N5_experiment_or_analysis"
-    kind: "milestone"
-    title: "Run comparative analysis"
-    design_invariant: true
-    status: "blocked"                 # replan in flight: re-materialising its subgraph (see checkpoint)
-    requires:
-      - "N4_hypothesis_framing"
-    produces:
-      - "artifacts/analysis/results_table.csv"
-      - "artifacts/analysis/effect_sizes.md"
-    inputs:
-      - "artifacts/hypotheses/hypotheses.md"
-      - "artifacts/appraisal/graded_evidence.md"
-    preconditions:
-      - "Hypotheses are framed with a chosen benchmark and metric."
-    postconditions:
-      - "Each hypothesis has a measured result with an effect size and confidence interval."
-    gate:
-      kind: "llm_judge"
-      threshold: 0.8
-      rubric: "rubrics/analysis_plausibility.md"
-      evidence_ref: "evidence/N5_experiment_or_analysis.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 5.0
-      jitter: true
-    on_failure: "replan"              # findings verification failed downstream -> replan this subgraph
-    priority: 75
-    risk: "high"
-    parallelizable: false
-    allow_subgraph: true
-    subgraph:
-      parent_ref: "N5_experiment_or_analysis"
-      schema_version: "1.0.0"
-      plan_version: 1                 # replan will supersede this as plan_version 2
-      nodes:
-        # (S5a) subgraph root — set up the analysis environment.
-        - id: "S5a_setup_analysis_env"
-          kind: "milestone"
-          title: "Set up analysis environment"
-          design_invariant: false     # runtime-discovered
-          status: "completed"
-          requires: []
-          produces:
-            - "artifacts/analysis/env_manifest.json"
-          inputs:
-            - "artifacts/hypotheses/hypotheses.md"
-          preconditions:
-            - "The benchmark and metric are chosen."
-          postconditions:
-            - "A reproducible analysis environment manifest exists."
-          gate:
-            kind: "artifact_exists"
-            threshold: null
-            rubric: null
-            evidence_ref: "evidence/S5a_setup_analysis_env.json"
-          retry_policy:
-            max_attempts: 2
-            backoff_base_seconds: 2.0
-            jitter: true
-          on_failure: "local_retry"
-          priority: 70
-          risk: "low"
-          parallelizable: false
-          allow_subgraph: false
-          subgraph: null
-          child_loops: []
-          assignee: "subagent"
-          notes: ""
-
-        # (S5b) parallel branch #2a — analyse dataset A.
-        - id: "S5b_analyze_dataset_A"
-          kind: "milestone"
-          title: "Analyze dataset A"
-          design_invariant: false
-          status: "completed"
-          requires:
-            - "S5a_setup_analysis_env"
-          produces:
-            - "artifacts/analysis/dataset_A_metrics.json"
-          inputs:
-            - "artifacts/analysis/env_manifest.json"
-          preconditions:
-            - "The analysis environment exists."
-          postconditions:
-            - "Metrics for each strategy on dataset A are computed."
-          gate:
-            kind: "automated_check"
-            threshold: null
-            rubric: null
-            evidence_ref: "evidence/S5b_analyze_dataset_A.json"
-          retry_policy:
-            max_attempts: 3
-            backoff_base_seconds: 3.0
-            jitter: true
-          on_failure: "local_retry"
-          priority: 65
-          risk: "med"
-          parallelizable: true         # PARALLEL with S5c_run_comparison_B
-          allow_subgraph: false
-          subgraph: null
-          child_loops: []
-          assignee: "subagent"
-          notes: "S5b and S5c both require only S5a and not each other -> concurrent."
-
-        # (S5c) parallel branch #2b — run comparison B.
-        - id: "S5c_run_comparison_B"
-          kind: "milestone"
-          title: "Run comparison B"
-          design_invariant: false
-          status: "completed"
-          requires:
-            - "S5a_setup_analysis_env"
-          produces:
-            - "artifacts/analysis/comparison_B_metrics.json"
-          inputs:
-            - "artifacts/analysis/env_manifest.json"
-          preconditions:
-            - "The analysis environment exists."
-          postconditions:
-            - "Head-to-head comparison metrics for benchmark B are computed."
-          gate:
-            kind: "automated_check"
-            threshold: null
-            rubric: null
-            evidence_ref: "evidence/S5c_run_comparison_B.json"
-          retry_policy:
-            max_attempts: 3
-            backoff_base_seconds: 3.0
-            jitter: true
-          on_failure: "local_retry"
-          priority: 65
-          risk: "med"
-          parallelizable: true         # PARALLEL with S5b_analyze_dataset_A
-          allow_subgraph: false
-          subgraph: null
-          child_loops: []
-          assignee: "subagent"
-          notes: ""
-
-        # (S5d) join — validate the merged results (fan-in of S5b + S5c).
-        - id: "S5d_validate_result_C"
-          kind: "join"
-          title: "Validate merged results"
-          design_invariant: false
-          status: "completed"
-          requires:
-            - "S5b_analyze_dataset_A"
-            - "S5c_run_comparison_B"
-          produces:
-            - "artifacts/analysis/results_table.csv"
-          inputs:
-            - "artifacts/analysis/dataset_A_metrics.json"
-            - "artifacts/analysis/comparison_B_metrics.json"
-          preconditions:
-            - "Both parallel analyses have completed."
-          postconditions:
-            - "A merged, internally consistent results table with effect sizes exists."
-          gate:
-            kind: "step_verifier"
-            threshold: 0.85
-            rubric: "rubrics/result_validation.md"
-            evidence_ref: "evidence/S5d_validate_result_C.json"
-          retry_policy:
-            max_attempts: 2
-            backoff_base_seconds: 4.0
-            jitter: true
-          on_failure: "local_patch"
-          priority: 60
-          risk: "high"
-          parallelizable: false
-          allow_subgraph: false
-          subgraph: null
-          child_loops: []
-          assignee: "subagent"
-          notes: "Join collects the two parallel branches before the parent N5 gate can be evaluated."
-    child_loops: []
-    assignee: "agent"
-    notes: "Layer 2 lives here: the concrete analyses are runtime-discovered and confined to this subgraph."
-
-  # (N6) FINDINGS VERIFICATION — gate; THIS is the replan trigger (currently failed).
-  - id: "N6_findings_verification"
-    kind: "gate"
-    title: "Verify findings"
-    design_invariant: true
-    status: "verification_failed"     # step_verifier 0.71 < 0.85 -> on_failure=replan
-    requires:
-      - "N5_experiment_or_analysis"
-    produces:
-      - "artifacts/verification/findings_verification.md"
-    inputs:
-      - "artifacts/analysis/results_table.csv"
-      - "artifacts/analysis/effect_sizes.md"
-    preconditions:
-      - "The analysis produced a results table."
-    postconditions:
-      - "Findings are independently reproduced and statistically defensible."
-    gate:
-      kind: "step_verifier"
-      threshold: 0.85
-      rubric: "rubrics/findings_verification.md"
-      evidence_ref: "evidence/N6_findings_verification.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 5.0
-      jitter: true
-    on_failure: "replan"              # REPLAN PATH: sends N5 back to re-materialise its subgraph
-    priority: 70
-    risk: "high"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "Independent verification; failed at 0.71 because a confound was uncontrolled -> replan N5."
-
-  # (N6b) BRANCH — route on the finding: conclusive -> synthesis; inconclusive -> replan.
-  - id: "N6b_route_on_findings"
-    kind: "branch"
-    title: "Route on findings sufficiency"
-    design_invariant: true
-    status: "pending"
-    requires:
-      - "N6_findings_verification"
-    produces:
-      - "artifacts/routing/route_decision.md"
-    inputs:
-      - "artifacts/verification/findings_verification.md"
-    preconditions:
-      - "Findings verification has produced a verdict."
-    postconditions:
-      - "A recorded route: 'conclusive' -> N7_synthesis, or 'inconclusive' -> replan N5 for more analysis."
-    gate:
-      kind: "self_consistency"
-      threshold: 0.8
-      rubric: "rubrics/route_agreement.md"
-      evidence_ref: "evidence/N6b_route_on_findings.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 1.0
-      jitter: false
-    on_failure: "local_retry"
-    priority: 68
-    risk: "med"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "Conditional router. Sampled N times for agreement on whether the evidence is conclusive."
-
-  # (N7) SYNTHESIS — write the survey + reasoning (the 'conclusive' route target).
-  - id: "N7_synthesis"
-    kind: "milestone"
-    title: "Synthesize the survey"
-    design_invariant: true
-    status: "pending"
-    requires:
-      - "N6b_route_on_findings"
-    produces:
-      - "artifacts/report/survey_draft.md"
-    inputs:
-      - "artifacts/appraisal/graded_evidence.md"
-      - "artifacts/verification/findings_verification.md"
-    preconditions:
-      - "The route decision is 'conclusive'."
-    postconditions:
-      - "A cited survey draft ties every claim to graded evidence."
-    gate:
-      kind: "evaluator_optimizer"
-      threshold: 0.85
-      rubric: "rubrics/synthesis_quality.md"
-      evidence_ref: "evidence/N7_synthesis.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 4.0
-      jitter: true
-    on_failure: "local_patch"
-    priority: 60
-    risk: "med"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "Generate -> critique -> revise until the draft clears the rubric."
-
-  # (N8) PEER REVIEW — gate; can send the synthesis back (replan).
-  - id: "N8_peer_review"
-    kind: "gate"
-    title: "Peer-review the recommendation"
-    design_invariant: true
-    status: "pending"
-    requires:
-      - "N7_synthesis"
-    produces:
-      - "artifacts/report/peer_review.md"
-    inputs:
-      - "artifacts/report/survey_draft.md"
-    preconditions:
-      - "A synthesized draft exists."
-    postconditions:
-      - "The recommendation clears an independent peer-review rubric at >= 0.9."
-    gate:
-      kind: "llm_judge"
-      threshold: 0.9
-      rubric: "rubrics/peer_review.md"
-      evidence_ref: "evidence/N8_peer_review.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 5.0
-      jitter: true
-    on_failure: "replan"              # a failed peer review regenerates the synthesis
-    priority: 55
-    risk: "high"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "subagent"
-    notes: ""
-
-  # (N9) RECOMMENDATION APPROVAL — human control node; gate-exempt by kind.
-  - id: "N9_recommendation_approval"
-    kind: "approval"
-    title: "Human sign-off on the recommendation"
-    design_invariant: true
-    status: "pending"
-    requires:
-      - "N8_peer_review"
-    produces:
-      - "artifacts/report/approval_record.md"
-    inputs:
-      - "artifacts/report/survey_draft.md"
-      - "artifacts/report/peer_review.md"
-    preconditions:
-      - "The peer-review gate has passed."
-    postconditions:
-      - "A human research lead has approved the recommendation for release."
-    gate: null                        # approval self-gates via its human_approval handoff
-    retry_policy:
-      max_attempts: 1
-      backoff_base_seconds: 0.0
-      jitter: false
-    on_failure: "escalate"
-    priority: 50
-    risk: "low"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "user"
-    notes: "Surfaced via checkpoint.pending_approvals when ready."
-
-  # (N10) HANDOFF — package the report and evidence for the requester.
-  - id: "N10_handoff"
-    kind: "milestone"
-    title: "Hand off the report"
-    design_invariant: true
-    status: "pending"
-    requires:
-      - "N9_recommendation_approval"
-    produces:
-      - "artifacts/report/final_report.pdf"
-    inputs:
-      - "artifacts/report/survey_draft.md"
-      - "artifacts/report/approval_record.md"
-    preconditions:
-      - "The recommendation is approved."
-    postconditions:
-      - "The final report plus its evidence bundle are delivered to the requester."
-    gate:
-      kind: "artifact_exists"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N10_handoff.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 1.0
-      jitter: false
-    on_failure: "local_retry"
-    priority: 45
-    risk: "low"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: ""
-
-  # (N11) CLOSEOUT — archive state, record open questions and limitations.
-  - id: "N11_closeout"
-    kind: "milestone"
-    title: "Close out the investigation"
-    design_invariant: true
-    status: "pending"
-    requires:
-      - "N10_handoff"
-    produces:
-      - "artifacts/report/closeout.md"
-    inputs:
-      - "artifacts/report/final_report.pdf"
-    preconditions:
-      - "The report has been handed off."
-    postconditions:
-      - "Limitations, open research questions, and the reproducibility bundle are archived."
-    gate:
-      kind: "artifact_exists"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N11_closeout.json"
-    retry_policy:
-      max_attempts: 1
-      backoff_base_seconds: 0.0
-      jitter: false
-    on_failure: "local_retry"
-    priority: 40
-    risk: "low"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: ""
-
-created: "2026-06-18"
+- id: N0_charter
+  kind: gate
+  title: Charter / control-profile sign-off
+  design_invariant: true
+  status: completed
+  requires: []
+  produces:
+  - artifacts/charter/task_profile.yaml
+  inputs: []
+  preconditions: []
+  postconditions:
+  - True intent, deliverable class (research_report), success/failure criteria, and approval boundary
+    are agreed and recorded.
+  gate:
+    kind: human_approval
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N0_charter.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 1.0
+    jitter: true
+  on_failure: escalate
+  priority: 100
+  risk: low
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: user
+  notes: Layer 0. Collects only design-time invariants; open unknowns are routed to owner nodes as assumptions/research
+    questions.
+- id: N1_scoping
+  kind: milestone
+  title: Scope the question and cutoff
+  design_invariant: true
+  status: completed
+  requires:
+  - N0_charter
+  produces:
+  - artifacts/scoping/research_questions.md
+  - artifacts/scoping/inclusion_criteria.md
+  inputs:
+  - artifacts/charter/task_profile.yaml
+  preconditions:
+  - The charter is approved.
+  postconditions:
+  - The research question, sub-questions, and source inclusion/exclusion criteria are fixed with a dated
+    cutoff.
+  gate:
+    kind: llm_judge
+    threshold: 0.8
+    rubric: rubrics/scoping_quality.md
+    evidence_ref: evidence/N1_scoping.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: local_retry
+  priority: 95
+  risk: low
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: ''
+- id: N2_source_gathering
+  kind: milestone
+  title: Gather candidate sources
+  design_invariant: true
+  status: completed
+  requires:
+  - N1_scoping
+  produces:
+  - artifacts/sources/source_corpus.jsonl
+  inputs:
+  - artifacts/scoping/inclusion_criteria.md
+  preconditions:
+  - Inclusion criteria are fixed.
+  postconditions:
+  - A de-duplicated corpus of candidate sources is assembled with provenance.
+  gate:
+    kind: llm_judge
+    threshold: 0.8
+    rubric: rubrics/source_relevance.md
+    evidence_ref: evidence/N2_source_gathering.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 3.0
+    jitter: true
+  on_failure: local_retry
+  priority: 90
+  risk: med
+  parallelizable: true
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: subagent
+  notes: Both N2 and N2b depend only on N1 and not on each other, so they dispatch concurrently.
+- id: N2b_protocol_preregistration
+  kind: milestone
+  title: Pre-register the review protocol
+  design_invariant: true
+  status: completed
+  requires:
+  - N1_scoping
+  produces:
+  - artifacts/protocol/preregistration.md
+  inputs:
+  - artifacts/scoping/research_questions.md
+  preconditions:
+  - Research questions are fixed.
+  postconditions:
+  - The appraisal method, benchmark, and stopping rule are pre-registered before any evidence is judged.
+  gate:
+    kind: artifact_exists
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N2b_protocol_preregistration.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 1.0
+    jitter: false
+  on_failure: local_retry
+  priority: 90
+  risk: low
+  parallelizable: true
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: Pre-registration is design-invariant for a rigorous survey; guards against post-hoc criteria
+    drift.
+- id: N3_evidence_appraisal
+  kind: gate
+  title: Appraise evidence quality
+  design_invariant: true
+  status: completed
+  requires:
+  - N2_source_gathering
+  - N2b_protocol_preregistration
+  produces:
+  - artifacts/appraisal/graded_evidence.md
+  inputs:
+  - artifacts/sources/source_corpus.jsonl
+  - artifacts/protocol/preregistration.md
+  preconditions:
+  - Sources are gathered and the protocol is pre-registered.
+  postconditions:
+  - Each source is graded for methodological quality against the pre-registered rubric.
+  gate:
+    kind: llm_judge
+    threshold: 0.8
+    rubric: rubrics/evidence_appraisal.md
+    evidence_ref: evidence/N3_evidence_appraisal.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: replan
+  priority: 85
+  risk: med
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: Fan-in join of N2 + N2b. on_failure=replan sends inadequate evidence bases back to gathering.
+- id: N4_hypothesis_framing
+  kind: milestone
+  title: Frame testable hypotheses
+  design_invariant: true
+  status: completed
+  requires:
+  - N3_evidence_appraisal
+  produces:
+  - artifacts/hypotheses/hypotheses.md
+  inputs:
+  - artifacts/appraisal/graded_evidence.md
+  preconditions:
+  - Evidence has been appraised.
+  postconditions:
+  - Each candidate strategy is expressed as a falsifiable hypothesis with a chosen benchmark and metric.
+  gate:
+    kind: self_consistency
+    threshold: 0.75
+    rubric: rubrics/hypothesis_wellformed.md
+    evidence_ref: evidence/N4_hypothesis_framing.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: local_patch
+  priority: 80
+  risk: med
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: ''
+- id: N5_experiment_or_analysis
+  kind: milestone
+  title: Run comparative analysis
+  design_invariant: true
+  status: blocked
+  requires:
+  - N4_hypothesis_framing
+  produces:
+  - artifacts/analysis/results_table.csv
+  - artifacts/analysis/effect_sizes.md
+  inputs:
+  - artifacts/hypotheses/hypotheses.md
+  - artifacts/appraisal/graded_evidence.md
+  preconditions:
+  - Hypotheses are framed with a chosen benchmark and metric.
+  postconditions:
+  - Each hypothesis has a measured result with an effect size and confidence interval.
+  gate:
+    kind: llm_judge
+    threshold: 0.8
+    rubric: rubrics/analysis_plausibility.md
+    evidence_ref: evidence/N5_experiment_or_analysis.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 5.0
+    jitter: true
+  on_failure: replan
+  priority: 75
+  risk: high
+  parallelizable: false
+  allow_subgraph: true
+  subgraph:
+    parent_ref: N5_experiment_or_analysis
+    schema_version: 1.0.0
+    plan_version: 1
+    nodes:
+    - id: S5a_setup_analysis_env
+      kind: milestone
+      title: Set up analysis environment
+      design_invariant: false
+      status: completed
+      requires: []
+      produces:
+      - artifacts/analysis/env_manifest.json
+      inputs:
+      - artifacts/hypotheses/hypotheses.md
+      preconditions:
+      - The benchmark and metric are chosen.
+      postconditions:
+      - A reproducible analysis environment manifest exists.
+      gate:
+        kind: artifact_exists
+        threshold: null
+        rubric: null
+        evidence_ref: evidence/S5a_setup_analysis_env.json
+      retry_policy:
+        max_attempts: 2
+        backoff_base_seconds: 2.0
+        jitter: true
+      on_failure: local_retry
+      priority: 70
+      risk: low
+      parallelizable: false
+      allow_subgraph: false
+      subgraph: null
+      child_loops: []
+      assignee: subagent
+      notes: ''
+    - id: S5b_analyze_dataset_A
+      kind: milestone
+      title: Analyze dataset A
+      design_invariant: false
+      status: completed
+      requires:
+      - S5a_setup_analysis_env
+      produces:
+      - artifacts/analysis/dataset_A_metrics.json
+      inputs:
+      - artifacts/analysis/env_manifest.json
+      preconditions:
+      - The analysis environment exists.
+      postconditions:
+      - Metrics for each strategy on dataset A are computed.
+      gate:
+        kind: automated_check
+        threshold: null
+        rubric: null
+        evidence_ref: evidence/S5b_analyze_dataset_A.json
+      retry_policy:
+        max_attempts: 3
+        backoff_base_seconds: 3.0
+        jitter: true
+      on_failure: local_retry
+      priority: 65
+      risk: med
+      parallelizable: true
+      allow_subgraph: false
+      subgraph: null
+      child_loops: []
+      assignee: subagent
+      notes: S5b and S5c both require only S5a and not each other -> concurrent.
+    - id: S5c_run_comparison_B
+      kind: milestone
+      title: Run comparison B
+      design_invariant: false
+      status: completed
+      requires:
+      - S5a_setup_analysis_env
+      produces:
+      - artifacts/analysis/comparison_B_metrics.json
+      inputs:
+      - artifacts/analysis/env_manifest.json
+      preconditions:
+      - The analysis environment exists.
+      postconditions:
+      - Head-to-head comparison metrics for benchmark B are computed.
+      gate:
+        kind: automated_check
+        threshold: null
+        rubric: null
+        evidence_ref: evidence/S5c_run_comparison_B.json
+      retry_policy:
+        max_attempts: 3
+        backoff_base_seconds: 3.0
+        jitter: true
+      on_failure: local_retry
+      priority: 65
+      risk: med
+      parallelizable: true
+      allow_subgraph: false
+      subgraph: null
+      child_loops: []
+      assignee: subagent
+      notes: ''
+    - id: S5d_validate_result_C
+      kind: join
+      title: Validate merged results
+      design_invariant: false
+      status: completed
+      requires:
+      - S5b_analyze_dataset_A
+      - S5c_run_comparison_B
+      produces:
+      - artifacts/analysis/results_table.csv
+      inputs:
+      - artifacts/analysis/dataset_A_metrics.json
+      - artifacts/analysis/comparison_B_metrics.json
+      preconditions:
+      - Both parallel analyses have completed.
+      postconditions:
+      - A merged, internally consistent results table with effect sizes exists.
+      gate:
+        kind: step_verifier
+        threshold: 0.85
+        rubric: rubrics/result_validation.md
+        evidence_ref: evidence/S5d_validate_result_C.json
+      retry_policy:
+        max_attempts: 2
+        backoff_base_seconds: 4.0
+        jitter: true
+      on_failure: local_patch
+      priority: 60
+      risk: high
+      parallelizable: false
+      allow_subgraph: false
+      subgraph: null
+      child_loops: []
+      assignee: subagent
+      notes: Join collects the two parallel branches before the parent N5 gate can be evaluated.
+  child_loops: []
+  assignee: agent
+  notes: 'Layer 2 lives here: the concrete analyses are runtime-discovered and confined to this subgraph.'
+- id: N6_findings_verification
+  kind: gate
+  title: Verify findings
+  design_invariant: true
+  status: verification_failed
+  requires:
+  - N5_experiment_or_analysis
+  produces:
+  - artifacts/verification/findings_verification.md
+  inputs:
+  - artifacts/analysis/results_table.csv
+  - artifacts/analysis/effect_sizes.md
+  preconditions:
+  - The analysis produced a results table.
+  postconditions:
+  - Findings are independently reproduced and statistically defensible.
+  gate:
+    kind: step_verifier
+    threshold: 0.85
+    rubric: rubrics/findings_verification.md
+    evidence_ref: evidence/N6_findings_verification.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 5.0
+    jitter: true
+  on_failure: replan
+  priority: 70
+  risk: high
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: Independent verification; failed at 0.71 because a confound was uncontrolled -> replan N5.
+- id: N6b_route_on_findings
+  kind: branch
+  title: Route on findings sufficiency
+  design_invariant: true
+  status: pending
+  requires:
+  - N6_findings_verification
+  produces:
+  - artifacts/routing/route_decision.md
+  inputs:
+  - artifacts/verification/findings_verification.md
+  preconditions:
+  - Findings verification has produced a verdict.
+  postconditions:
+  - 'A recorded route: ''conclusive'' -> N7_synthesis, or ''inconclusive'' -> replan N5 for more analysis.'
+  gate:
+    kind: self_consistency
+    threshold: 0.8
+    rubric: rubrics/route_agreement.md
+    evidence_ref: evidence/N6b_route_on_findings.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 1.0
+    jitter: false
+  on_failure: local_retry
+  priority: 68
+  risk: med
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: Conditional router. Sampled N times for agreement on whether the evidence is conclusive.
+- id: N7_synthesis
+  kind: milestone
+  title: Synthesize the survey
+  design_invariant: true
+  status: pending
+  requires:
+  - N6b_route_on_findings
+  produces:
+  - artifacts/report/survey_draft.md
+  inputs:
+  - artifacts/appraisal/graded_evidence.md
+  - artifacts/verification/findings_verification.md
+  preconditions:
+  - The route decision is 'conclusive'.
+  postconditions:
+  - A cited survey draft ties every claim to graded evidence.
+  gate:
+    kind: evaluator_optimizer
+    threshold: 0.85
+    rubric: rubrics/synthesis_quality.md
+    evidence_ref: evidence/N7_synthesis.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 4.0
+    jitter: true
+  on_failure: local_patch
+  priority: 60
+  risk: med
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: Generate -> critique -> revise until the draft clears the rubric.
+- id: N8_peer_review
+  kind: gate
+  title: Peer-review the recommendation
+  design_invariant: true
+  status: pending
+  requires:
+  - N7_synthesis
+  produces:
+  - artifacts/report/peer_review.md
+  inputs:
+  - artifacts/report/survey_draft.md
+  preconditions:
+  - A synthesized draft exists.
+  postconditions:
+  - The recommendation clears an independent peer-review rubric at >= 0.9.
+  gate:
+    kind: llm_judge
+    threshold: 0.9
+    rubric: rubrics/peer_review.md
+    evidence_ref: evidence/N8_peer_review.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 5.0
+    jitter: true
+  on_failure: replan
+  priority: 55
+  risk: high
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: subagent
+  notes: ''
+- id: N9_recommendation_approval
+  kind: approval
+  title: Human sign-off on the recommendation
+  design_invariant: true
+  status: pending
+  requires:
+  - N8_peer_review
+  produces:
+  - artifacts/report/approval_record.md
+  inputs:
+  - artifacts/report/survey_draft.md
+  - artifacts/report/peer_review.md
+  preconditions:
+  - The peer-review gate has passed.
+  postconditions:
+  - A human research lead has approved the recommendation for release.
+  gate:
+    kind: human_approval
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N9_recommendation_approval.json
+  retry_policy:
+    max_attempts: 1
+    backoff_base_seconds: 0.0
+    jitter: false
+  on_failure: escalate
+  priority: 50
+  risk: low
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: user
+  notes: Surfaced via checkpoint.pending_approvals when ready.
+- id: N10_handoff
+  kind: milestone
+  title: Hand off the report
+  design_invariant: true
+  status: pending
+  requires:
+  - N9_recommendation_approval
+  produces:
+  - artifacts/report/final_report.pdf
+  inputs:
+  - artifacts/report/survey_draft.md
+  - artifacts/report/approval_record.md
+  preconditions:
+  - The recommendation is approved.
+  postconditions:
+  - The final report plus its evidence bundle are delivered to the requester.
+  gate:
+    kind: artifact_exists
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N10_handoff.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 1.0
+    jitter: false
+  on_failure: local_retry
+  priority: 45
+  risk: low
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: ''
+- id: N11_closeout
+  kind: milestone
+  title: Close out the investigation
+  design_invariant: true
+  status: pending
+  requires:
+  - N10_handoff
+  produces:
+  - artifacts/report/closeout.md
+  inputs:
+  - artifacts/report/final_report.pdf
+  preconditions:
+  - The report has been handed off.
+  postconditions:
+  - Limitations, open research questions, and the reproducibility bundle are archived.
+  gate:
+    kind: artifact_exists
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N11_closeout.json
+  retry_policy:
+    max_attempts: 1
+    backoff_base_seconds: 0.0
+    jitter: false
+  on_failure: local_retry
+  priority: 40
+  risk: low
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: ''
+created: '2026-06-18'
 plan_version: 1
+plan_history:
+- plan_version: 1
+  reason: Initial plan version (v0 from the Charter interview).
+  superseded_at: null
+  goal_hash: 54d531db6919c6267a7c18a93140463bd94c5ee0a0897ea0cfcc9216df67e5ca
+  true_intent_hash: 2e0fed313fe381e7007291522c316549ac929d1be373762adc062ac016883c03

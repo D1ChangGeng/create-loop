@@ -69,3 +69,4 @@ event_log_ref: "state/event_log.jsonl"
 evidence_ledger_ref: "state/evidence.ledger.yaml"
 cost_units_spent: 1142.0                   # of termination.max_cost_units: 2000
 iteration: 37                              # of termination.max_iterations: 60
+checkpoint_seq: 1

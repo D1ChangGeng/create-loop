@@ -39,6 +39,17 @@ A `loop.plan` is a single object with the following fields.
 | `nodes` | list[object] | yes | The DAG. Each entry is a [node object](#2-node-object). Must be non-empty. |
 | `created` | string (ISO-8601 date) | yes | Date the plan was created. |
 | `plan_version` | int | yes | Monotonic integer, incremented each time the plan is re-generated (`replan`). The plan for a given `plan_version` is immutable (Graph Harness rule, [`concepts.md` §7](./concepts.md#7-why-durability-primitives)). |
+| `plan_history` | list | yes | Append-only provenance, one entry per `plan_version`. Each entry is `{plan_version:int, reason:string, superseded_at:string\|null, goal_hash:string, true_intent_hash:string}` where the hashes are `sha256` of the normalized (trim + collapse-whitespace) `goal` / `true_intent` at that version. The latest entry's hashes MUST match the current `goal`/`true_intent`, and its `plan_version` MUST equal the top-level `plan_version` — so a **goal change cannot be made silently**: it requires a new, provenanced, human-approved version bump (validator rules R26 goal-change, R27 malformed history; goal-sovereignty per [`human_approval.md`](./human_approval.md) and SKILL §3). |
+
+### 1.0 Goal-change sovereignty (plan_history)
+
+The top-level `goal` and `true_intent` are the user's to change, not the agent's.
+`plan_history` makes this machine-checkable: because the validator recomputes the
+normalized hash of the current `goal`/`true_intent` and compares it to the latest
+recorded entry, any mutation that was not captured as an approved version bump is
+rejected (R26). To legitimately change the goal, add a new `plan_history` entry
+(new `plan_version`, a `reason`, fresh hashes) backed by an approved
+`human_approval` decision — see [`human_approval.md` §7](./human_approval.md).
 
 ### 1.1 `success_criteria` entry
 
@@ -54,8 +65,16 @@ A `loop.plan` is a single object with the following fields.
 |-------|------|----------|-------------|
 | `max_iterations` | int | yes | Hard cap on loop iterations (see checkpoint `iteration` in [`state_model.md`](./state_model.md#checkpoint-fields)). |
 | `max_wall_clock_hours` | number \| null | yes | Wall-clock budget in hours, or `null` for unbounded. |
-| `max_cost_units` | number \| null | yes | Budget in abstract cost units, or `null` for unbounded. Tracked against checkpoint `cost_units_spent`. |
+| `max_cost_units` | number \| null | yes | Budget in abstract cost units, or `null` for unbounded. Tracked against checkpoint `cost_units_spent`, which is reconciled from the event log (so a crash cannot roll the counter back). One cost unit ≈ one activity / LLM call; each node accrues into `node.contract.cost_units`. |
 | `done_when` | string | yes | The single overriding done condition, typically "all `success_criteria` met and all top-level nodes `completed`". |
+| `max_depth` | int | yes | Maximum child-loop recursion depth (a top-level loop is depth 0). The validator rejects a plan whose declared `child_loops` nest deeper than this (rule R28) — bounds unbounded recursion. |
+| `max_child_loops` | int | yes | Maximum total number of directory-materialized child loops the whole tree may spawn. Enforced statically (R28) and at spawn time against the reconciled counter. |
+| `max_active_subgraphs` | int \| null | no | Optional cap on concurrently-active inline subgraphs. |
+
+Together `max_depth` + `max_child_loops` + `max_cost_units` are the **enforced**
+growth bounds: the validator rejects a plan whose structure can exceed them, and
+a resuming runner refuses to spawn past them using the event-log-reconciled
+counters. This closes the "unbounded recursion / declarative-only budget" gap.
 
 ---
 

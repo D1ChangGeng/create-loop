@@ -10,6 +10,7 @@
     "plan_id",
     "plan_version",
     "checkpoint_id",
+    "checkpoint_seq",
     "created",
     "phase",
     "node_states",
@@ -53,17 +54,23 @@
     "node_states": {
       "type": "object",
       "description": "Current status of every node, keyed by node_id. Statuses are from the node status enum.",
-      "additionalProperties": { "$ref": "#/$defs/status" }
+      "additionalProperties": {
+        "$ref": "#/$defs/status"
+      }
     },
     "ready_set": {
       "type": "array",
       "description": "Nodes currently ready for dispatch.",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "last_completed": {
       "type": "array",
       "description": "Nodes most recently moved to completed.",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "blocked": {
       "type": "array",
@@ -71,10 +78,19 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["node_id", "reason"],
+        "required": [
+          "node_id",
+          "reason"
+        ],
         "properties": {
-          "node_id": { "type": "string", "description": "The blocked node." },
-          "reason": { "type": "string", "description": "Why the node is blocked." }
+          "node_id": {
+            "type": "string",
+            "description": "The blocked node."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the node is blocked."
+          }
         }
       }
     },
@@ -84,10 +100,20 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["node_id", "token", "requested"],
+        "required": [
+          "node_id",
+          "token",
+          "requested"
+        ],
         "properties": {
-          "node_id": { "type": "string", "description": "The approval node awaiting sign-off." },
-          "token": { "type": "string", "description": "Approval token surfaced to the user." },
+          "node_id": {
+            "type": "string",
+            "description": "The approval node awaiting sign-off."
+          },
+          "token": {
+            "type": "string",
+            "description": "Approval token surfaced to the user."
+          },
           "requested": {
             "type": "string",
             "description": "When the approval was requested (ISO-8601 date-time).",
@@ -103,7 +129,9 @@
     "open_assumptions": {
       "type": "array",
       "description": "Assumptions/answers not yet verified; drives needs_clarification resolution.",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "event_log_ref": {
       "type": "string",
@@ -123,24 +151,35 @@
     },
     "loop_id": {
       "type": "string",
-      "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). This child loop's id (e.g. L001.02.03). Present only in a child loop's (subloop's) checkpoint; absent from a base loop checkpoint. Locked per references/recursive_loops.md §7.4."
+      "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). This child loop's id (e.g. L001.02.03). Present only in a child loop's (subloop's) checkpoint; absent from a base loop checkpoint. Locked per references/recursive_loops.md \u00a77.4."
     },
     "parent_loop_id": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). The parent loop's id (e.g. L001.02), or null."
     },
     "parent_node_id": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). The node in the parent plan that owns this child loop, or null."
     },
     "current_node": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). The node in this loop's plan currently in focus for resume, or null."
     },
     "last_valid_artifacts": {
       "type": "array",
       "description": "Child-loop checkpoint addition (OPTIONAL, back-compat). Paths of this loop's artifacts confirmed valid at the last checkpoint (safe to reuse on resume). May be empty ([]).",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "next_recommended_action": {
       "type": "string",
@@ -152,12 +191,26 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["node_id", "reason"],
+        "required": [
+          "node_id",
+          "reason"
+        ],
         "properties": {
-          "node_id": { "type": "string", "description": "The blocked node in this child loop." },
-          "reason": { "type": "string", "description": "Why the node is blocked." }
+          "node_id": {
+            "type": "string",
+            "description": "The blocked node in this child loop."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the node is blocked."
+          }
         }
       }
+    },
+    "checkpoint_seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic non-negative sequence number, incremented on every checkpoint write. Resume selects the latest checkpoint by MAX checkpoint_seq (never wall-clock 'created', which is skew-prone)."
     }
   },
   "$defs": {

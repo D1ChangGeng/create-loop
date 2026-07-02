@@ -459,15 +459,25 @@ criteria holds. If none holds, the work stays as an inline action inside a node,
 or as an inline `subgraph`
 ([`loop_plan_spec.md` §7](./loop_plan_spec.md#7-subgraph-recursion)).
 
-| # | criterion | materialize a `child_loop` because… |
-|---|-----------|-------------------------------------|
-| 1 | **high complexity** | the work is not solvable in a few steps; it needs its own DAG. |
-| 2 | **independent state persistence** | state must persist independently across sessions, across agents, or over a long-running horizon. |
-| 3 | **independent evidence audit** | the evidence needs its own audit trail — an independent `evidence.ledger.yaml` / evidence chain. |
-| 4 | **may run in parallel** | the work may run concurrently with siblings and needs an isolated workspace (no shared-writer contention). |
-| 5 | **high risk / uncertainty** | the work needs independent decision-making and independent recovery. |
-| 6 | **produces multiple artifacts** | the outputs do not fit inside a single parent node's `produces[]`. |
-| 7 | **needs recursive decomposition** | the work may itself spawn grandchildren (its own `_loops/`). |
+This list is the **canonical source of truth** for admission and promotion
+criteria across the create-loop package. The Promotion Gate in
+[`subgraph_subloop_policy.md` §5](./subgraph_subloop_policy.md#5-promotion-gate-subgraph--subloop)
+and the "promote to subloop" branch in
+[`live_loop_semantics.md` §4](./live_loop_semantics.md#4-default-response-flow)
+are the same rule observed at two other tiers (subgraph → subloop; live growth
+→ subloop); they refer back to this section rather than re-enumerating criteria,
+to keep the lists from drifting.
+
+| # | criterion | materialize a `child_loop` because… | sub-signals (any one suffices) |
+|---|-----------|-------------------------------------|--------------------------------|
+| 1 | **high complexity** | the work is not solvable in a few steps; it needs its own DAG. | - large multi-phase scope (research + design + impl + verify)<br>- needs an independent closeout + return contract |
+| 2 | **independent state persistence** | state must persist independently across sessions, across agents, or over a long-running horizon. | - expected to cross sessions (light hosted state is not a durable resume entry)<br>- needs an independent checkpoint / recovery |
+| 3 | **independent evidence audit** | the evidence needs its own audit trail — an independent `evidence.ledger.yaml` / evidence chain. | - complex evidence chain |
+| 4 | **may run in parallel** | the work may run concurrently with siblings and needs an isolated workspace (no shared-writer contention). | - parallel isolation (subagent / separate executor) |
+| 5 | **high risk / uncertainty** | the work needs independent decision-making and independent recovery. | - elevated risk<br>- complex decisions / approvals (own `decision.log.md` and gate history) |
+| 6 | **produces multiple artifacts** | the outputs do not fit inside a single parent node's `produces[]`. | - many artifacts |
+| 7 | **needs recursive decomposition** | the work may itself spawn grandchildren (its own `_loops/`). | - may recursively spawn further loops |
+| 8 | **cross-cutting scope** | the work affects more than one parent node and cannot be owned locally. | - affects multiple parent nodes |
 
 **Decision rule (verbatim):**
 
@@ -475,9 +485,10 @@ or as an inline `subgraph`
 > should be a child loop.**
 
 Small tasks stay as inline actions or an inline `subgraph`. The Admission Gate is
-the single arbiter of subgraph-vs-child_loop; it is the directory-materialized
-sibling of the Live Loop admission gate in
-[`live_loop_semantics.md`](./live_loop_semantics.md).
+the single arbiter of subgraph-vs-child_loop. The Live Loop admission gate in
+[`live_loop_semantics.md` §6](./live_loop_semantics.md#6-admission-criteria-when-a-candidate-enters-the-graph)
+is a **sibling gate** that governs a different question (whether a growth item
+enters the graph at all) and is not the same rule.
 
 ---
 
@@ -596,6 +607,7 @@ loops:
     title: Build the create-loop Agent Skill
     checkpoint: L001-create-loop-skill/checkpoint.yaml
     updated_at: 2026-07-01T15:10:00Z
+    current_active_node: n-build
   - loop_id: L002
     slug: migrate-billing
     path: L002-migrate-billing
@@ -603,12 +615,13 @@ loops:
     title: Migrate billing to the new schema
     checkpoint: L002-migrate-billing/checkpoint.yaml
     updated_at: 2026-06-28T09:42:00Z
+    current_active_node: null
 ```
 
 ### 11.2 Local index — `<loop>/_loops/INDEX.yaml`
 
 Lists a loop's direct children. Field set per entry: `children[]` each
-`{loop_id, slug, path, status, parent_node_id}`.
+`{loop_id, slug, path, status, parent_node_id, current_active_node}`.
 
 ```yaml
 # L001-create-loop-skill/_loops/INDEX.yaml
@@ -618,16 +631,19 @@ children:
     path: L001.01-research-loop-eng
     status: completed
     parent_node_id: n-research
+    current_active_node: null
   - loop_id: L001.02
     slug: design-loop-spec
     path: L001.02-design-loop-spec
     status: running
     parent_node_id: n-design
+    current_active_node: n-write-spec
   - loop_id: L001.03
     slug: build-skill
     path: L001.03-build-skill
     status: pending
     parent_node_id: n-build
+    current_active_node: null
 ```
 
 > **Rule.** An agent resuming, auditing, or scheduling MUST consult the relevant
@@ -635,6 +651,37 @@ children:
 > lookup; the tree walk is the fallback of last resort. All `status` values in an
 > index are drawn from the 15 canonical node statuses
 > ([`state_model.md`](./state_model.md#node-status-enum)).
+
+Every index entry carries `current_active_node` — the node currently executing
+in that loop (mirroring `loop.state.active_node`), or `null` when idle. This lets
+`/loop-status` answer "what is running, tree-wide" from the indexes alone,
+without opening each checkpoint.
+
+### 11.3 INDEX ↔ directory reconciliation and archival
+
+The index and the on-disk tree must not drift. The validator enforces this
+(rule R37, invoked with `--root <loops-dir>`): **every `path` listed in an
+`INDEX.yaml` must exist on disk**, and (by the retirement procedure below) every
+live loop directory must be listed. A dangling entry (loop archived/moved but
+still indexed) or an unlisted directory is rejected.
+
+**Retirement (`_archive/`).** A loop that reaches a terminal status
+(`completed`, `cancelled`, `deprecated`) and is no longer needed for active work
+is retired, not deleted:
+
+1. Move the loop directory into its parent's `_archive/` (top-level loops move
+   into `.agents/loops/_archive/`).
+2. Write a one-line tombstone (`_archive/<loop-id>.tombstone.yaml`:
+   `{loop_id, retired_at, reason, final_status}`) so the retirement is auditable.
+3. Remove the loop's entry from the live `INDEX.yaml` (it is now under
+   `_archive/`, outside the reconciled set).
+
+**Garbage collection.** `_archive/` is bounded by a retention policy — keep the
+most recent N retired loops (default 50) or those retired within a retention
+window (default 180 days), whichever the project sets; older tombstoned archives
+may be pruned. GC never touches a non-terminal loop, and never removes a
+tombstone without removing its directory (and vice versa), so the archive itself
+stays reconciled.
 
 ---
 
@@ -875,14 +922,17 @@ canonical node statuses), `created_at`, `created_by`, `depth`, `scope` (object:
 - `<loop>/_loops/INDEX.yaml` — local index; `children[]` each `{loop_id, slug,
   path, status, parent_node_id}`.
 
-### Sub-loop Admission Gate criteria (7)
+### Sub-loop Admission Gate criteria
 
-`high complexity`, `independent state persistence`, `independent evidence audit`,
-`may run in parallel`, `high risk / uncertainty`, `produces multiple artifacts`,
-`needs recursive decomposition`.
+Canonical list lives in [§8](#8-sub-loop-admission-gate) — do not re-enumerate
+here. The eight criterion names are: `high complexity`, `independent state
+persistence`, `independent evidence audit`, `may run in parallel`,
+`high risk / uncertainty`, `produces multiple artifacts`,
+`needs recursive decomposition`, `cross-cutting scope`.
 
 **Admission Gate decision rule (verbatim):** *If a problem needs its own plan,
 state, evidence, checkpoint, or closeout, it should be a child loop.*
+(Full statement: [§8](#8-sub-loop-admission-gate).)
 
 ### Reused (NOT redefined) tokens
 

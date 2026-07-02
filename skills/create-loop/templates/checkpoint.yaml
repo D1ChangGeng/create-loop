@@ -48,3 +48,4 @@ iteration: 4                      # loop iteration counter; checked vs terminati
 #   - "artifacts/triggers.md"
 # next_recommended_action: "complete draft, run llm_judge gate"  # advisory; distinct from next_suggested_action
 # open_blockers: []                     # each: {node_id, reason}; open blockers in THIS child loop
+checkpoint_seq: 1

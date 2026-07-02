@@ -56,17 +56,25 @@ loop is independently governed, rescheduled, and replayable.
 create-loop/
 ├── LICENSE                     Business Source License 1.1
 ├── README.md                   this file
+├── install-commands.sh         copies the slash commands into an agent's command dir
+├── .opencode/command/          loop-new / loop-run / loop-resume / loop-status (OpenCode)
+├── .claude/commands/           loop-new / loop-run / loop-resume / loop-status (Claude Code)
 └── skills/
     └── create-loop/            the installable skill
         ├── SKILL.md            core protocol (progressive disclosure)
         ├── README.md           full usage / maintain / extend guide
-        ├── references/         concepts, spec, state model, live-loop, recursive-loops, subgraph/subloop policy
+        ├── references/         concepts, spec, state model, live-loop, recursive-loops, subgraph/subloop policy, command system
         ├── templates/          fill-in run artifacts
-        ├── schemas/            JSON Schemas for the artifacts
-        ├── scripts/            validators + DAG renderer
+        ├── schemas/            JSON Schemas for the artifacts (10)
+        ├── scripts/            validators (checks/*) + DAG renderer
         ├── examples/           three worked loops (incl. recursive child-loop tree)
         └── tests/              acceptance + failure-mode specs
 ```
+
+`npx skills add` installs only `skills/create-loop/`. The slash commands are a
+separate agent concept, so they ship at the repo root — run `./install-commands.sh`
+(or copy them by hand) to enable `/loop-new`, `/loop-run`, `/loop-resume`,
+`/loop-status`. See [`skills/create-loop/references/command_system.md`](skills/create-loop/references/command_system.md).
 
 ## License
 

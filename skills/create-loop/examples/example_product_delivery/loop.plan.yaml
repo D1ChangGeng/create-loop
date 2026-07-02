@@ -1,717 +1,662 @@
-# loop.plan — WORKED EXAMPLE: multi-session software product delivery.
-#
-# Scenario: ship a production REST API service (auth + persistence + deploy).
-# Deliverable class: code_impl / production_launch.
-#
-# STRUCTURAL RULE ON DISPLAY HERE:
-#   The top-level `nodes` list contains ONLY design-time-invariant GOVERNANCE
-#   nodes (every one carries design_invariant: true). These are known at design
-#   time AND invariant for the task class — charter, discovery, risk screen,
-#   feasibility, requirements, architecture, verification plan, implementation,
-#   review, release approval, deploy (+ its saga compensation), handoff,
-#   closeout. None of them names a concrete vendor, DB, endpoint, or file.
-#
-#   Runtime-discovered specifics (which auth scheme, which DB, which endpoints)
-#   live ONLY inside the subgraph materialised on N7_implementation — see its
-#   `subgraph:` block (design_invariant: false children).
-#
-# Tokens are LOCKED — see references/loop_plan_spec.md Glossary.
-#   node kinds:  milestone | gate | mapper | branch | fanout | join | approval | compensation
-#   statuses:    undiscovered | discovered | needs_clarification | pending | ready | running |
-#                waiting_external | waiting_user | blocked | verifying | verification_failed |
-#                retry_pending | completed | cancelled | deprecated
-#   gate kinds:  automated_check | test | llm_judge | self_consistency |
-#                evaluator_optimizer | step_verifier | human_approval | artifact_exists
-#   on_failure:  local_retry | local_patch | replan | escalate
-#   risk:        low | med | high
-#   assignee:    agent | user | subagent
-
-schema_version: "1.0.0"
-plan_id: "plan-product-delivery-0007"
-goal: "Ship a REST API service with auth, persistence, and a deployment."
-true_intent: >-
-  Deliver a production-operable HTTP API — authenticated, backed by durable
-  storage, deployed behind a health-checked endpoint with a tested rollback
-  path — that a fresh on-call engineer can operate from the handoff doc alone.
+schema_version: 1.0.0
+plan_id: plan-product-delivery-0007
+goal: Ship a REST API service with auth, persistence, and a deployment.
+true_intent: "Deliver a production-operable HTTP API \u2014 authenticated, backed by durable storage,\
+  \ deployed behind a health-checked endpoint with a tested rollback path \u2014 that a fresh on-call\
+  \ engineer can operate from the handoff doc alone."
 non_goals:
-  - "A public marketing site or client SDK."
-  - "Multi-region or autoscaling infrastructure beyond a single deployment target."
-  - "Migrating any pre-existing data set into the new store."
-
+- A public marketing site or client SDK.
+- Multi-region or autoscaling infrastructure beyond a single deployment target.
+- Migrating any pre-existing data set into the new store.
 success_criteria:
-  - id: "sc-auth"
-    statement: "Every non-public route rejects unauthenticated requests and accepts valid credentials, proven by the auth integration test suite."
-    measurable: true
-  - id: "sc-persistence"
-    statement: "Core resources survive a process restart, proven by the persistence integration test suite against a real database."
-    measurable: true
-  - id: "sc-deploy"
-    statement: "The deployed service answers its health check and a smoke test over HTTP after release."
-    measurable: true
-  - id: "sc-rollback"
-    statement: "A rehearsed rollback restores the previous known-good deployment within the incident SLO."
-    measurable: true
-  - id: "sc-operable"
-    statement: "A fresh engineer can run, observe, and roll back the service using only the handoff document."
-    measurable: false
-
+- id: sc-auth
+  statement: Every non-public route rejects unauthenticated requests and accepts valid credentials, proven
+    by the auth integration test suite.
+  measurable: true
+- id: sc-persistence
+  statement: Core resources survive a process restart, proven by the persistence integration test suite
+    against a real database.
+  measurable: true
+- id: sc-deploy
+  statement: The deployed service answers its health check and a smoke test over HTTP after release.
+  measurable: true
+- id: sc-rollback
+  statement: A rehearsed rollback restores the previous known-good deployment within the incident SLO.
+  measurable: true
+- id: sc-operable
+  statement: A fresh engineer can run, observe, and roll back the service using only the handoff document.
+  measurable: false
 failure_criteria:
-  - "Budget or iteration cap exhausted before all measurable success_criteria pass."
-  - "A production deployment cannot be rolled back (compensation path proven non-functional)."
-  - "Release approval is refused and no acceptable alternative plan is reachable."
-
+- Budget or iteration cap exhausted before all measurable success_criteria pass.
+- A production deployment cannot be rolled back (compensation path proven non-functional).
+- Release approval is refused and no acceptable alternative plan is reachable.
 termination:
   max_iterations: 60
   max_wall_clock_hours: 120
   max_cost_units: 2000
-  done_when: "all success_criteria met and all top-level nodes completed"
-
+  done_when: all success_criteria met and all top-level nodes completed
+  max_depth: 3
+  max_child_loops: 20
 constraints:
-  - "Respect the approved budget of 2000 cost units."
-  - "No production deployment without an explicit human release approval."
-  - "Every side-effecting deploy must have a paired, rehearsed compensation (rollback)."
-  - "Secrets are read from the platform secret store, never hard-coded or logged."
-
-# ---------------------------------------------------------------------------
-# nodes — TOP LEVEL: design-invariant governance DAG only.
-# Parallel branches: N1_discovery ∥ N2_risk_screen (both require only N0_charter,
-# share no other dependency, and are marked parallelizable: true).
-# ---------------------------------------------------------------------------
+- Respect the approved budget of 2000 cost units.
+- No production deployment without an explicit human release approval.
+- Every side-effecting deploy must have a paired, rehearsed compensation (rollback).
+- Secrets are read from the platform secret store, never hard-coded or logged.
 nodes:
-  # (N0) CHARTER — Layer 0 interview as the loop's first governance node.
-  #      The Charter / Control-Profile gate. Root: requires [].
-  - id: "N0_charter"
-    kind: "gate"
-    title: "Charter / control-profile gate (Layer 0 interview)"
-    design_invariant: true
-    status: "completed"
-    requires: []
-    produces:
-      - "artifacts/task_profile.yaml"
-    inputs:
-      - "the short goal string"
-    preconditions: []
-    postconditions:
-      - "The control profile (task type, end-state, success/failure criteria, risk & approval boundary, persistence requirements) is agreed and recorded."
-      - "Unknowns/assumptions are routed to owner nodes rather than demanded up front."
-    gate:
-      kind: "human_approval"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N0_charter.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 1.0
-      jitter: true
-    on_failure: "escalate"
-    priority: 100
-    risk: "low"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "The interview is Layer 0 (concepts.md §8). Its output is the control profile that shapes this top-level graph."
-
-  # (N1) DISCOVERY — parallel with N2_risk_screen (both depend only on N0).
-  - id: "N1_discovery"
-    kind: "milestone"
-    title: "Discover context, current systems, and constraints"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N0_charter"
-    produces:
-      - "artifacts/discovery_findings.md"
-    inputs:
-      - "artifacts/task_profile.yaml"
-    preconditions:
-      - "The control profile exists."
-    postconditions:
-      - "Key unknowns (auth scheme options, storage options, deploy target) are enumerated with evidence."
-    gate:
-      kind: "llm_judge"
-      threshold: 0.8
-      rubric: "rubrics/discovery_quality.md"
-      evidence_ref: "evidence/N1_discovery.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "local_retry"
-    priority: 90
-    risk: "med"
-    parallelizable: true
-    allow_subgraph: true
-    subgraph: null
-    child_loops: []
-    assignee: "subagent"
-    notes: "Runs concurrently with N2_risk_screen; they share no dependency beyond N0_charter."
-
-  # (N2) RISK SCREEN — parallel with N1_discovery.
-  - id: "N2_risk_screen"
-    kind: "milestone"
-    title: "Screen security, data, and operational risks"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N0_charter"
-    produces:
-      - "artifacts/risk_register.md"
-    inputs:
-      - "artifacts/task_profile.yaml"
-    preconditions:
-      - "The control profile exists."
-    postconditions:
-      - "A risk register scores auth, data-handling, and deploy/rollback risks and names required mitigations."
-    gate:
-      kind: "llm_judge"
-      threshold: 0.75
-      rubric: "rubrics/risk_screen.md"
-      evidence_ref: "evidence/N2_risk_screen.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "local_retry"
-    priority: 90
-    risk: "med"
-    parallelizable: true
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "subagent"
-    notes: "Runs concurrently with N1_discovery; the fan-in happens at N3_feasibility."
-
-  # (N3) FEASIBILITY — fan-in of the two parallel branches (join by two requires).
-  - id: "N3_feasibility"
-    kind: "milestone"
-    title: "Prove feasibility with a throwaway spike"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N1_discovery"
-      - "N2_risk_screen"
-    produces:
-      - "artifacts/feasibility_report.md"
-    inputs:
-      - "artifacts/discovery_findings.md"
-      - "artifacts/risk_register.md"
-    preconditions:
-      - "Discovery findings and the risk register are verified."
-    postconditions:
-      - "A spike demonstrates the chosen stack can authenticate, persist, and deploy end-to-end."
-    gate:
-      kind: "test"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N3_feasibility.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 5.0
-      jitter: true
-    on_failure: "local_patch"
-    priority: 85
-    risk: "med"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "Merges the N1_discovery ∥ N2_risk_screen branches; it is ready only when BOTH are completed."
-
-  # (N4) REQUIREMENTS BASELINE — freeze the measurable spec.
-  - id: "N4_requirements_baseline"
-    kind: "milestone"
-    title: "Freeze the requirements baseline"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N3_feasibility"
-    produces:
-      - "artifacts/requirements_baseline.md"
-    inputs:
-      - "artifacts/feasibility_report.md"
-    preconditions:
-      - "Feasibility is proven."
-    postconditions:
-      - "Each success criterion maps to at least one testable requirement."
-    gate:
-      kind: "llm_judge"
-      threshold: 0.8
-      rubric: "rubrics/requirements_completeness.md"
-      evidence_ref: "evidence/N4_requirements_baseline.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "local_patch"
-    priority: 80
-    risk: "med"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: ""
-
-  # (N5) ARCHITECTURE — the design-invariant "an architecture exists" node.
-  - id: "N5_architecture"
-    kind: "milestone"
-    title: "Design the service architecture"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N4_requirements_baseline"
-    produces:
-      - "artifacts/architecture.md"
-    inputs:
-      - "artifacts/requirements_baseline.md"
-    preconditions:
-      - "The requirements baseline is frozen."
-    postconditions:
-      - "Module boundaries (auth, persistence, api, deploy) and their contracts are recorded."
-    gate:
-      kind: "llm_judge"
-      threshold: 0.8
-      rubric: "rubrics/architecture_review.md"
-      evidence_ref: "evidence/N5_architecture.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "replan"
-    priority: 75
-    risk: "med"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "That an architecture exists is design-invariant; WHICH modules it names is captured in the artifact, not as top-level nodes."
-
-  # (N6) VERIFICATION PLAN — "verification exists" is design-invariant.
-  - id: "N6_verification_plan"
-    kind: "milestone"
-    title: "Author the verification plan"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N5_architecture"
-    produces:
-      - "artifacts/verification_plan.md"
-      - "artifacts/coverage_matrix.csv"
-    inputs:
-      - "artifacts/architecture.md"
-      - "artifacts/requirements_baseline.md"
-    preconditions:
-      - "The architecture is approved."
-    postconditions:
-      - "Every measurable success criterion has a named test in the coverage matrix."
-    gate:
-      kind: "automated_check"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N6_verification_plan.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "local_patch"
-    priority: 70
-    risk: "low"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "The coverage matrix is machine-checkable, hence an automated_check gate."
-
-  # (N7) IMPLEMENTATION — SUBGRAPH OWNER. Runtime-discovered work lives inside.
-  - id: "N7_implementation"
-    kind: "milestone"
-    title: "Implement the service (auth + persistence + api)"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N6_verification_plan"
-    produces:
-      - "artifacts/service/"
-    inputs:
-      - "artifacts/architecture.md"
-      - "artifacts/verification_plan.md"
-    preconditions:
-      - "The verification plan and coverage matrix exist."
-    postconditions:
-      - "All runtime-discovered implementation nodes are completed and the integration suite passes."
-    gate:
-      kind: "test"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N7_implementation.json"
-    retry_policy:
-      max_attempts: 4
-      backoff_base_seconds: 5.0
-      jitter: true
-    on_failure: "replan"
-    priority: 65
-    risk: "high"
-    parallelizable: false
-    allow_subgraph: true
-    # ---- RUNTIME SUBGRAPH: isomorphic loop.plan fragment (Layer 2) ----------
-    # These children are design_invariant: false — they were only knowable once
-    # the architecture named the auth/persistence/api modules. This is recursion
-    # made concrete: the parent cannot complete until every child is terminal
-    # and N7's own test gate passes.
-    subgraph:
-      parent_ref: "N7_implementation"
-      schema_version: "1.0.0"
-      plan_version: 2
-      nodes:
-        # auth ∥ persistence: no shared dependency, both parallelizable.
-        - id: "impl_auth"
-          kind: "milestone"
-          title: "Implement JWT bearer auth + middleware"
-          design_invariant: false
-          status: "completed"
-          requires: []
-          produces:
-            - "artifacts/service/auth/"
-          inputs:
-            - "artifacts/architecture.md"
-          preconditions: []
-          postconditions:
-            - "Protected routes reject anonymous requests; the auth unit + integration tests pass."
-          gate:
-            kind: "test"
-            threshold: null
-            rubric: null
-            evidence_ref: "evidence/impl_auth.json"
-          retry_policy:
-            max_attempts: 3
-            backoff_base_seconds: 3.0
-            jitter: true
-          on_failure: "local_patch"
-          priority: 60
-          risk: "high"
-          parallelizable: true
-          allow_subgraph: false
-          subgraph: null
-          child_loops: []
-          assignee: "agent"
-          notes: "Runs in parallel with impl_persistence."
-
-        - id: "impl_persistence"
-          kind: "milestone"
-          title: "Implement the persistence layer + migrations"
-          design_invariant: false
-          status: "completed"
-          requires: []
-          produces:
-            - "artifacts/service/persistence/"
-          inputs:
-            - "artifacts/architecture.md"
-          preconditions: []
-          postconditions:
-            - "Core resources survive a restart; the persistence integration test passes against a real database."
-          gate:
-            kind: "test"
-            threshold: null
-            rubric: null
-            evidence_ref: "evidence/impl_persistence.json"
-          retry_policy:
-            max_attempts: 3
-            backoff_base_seconds: 3.0
-            jitter: true
-          on_failure: "local_patch"
-          priority: 60
-          risk: "high"
-          parallelizable: true
-          allow_subgraph: false
-          subgraph: null
-          child_loops: []
-          assignee: "agent"
-          notes: "Migration test failed on attempt 1 (FK constraint), fixed by local_patch, passed on attempt 2 — see evidence ledger."
-
-        - id: "impl_api"
-          kind: "milestone"
-          title: "Implement the REST endpoints wiring auth + persistence"
-          design_invariant: false
-          status: "completed"
-          requires:
-            - "impl_auth"
-            - "impl_persistence"
-          produces:
-            - "artifacts/service/api/"
-          inputs:
-            - "artifacts/service/auth/"
-            - "artifacts/service/persistence/"
-          preconditions:
-            - "Auth middleware and the persistence layer are available."
-          postconditions:
-            - "Endpoints enforce auth and read/write through persistence; API integration tests pass."
-          gate:
-            kind: "test"
-            threshold: null
-            rubric: null
-            evidence_ref: "evidence/impl_api.json"
-          retry_policy:
-            max_attempts: 3
-            backoff_base_seconds: 3.0
-            jitter: true
-          on_failure: "local_patch"
-          priority: 58
-          risk: "high"
-          parallelizable: false
-          allow_subgraph: false
-          subgraph: null
-          child_loops: []
-          assignee: "agent"
-          notes: "Fan-in of impl_auth ∥ impl_persistence inside the subgraph."
-
-        - id: "impl_integration_gate"
-          kind: "gate"
-          title: "Full-service integration gate"
-          design_invariant: false
-          status: "completed"
-          requires:
-            - "impl_api"
-          produces:
-            - "artifacts/service/integration_report.json"
-          inputs:
-            - "artifacts/service/api/"
-          preconditions:
-            - "All three implementation modules are completed."
-          postconditions:
-            - "The end-to-end integration suite is green."
-          gate:
-            kind: "test"
-            threshold: null
-            rubric: null
-            evidence_ref: "evidence/impl_integration_gate.json"
-          retry_policy:
-            max_attempts: 2
-            backoff_base_seconds: 5.0
-            jitter: true
-          on_failure: "replan"
-          priority: 55
-          risk: "high"
-          parallelizable: false
-          allow_subgraph: false
-          subgraph: null
-          child_loops: []
-          assignee: "subagent"
-          notes: "Child gate node; its pass is a precondition for N7_implementation's own gate."
-    child_loops: []
-    assignee: "agent"
-    notes: "SUBGRAPH OWNER (allow_subgraph: true). Runtime-discovered detail (which auth scheme, which DB) is confined here, never at the top level."
-
-  # (N8) REVIEW — a gate node with a non-null evaluator_optimizer gate.
-  - id: "N8_review"
-    kind: "gate"
-    title: "Code + security review gate"
-    design_invariant: true
-    status: "completed"
-    requires:
-      - "N7_implementation"
-    produces:
-      - "artifacts/review_report.md"
-    inputs:
-      - "artifacts/service/"
-      - "artifacts/risk_register.md"
-    preconditions:
-      - "Implementation is completed and its integration suite is green."
-    postconditions:
-      - "Review findings are resolved to an acceptable score against the review rubric."
-    gate:
-      kind: "evaluator_optimizer"
-      threshold: 0.85
-      rubric: "rubrics/code_review.md"
-      evidence_ref: "evidence/N8_review.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 4.0
-      jitter: true
-    on_failure: "local_patch"
-    priority: 50
-    risk: "med"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "subagent"
-    notes: "generate → critique → revise until the rubric score clears 0.85."
-
-  # (N9) RELEASE APPROVAL — approval kind, gate-exempt (gate: null), assignee user.
-  - id: "N9_release_approval"
-    kind: "approval"
-    title: "Human release approval"
-    design_invariant: true
-    status: "waiting_user"
-    requires:
-      - "N8_review"
-    produces:
-      - "artifacts/release_approval.md"
-    inputs:
-      - "artifacts/review_report.md"
-      - "artifacts/service/"
-    preconditions:
-      - "The review gate has passed."
-    postconditions:
-      - "A human has explicitly approved (or refused) the production release."
-    gate: null
-    retry_policy:
-      max_attempts: 1
-      backoff_base_seconds: 0.0
-      jitter: false
-    on_failure: "escalate"
-    priority: 45
-    risk: "high"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "user"
-    notes: "Gate-exempt by kind (self-gating human handoff). Currently open in checkpoint.pending_approvals with a token."
-
-  # (N10) DEPLOY — side-effecting activity; paired with N10c_rollback_compensation.
-  - id: "N10_deploy"
-    kind: "milestone"
-    title: "Deploy the service to the production target"
-    design_invariant: true
-    status: "blocked"
-    requires:
-      - "N9_release_approval"
-    produces:
-      - "artifacts/deployment_record.json"
-    inputs:
-      - "artifacts/service/"
-      - "artifacts/release_approval.md"
-    preconditions:
-      - "Release approval is granted."
-      - "The production database credential is provisioned in the secret store."
-    postconditions:
-      - "The service answers its health check and the post-deploy smoke test passes."
-    gate:
-      kind: "automated_check"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N10_deploy.json"
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 10.0
-      jitter: true
-    on_failure: "escalate"
-    priority: 40
-    risk: "high"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "Side-effecting (activity): logged to the event log and never blindly replayed. Its saga undo is N10c_rollback_compensation."
-
-  # (N10c) ROLLBACK — saga compensation paired to N10_deploy. Gate-exempt by kind.
-  - id: "N10c_rollback_compensation"
-    kind: "compensation"
-    title: "Roll back the deployment (saga undo of N10_deploy)"
-    design_invariant: true
-    status: "pending"
-    requires:
-      - "N10_deploy"
-    produces:
-      - "artifacts/rollback_record.json"
-    inputs:
-      - "artifacts/deployment_record.json"
-    preconditions:
-      - "A deployment record exists to be undone."
-    postconditions:
-      - "The previous known-good deployment is restored and the migration is reverted."
-    gate: null
-    retry_policy:
-      max_attempts: 3
-      backoff_base_seconds: 5.0
-      jitter: true
-    on_failure: "escalate"
-    priority: 42
-    risk: "high"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "Saga compensation: node.contract.compensation_of = N10_deploy. Triggered by the saga on deploy failure, not by normal readiness."
-
-  # (N11) HANDOFF — operability doc for a fresh on-call engineer.
-  - id: "N11_handoff"
-    kind: "milestone"
-    title: "Write the operations handoff document"
-    design_invariant: true
-    status: "pending"
-    requires:
-      - "N10_deploy"
-    produces:
-      - "artifacts/handoff.md"
-    inputs:
-      - "artifacts/deployment_record.json"
-      - "artifacts/architecture.md"
-    preconditions:
-      - "The service is deployed and healthy."
-    postconditions:
-      - "A fresh engineer can run, observe, and roll back the service from the doc alone."
-    gate:
-      kind: "artifact_exists"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N11_handoff.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "local_patch"
-    priority: 35
-    risk: "low"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: ""
-
-  # (N12) CLOSEOUT — verify done_when and archive the run.
-  - id: "N12_closeout"
-    kind: "milestone"
-    title: "Close out the run"
-    design_invariant: true
-    status: "pending"
-    requires:
-      - "N11_handoff"
-    produces:
-      - "artifacts/closeout_report.md"
-    inputs:
-      - "artifacts/handoff.md"
-    preconditions:
-      - "The handoff document exists."
-    postconditions:
-      - "All success_criteria are confirmed met and the run is archived."
-    gate:
-      kind: "automated_check"
-      threshold: null
-      rubric: null
-      evidence_ref: "evidence/N12_closeout.json"
-    retry_policy:
-      max_attempts: 2
-      backoff_base_seconds: 2.0
-      jitter: true
-    on_failure: "escalate"
-    priority: 30
-    risk: "low"
-    parallelizable: false
-    allow_subgraph: false
-    subgraph: null
-    child_loops: []
-    assignee: "agent"
-    notes: "Confirms termination.done_when before the loop terminates."
-
-created: "2026-07-02"
+- id: N0_charter
+  kind: gate
+  title: Charter / control-profile gate (Layer 0 interview)
+  design_invariant: true
+  status: completed
+  requires: []
+  produces:
+  - artifacts/task_profile.yaml
+  inputs:
+  - the short goal string
+  preconditions: []
+  postconditions:
+  - The control profile (task type, end-state, success/failure criteria, risk & approval boundary, persistence
+    requirements) is agreed and recorded.
+  - Unknowns/assumptions are routed to owner nodes rather than demanded up front.
+  gate:
+    kind: human_approval
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N0_charter.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 1.0
+    jitter: true
+  on_failure: escalate
+  priority: 100
+  risk: low
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: "The interview is Layer 0 (concepts.md \xA78). Its output is the control profile that shapes\
+    \ this top-level graph."
+- id: N1_discovery
+  kind: milestone
+  title: Discover context, current systems, and constraints
+  design_invariant: true
+  status: completed
+  requires:
+  - N0_charter
+  produces:
+  - artifacts/discovery_findings.md
+  inputs:
+  - artifacts/task_profile.yaml
+  preconditions:
+  - The control profile exists.
+  postconditions:
+  - Key unknowns (auth scheme options, storage options, deploy target) are enumerated with evidence.
+  gate:
+    kind: llm_judge
+    threshold: 0.8
+    rubric: rubrics/discovery_quality.md
+    evidence_ref: evidence/N1_discovery.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: local_retry
+  priority: 90
+  risk: med
+  parallelizable: true
+  allow_subgraph: true
+  subgraph: null
+  child_loops: []
+  assignee: subagent
+  notes: Runs concurrently with N2_risk_screen; they share no dependency beyond N0_charter.
+- id: N2_risk_screen
+  kind: milestone
+  title: Screen security, data, and operational risks
+  design_invariant: true
+  status: completed
+  requires:
+  - N0_charter
+  produces:
+  - artifacts/risk_register.md
+  inputs:
+  - artifacts/task_profile.yaml
+  preconditions:
+  - The control profile exists.
+  postconditions:
+  - A risk register scores auth, data-handling, and deploy/rollback risks and names required mitigations.
+  gate:
+    kind: llm_judge
+    threshold: 0.75
+    rubric: rubrics/risk_screen.md
+    evidence_ref: evidence/N2_risk_screen.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: local_retry
+  priority: 90
+  risk: med
+  parallelizable: true
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: subagent
+  notes: Runs concurrently with N1_discovery; the fan-in happens at N3_feasibility.
+- id: N3_feasibility
+  kind: milestone
+  title: Prove feasibility with a throwaway spike
+  design_invariant: true
+  status: completed
+  requires:
+  - N1_discovery
+  - N2_risk_screen
+  produces:
+  - artifacts/feasibility_report.md
+  inputs:
+  - artifacts/discovery_findings.md
+  - artifacts/risk_register.md
+  preconditions:
+  - Discovery findings and the risk register are verified.
+  postconditions:
+  - A spike demonstrates the chosen stack can authenticate, persist, and deploy end-to-end.
+  gate:
+    kind: test
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N3_feasibility.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 5.0
+    jitter: true
+  on_failure: local_patch
+  priority: 85
+  risk: med
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: "Merges the N1_discovery \u2225 N2_risk_screen branches; it is ready only when BOTH are completed."
+- id: N4_requirements_baseline
+  kind: milestone
+  title: Freeze the requirements baseline
+  design_invariant: true
+  status: completed
+  requires:
+  - N3_feasibility
+  produces:
+  - artifacts/requirements_baseline.md
+  inputs:
+  - artifacts/feasibility_report.md
+  preconditions:
+  - Feasibility is proven.
+  postconditions:
+  - Each success criterion maps to at least one testable requirement.
+  gate:
+    kind: llm_judge
+    threshold: 0.8
+    rubric: rubrics/requirements_completeness.md
+    evidence_ref: evidence/N4_requirements_baseline.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: local_patch
+  priority: 80
+  risk: med
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: ''
+- id: N5_architecture
+  kind: milestone
+  title: Design the service architecture
+  design_invariant: true
+  status: completed
+  requires:
+  - N4_requirements_baseline
+  produces:
+  - artifacts/architecture.md
+  inputs:
+  - artifacts/requirements_baseline.md
+  preconditions:
+  - The requirements baseline is frozen.
+  postconditions:
+  - Module boundaries (auth, persistence, api, deploy) and their contracts are recorded.
+  gate:
+    kind: llm_judge
+    threshold: 0.8
+    rubric: rubrics/architecture_review.md
+    evidence_ref: evidence/N5_architecture.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: replan
+  priority: 75
+  risk: med
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: That an architecture exists is design-invariant; WHICH modules it names is captured in the artifact,
+    not as top-level nodes.
+- id: N6_verification_plan
+  kind: milestone
+  title: Author the verification plan
+  design_invariant: true
+  status: completed
+  requires:
+  - N5_architecture
+  produces:
+  - artifacts/verification_plan.md
+  - artifacts/coverage_matrix.csv
+  inputs:
+  - artifacts/architecture.md
+  - artifacts/requirements_baseline.md
+  preconditions:
+  - The architecture is approved.
+  postconditions:
+  - Every measurable success criterion has a named test in the coverage matrix.
+  gate:
+    kind: automated_check
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N6_verification_plan.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: local_patch
+  priority: 70
+  risk: low
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: The coverage matrix is machine-checkable, hence an automated_check gate.
+- id: N7_implementation
+  kind: milestone
+  title: Implement the service (auth + persistence + api)
+  design_invariant: true
+  status: completed
+  requires:
+  - N6_verification_plan
+  produces:
+  - artifacts/service/
+  inputs:
+  - artifacts/architecture.md
+  - artifacts/verification_plan.md
+  preconditions:
+  - The verification plan and coverage matrix exist.
+  postconditions:
+  - All runtime-discovered implementation nodes are completed and the integration suite passes.
+  gate:
+    kind: test
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N7_implementation.json
+  retry_policy:
+    max_attempts: 4
+    backoff_base_seconds: 5.0
+    jitter: true
+  on_failure: replan
+  priority: 65
+  risk: high
+  parallelizable: false
+  allow_subgraph: true
+  subgraph:
+    parent_ref: N7_implementation
+    schema_version: 1.0.0
+    plan_version: 2
+    nodes:
+    - id: impl_auth
+      kind: milestone
+      title: Implement JWT bearer auth + middleware
+      design_invariant: false
+      status: completed
+      requires: []
+      produces:
+      - artifacts/service/auth/
+      inputs:
+      - artifacts/architecture.md
+      preconditions: []
+      postconditions:
+      - Protected routes reject anonymous requests; the auth unit + integration tests pass.
+      gate:
+        kind: test
+        threshold: null
+        rubric: null
+        evidence_ref: evidence/impl_auth.json
+      retry_policy:
+        max_attempts: 3
+        backoff_base_seconds: 3.0
+        jitter: true
+      on_failure: local_patch
+      priority: 60
+      risk: high
+      parallelizable: true
+      allow_subgraph: false
+      subgraph: null
+      child_loops: []
+      assignee: agent
+      notes: Runs in parallel with impl_persistence.
+    - id: impl_persistence
+      kind: milestone
+      title: Implement the persistence layer + migrations
+      design_invariant: false
+      status: completed
+      requires: []
+      produces:
+      - artifacts/service/persistence/
+      inputs:
+      - artifacts/architecture.md
+      preconditions: []
+      postconditions:
+      - Core resources survive a restart; the persistence integration test passes against a real database.
+      gate:
+        kind: test
+        threshold: null
+        rubric: null
+        evidence_ref: evidence/impl_persistence.json
+      retry_policy:
+        max_attempts: 3
+        backoff_base_seconds: 3.0
+        jitter: true
+      on_failure: local_patch
+      priority: 60
+      risk: high
+      parallelizable: true
+      allow_subgraph: false
+      subgraph: null
+      child_loops: []
+      assignee: agent
+      notes: "Migration test failed on attempt 1 (FK constraint), fixed by local_patch, passed on attempt\
+        \ 2 \u2014 see evidence ledger."
+    - id: impl_api
+      kind: milestone
+      title: Implement the REST endpoints wiring auth + persistence
+      design_invariant: false
+      status: completed
+      requires:
+      - impl_auth
+      - impl_persistence
+      produces:
+      - artifacts/service/api/
+      inputs:
+      - artifacts/service/auth/
+      - artifacts/service/persistence/
+      preconditions:
+      - Auth middleware and the persistence layer are available.
+      postconditions:
+      - Endpoints enforce auth and read/write through persistence; API integration tests pass.
+      gate:
+        kind: test
+        threshold: null
+        rubric: null
+        evidence_ref: evidence/impl_api.json
+      retry_policy:
+        max_attempts: 3
+        backoff_base_seconds: 3.0
+        jitter: true
+      on_failure: local_patch
+      priority: 58
+      risk: high
+      parallelizable: false
+      allow_subgraph: false
+      subgraph: null
+      child_loops: []
+      assignee: agent
+      notes: "Fan-in of impl_auth \u2225 impl_persistence inside the subgraph."
+    - id: impl_integration_gate
+      kind: gate
+      title: Full-service integration gate
+      design_invariant: false
+      status: completed
+      requires:
+      - impl_api
+      produces:
+      - artifacts/service/integration_report.json
+      inputs:
+      - artifacts/service/api/
+      preconditions:
+      - All three implementation modules are completed.
+      postconditions:
+      - The end-to-end integration suite is green.
+      gate:
+        kind: test
+        threshold: null
+        rubric: null
+        evidence_ref: evidence/impl_integration_gate.json
+      retry_policy:
+        max_attempts: 2
+        backoff_base_seconds: 5.0
+        jitter: true
+      on_failure: replan
+      priority: 55
+      risk: high
+      parallelizable: false
+      allow_subgraph: false
+      subgraph: null
+      child_loops: []
+      assignee: subagent
+      notes: Child gate node; its pass is a precondition for N7_implementation's own gate.
+  child_loops: []
+  assignee: agent
+  notes: 'SUBGRAPH OWNER (allow_subgraph: true). Runtime-discovered detail (which auth scheme, which DB)
+    is confined here, never at the top level.'
+- id: N8_review
+  kind: gate
+  title: Code + security review gate
+  design_invariant: true
+  status: completed
+  requires:
+  - N7_implementation
+  produces:
+  - artifacts/review_report.md
+  inputs:
+  - artifacts/service/
+  - artifacts/risk_register.md
+  preconditions:
+  - Implementation is completed and its integration suite is green.
+  postconditions:
+  - Review findings are resolved to an acceptable score against the review rubric.
+  gate:
+    kind: evaluator_optimizer
+    threshold: 0.85
+    rubric: rubrics/code_review.md
+    evidence_ref: evidence/N8_review.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 4.0
+    jitter: true
+  on_failure: local_patch
+  priority: 50
+  risk: med
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: subagent
+  notes: "generate \u2192 critique \u2192 revise until the rubric score clears 0.85."
+- id: N9_release_approval
+  kind: approval
+  title: Human release approval
+  design_invariant: true
+  status: waiting_user
+  requires:
+  - N8_review
+  produces:
+  - artifacts/release_approval.md
+  inputs:
+  - artifacts/review_report.md
+  - artifacts/service/
+  preconditions:
+  - The review gate has passed.
+  postconditions:
+  - A human has explicitly approved (or refused) the production release.
+  gate:
+    kind: human_approval
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N9_release_approval.json
+  retry_policy:
+    max_attempts: 1
+    backoff_base_seconds: 0.0
+    jitter: false
+  on_failure: escalate
+  priority: 45
+  risk: high
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: user
+  notes: Gate-exempt by kind (self-gating human handoff). Currently open in checkpoint.pending_approvals
+    with a token.
+- id: N10_deploy
+  kind: milestone
+  title: Deploy the service to the production target
+  design_invariant: true
+  status: blocked
+  requires:
+  - N9_release_approval
+  produces:
+  - artifacts/deployment_record.json
+  inputs:
+  - artifacts/service/
+  - artifacts/release_approval.md
+  preconditions:
+  - Release approval is granted.
+  - The production database credential is provisioned in the secret store.
+  postconditions:
+  - The service answers its health check and the post-deploy smoke test passes.
+  gate:
+    kind: automated_check
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N10_deploy.json
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 10.0
+    jitter: true
+  on_failure: escalate
+  priority: 40
+  risk: high
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: 'Side-effecting (activity): logged to the event log and never blindly replayed. Its saga undo
+    is N10c_rollback_compensation.'
+- id: N10c_rollback_compensation
+  kind: compensation
+  title: Roll back the deployment (saga undo of N10_deploy)
+  design_invariant: true
+  status: pending
+  requires:
+  - N10_deploy
+  produces:
+  - artifacts/rollback_record.json
+  inputs:
+  - artifacts/deployment_record.json
+  preconditions:
+  - A deployment record exists to be undone.
+  postconditions:
+  - The previous known-good deployment is restored and the migration is reverted.
+  gate: null
+  retry_policy:
+    max_attempts: 3
+    backoff_base_seconds: 5.0
+    jitter: true
+  on_failure: escalate
+  priority: 42
+  risk: high
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: 'Saga compensation: node.contract.compensation_of = N10_deploy. Triggered by the saga on deploy
+    failure, not by normal readiness.'
+- id: N11_handoff
+  kind: milestone
+  title: Write the operations handoff document
+  design_invariant: true
+  status: pending
+  requires:
+  - N10_deploy
+  produces:
+  - artifacts/handoff.md
+  inputs:
+  - artifacts/deployment_record.json
+  - artifacts/architecture.md
+  preconditions:
+  - The service is deployed and healthy.
+  postconditions:
+  - A fresh engineer can run, observe, and roll back the service from the doc alone.
+  gate:
+    kind: artifact_exists
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N11_handoff.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: local_patch
+  priority: 35
+  risk: low
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: ''
+- id: N12_closeout
+  kind: milestone
+  title: Close out the run
+  design_invariant: true
+  status: pending
+  requires:
+  - N11_handoff
+  produces:
+  - artifacts/closeout_report.md
+  inputs:
+  - artifacts/handoff.md
+  preconditions:
+  - The handoff document exists.
+  postconditions:
+  - All success_criteria are confirmed met and the run is archived.
+  gate:
+    kind: automated_check
+    threshold: null
+    rubric: null
+    evidence_ref: evidence/N12_closeout.json
+  retry_policy:
+    max_attempts: 2
+    backoff_base_seconds: 2.0
+    jitter: true
+  on_failure: escalate
+  priority: 30
+  risk: low
+  parallelizable: false
+  allow_subgraph: false
+  subgraph: null
+  child_loops: []
+  assignee: agent
+  notes: Confirms termination.done_when before the loop terminates.
+created: '2026-07-02'
 plan_version: 1
+plan_history:
+- plan_version: 1
+  reason: Initial plan version (v0 from the Charter interview).
+  superseded_at: null
+  goal_hash: 4828671862b4d87cf0c330cf35366a9c169ba5de8604902a1eaf89224f7d6aa5
+  true_intent_hash: 37d8dce47529c8d3a5c8f7bf54fe6d426e02317aecde1552a3bce04c88fa308d

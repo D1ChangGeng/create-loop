@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/event_log.schema.json",
+  "title": "event_log",
+  "description": "The append-only event log — the PRIMARY source of truth for a loop. On resume, the checkpoint and its derived counters (cost_units_spent, iteration, attempt, node_states) are reconciled by replaying this log. Each node advance writes a pre_effect entry, executes the side effect, then writes a post_effect entry with the outcome; a dangling pre_effect with no post_effect is an in-doubt transaction. Modelled as {schema_version, entries[]}; entries[].seq is strictly monotonic.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "entries"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "entries": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/entry"}
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seq", "node_id", "ts", "kind"],
+      "properties": {
+        "seq": {"type": "integer", "minimum": 0, "description": "Strictly monotonic sequence number across the whole log."},
+        "node_id": {"type": "string", "description": "The node this event concerns."},
+        "ts": {"type": "string", "description": "ISO-8601 timestamp."},
+        "kind": {"type": "string", "enum": ["pre_effect", "post_effect", "note"], "description": "pre_effect = about to execute a side effect; post_effect = the effect finished (carries outcome); note = a non-effect annotation."},
+        "from_status": {"type": ["string", "null"], "description": "Node status before the transition (pre_effect)."},
+        "to_status": {"type": ["string", "null"], "description": "Intended node status after the transition (pre_effect)."},
+        "phase": {"type": ["integer", "null"], "minimum": 0, "description": "continue_as_new phase at event time."},
+        "intent": {"type": ["string", "null"], "description": "What the effect intends to do (pre_effect)."},
+        "idempotency_key": {"type": ["string", "null"], "description": "A stable key that makes re-running this effect safe. Required in practice for any non-idempotent effect so an in-doubt entry can be safely replayed."},
+        "outcome": {"type": ["string", "null"], "enum": ["ok", "fail", null], "description": "post_effect outcome."},
+        "result_hash": {"type": ["string", "null"], "description": "Hash of the effect's result (post_effect), for deterministic replay checks."}
+      }
+    }
+  }
+}

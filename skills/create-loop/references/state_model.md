@@ -74,21 +74,40 @@ committed to the checkpoint without its stated evidence.
 | `discovered` | `needs_clarification`, `pending`, `cancelled` | analysis of clarity + dependencies | dependency (`requires`) analysis recorded; open questions listed if any |
 | `needs_clarification` | `pending`, `cancelled` | question answered / node dropped | answer recorded in checkpoint `open_assumptions` or an evidence entry; on drop, cancellation reason |
 | `pending` | `ready`, `cancelled`, `blocked` | topological readiness check (see [readiness rule](./loop_plan_spec.md#63-topological-readiness-rule)) | every `requires` id has `status == completed` in `node_states` |
-| `ready` | `running`, `blocked`, `cancelled` | scheduler dispatches the node | `run_id` directory acquired (single-flight); `node.contract.started` set |
+| `ready` | `running`, `blocked`, `cancelled` | scheduler dispatches the node | **per-node claim acquired** (`contracts/<node-id>.claim`, `O_CREAT|O_EXCL` — single-flight at the node grain, see [Per-node claim/lease](#per-node-claimlease)); `node.contract.started` set |
 | `running` | `verifying`, `waiting_external`, `waiting_user`, `blocked`, `cancelled` | execution completes / pauses | `node.contract.finished` set on completion; pause reason recorded on wait |
 | `waiting_external` | `running`, `ready`, `blocked`, `cancelled` | external event arrives / times out | event reference or timeout recorded in `event_log` |
-| `waiting_user` | `ready`, `cancelled` | user responds / abandons | user response recorded; on abandon, cancellation reason |
-| `blocked` | `ready`, `retry_pending`, `cancelled`, `escalate`* | blocker resolved / escalated | resolution note recorded; `pending_approvals` entry if escalated |
+| `waiting_user` | `ready`, `verifying`, `cancelled` | user responds / approves / abandons | user response recorded; an approved `human_approval` verdict routes to `verifying` (the approval node's own gate) or `ready` (a decision for another node); on abandon, cancellation reason |
+| `blocked` | `ready`, `retry_pending`, `waiting_user`, `cancelled`, `deprecated` | blocker resolved / escalated to a human / superseded by `replan` | resolution note recorded; escalation opens a `pending_approvals` entry and moves the node to `waiting_user`; supersession requires a new `plan_version` |
 | `verifying` | `completed`, `verification_failed` | `gate` evaluated | evidence-ledger entry with `verdict` (`pass` → `completed`, `fail`/`inconclusive` → `verification_failed`) |
-| `verification_failed` | `retry_pending`, `blocked`, `escalate`* | apply `on_failure` ladder | failing evidence-ledger entry; ladder decision recorded |
-| `retry_pending` | `ready` | backoff elapsed **and** `attempt < max_attempts` | `node.contract.attempt` incremented; guard read from **persistent** state |
+| `verification_failed` | `retry_pending`, `blocked`, `deprecated` | apply `on_failure` ladder | failing evidence-ledger entry; ladder decision recorded; supersession by `replan` requires a new `plan_version` |
+| `retry_pending` | `ready`, `blocked` | backoff elapsed | if `attempt < max_attempts` → `ready` (`node.contract.attempt` incremented); if `attempt == max_attempts` (budget exhausted) → `blocked`; guard read from **persistent** state |
 | `completed` | `deprecated` | superseded by `replan` | new `plan_version` supersedes the node |
 | `cancelled` | `deprecated` | superseded by `replan` | new `plan_version` supersedes the node |
 | `deprecated` | — (terminal) | — | — |
 
-\* `escalate` is the [escalation-ladder](./loop_plan_spec.md#62-on_failure--the-escalation-ladder)
-terminus, realised as a transition into a `waiting_user`/`blocked` state bound to
-an `approval` node with a `human_approval` gate; recorded in `pending_approvals`.
+**`escalate` is not a status.** It is the terminal rung of the
+[escalation ladder](./loop_plan_spec.md#62-on_failure--the-escalation-ladder),
+realised as a transition into `waiting_user` (bound to an `approval` node with a
+`human_approval` gate; recorded in `pending_approvals`) or, when no human is
+available, `blocked`. A checkpoint MUST NOT record `escalate` as a node status —
+the 15 statuses above are the only legal `node_states` values.
+
+**Totality guarantee.** Every non-terminal status has at least one legal
+outgoing transition under its guards: in particular `retry_pending` always
+resolves (`→ ready` while budget remains, else `→ blocked`), and
+`verification_failed`/`blocked` can always reach a terminal state
+(`→ deprecated` on supersession, `→ cancelled` on abandonment). The validator
+enforces this (rule R19): a checkpoint whose non-terminal node has no legal next
+status given its guards is rejected.
+
+**Deprecated-dependent re-evaluation rule.** When a node transitions to
+`deprecated`, every node whose `requires` includes it MUST be handled in the same
+`plan_version` bump: either (a) rewired to the superseding node id, or (b) moved
+`pending → needs_clarification` (if no supersede exists). A checkpoint in which a
+non-terminal node's only unmet `requires` is a `deprecated` node with no
+superseding rewire is INVALID (rule R19) — this prevents a retired node from
+silently deadlocking its dependents.
 
 ### Failure-path summary (escalation ladder)
 
@@ -98,13 +117,45 @@ Driven by each node's `on_failure` and `retry_policy`
 ```
 verifying --fail--> verification_failed
     ├─ on_failure=local_retry / local_patch, attempt<max_attempts --> retry_pending --> ready
-    ├─ on_failure=replan                                          --> blocked (owning node re-materialises subgraph, new plan_version)
-    └─ on_failure=escalate  (or retries exhausted)                --> blocked/waiting_user bound to approval node (human_approval)
+    ├─ on_failure=local_retry / local_patch, attempt==max_attempts --> retry_pending --> blocked
+    ├─ on_failure=replan                                          --> blocked (owning node re-materialises subgraph, new plan_version) [--> deprecated if the node itself is superseded]
+    └─ on_failure=escalate  (or retries exhausted)                --> blocked --> waiting_user (approval node, human_approval gate)
 ```
 
 The retry guard (`attempt < max_attempts`) is always evaluated against the
 **persistent** `node.contract.attempt`, never an in-memory counter, so the budget
 survives a crash.
+
+---
+
+## Per-node claim/lease
+
+Single-flight is enforced at the **node grain**, not just the run directory, so
+that parallel dispatch, subagents, and child-loop delegation cannot double-run a
+node. Before a node leaves `ready` for `running`, the worker MUST acquire a claim:
+
+- The claim is a file `contracts/<node-id>.claim` created with
+  `O_CREAT|O_EXCL` (an atomic create-if-absent). If the create fails, another
+  worker already holds the node — do not run it.
+- The claim carries `{node_id, owner_id, acquired_at, lease_expires_at, phase,
+  heartbeat_at}` and an optional `delegated_to` (a child loop id). Schema:
+  [`schemas/claim.schema.json`](../schemas/claim.schema.json); validated with
+  `--kind claim` (rule R21).
+- While the node runs, the worker **renews the lease** by advancing
+  `heartbeat_at` / `lease_expires_at`.
+
+On resume ([`recovery_protocol.md` §2.1](./recovery_protocol.md#21-reconciling-a-running-node)),
+a `running` node is disambiguated by its claim:
+
+| claim state | meaning | resume action |
+|-------------|---------|---------------|
+| lease **unexpired** | a worker is live on this node | leave it; do NOT re-dispatch |
+| lease **expired** | the prior owner crashed | reclaim: reconcile via the `event_log`, then re-run/`retry_pending` |
+| `delegated_to` set | delegated to a live child loop | await the child's `closeout`; never re-dispatch |
+| **no claim** but status `running` | invalid — a crash leaves an *expired* claim, not none | rejected by rule R22 (`[R22 UNCLAIMED-RUNNING]`) |
+
+This is why a `running` node is never ambiguous on resume: the claim, not the
+status alone, tells a fresh session whether work is live, crashed, or delegated.
 
 ---
 
@@ -216,6 +267,28 @@ An append-only list of gate-verdict entries. Each entry:
 A node may transition `verifying → completed` **only** when its latest ledger
 entry has `verdict == pass`. A `fail` or `inconclusive` forces
 `verification_failed`.
+
+### event_log
+
+The append-only, **primary** source of truth
+([`recovery_protocol.md` §3.2](./recovery_protocol.md#32-canonical-write-ahead-ordering)).
+Shape `{schema_version, entries[]}`; each entry `{seq (strictly monotonic),
+node_id, ts, kind (pre_effect|post_effect|note), from_status?, to_status?,
+phase?, intent?, idempotency_key?, outcome?, result_hash?}`. Validated with
+`--kind event_log` (rules R23 in-doubt, R24 seq, R31 kind). Schema:
+[`schemas/event_log.schema.json`](../schemas/event_log.schema.json).
+
+### loop.state
+
+The **live pointer** file, distinct from the durable checkpoint: cheap to read
+for "what is active right now" without replaying the log. Fields `{loop_id,
+plan_id, plan_version, phase, active_node, ready_set, lease_index[{node_id,
+owner_id, lease_expires_at}], event_log_ref, checkpoint_ref, updated_at}`.
+Validated with `--kind loop_state` (rule R30). Schema:
+[`schemas/loop.state.schema.json`](../schemas/loop.state.schema.json). Unlike the
+checkpoint (the durable, reconstructable snapshot), `loop.state` is a convenience
+index the runner rewrites cheaply; it is always reconcilable from the event log +
+claims if lost.
 
 ---
 

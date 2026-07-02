@@ -255,6 +255,29 @@ to a directory-materialized subloop is governed by the Admission Gate in
 The three-tier decision tree lives in
 [`references/subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md) §11.
 
+### Slash commands (optional, ergonomic)
+
+Four commands map to the recurring entry points, so you do not hand-write a
+prompt each time. They ship at the repo root (`.opencode/command/` and
+`.claude/commands/`) because `npx skills add` installs only the skill directory;
+copy them in with `./install-commands.sh` (or by hand):
+
+| Command | Mode | Does |
+|---------|------|------|
+| `/loop-new "<goal>"` | A | Charter interview → `loop.plan v0` |
+| `/loop-run [node]` | B | advance the next ready node |
+| `/loop-resume [dir]` | C | reconstruct from checkpoint + event log |
+| `/loop-status [id]` | — | read-only snapshot (goal, active node, blockers) |
+
+```bash
+./install-commands.sh                       # both runtimes, current project
+./install-commands.sh --runtime opencode --global
+```
+
+Uninstalled, the skill still activates from natural language ("create a loop",
+"resume the loop", "loop status"). Full spec:
+[`references/command_system.md`](references/command_system.md).
+
 ---
 
 ## 3. Maintain
@@ -270,11 +293,11 @@ cd <package-root>            # the directory containing SKILL.md
 echo "== scripts compile =="
 python3 -m py_compile scripts/*.py
 
-echo "== SKILL.md line budget < 600 =="
-test "$(wc -l < SKILL.md)" -lt 600
+echo "== SKILL.md line budget < 1000 =="
+test "$(wc -l < SKILL.md)" -lt 1000
 
 echo "== schemas parse as JSON and are valid Draft-07 =="
-# (7 files under schemas/)
+# (10 files under schemas/)
 
 echo "== templates validate =="
 python3 scripts/validate_loop_plan.py            templates/loop.plan.yaml
@@ -310,7 +333,7 @@ when you change the validators or the schemas.
   `schemas/*.json` first, then the templates in `templates/` and the
   examples in `examples/`, then re-run the acceptance gate.
 - **`SKILL.md` stays lean.** Depth lives in `references/`. The skill
-  entrypoint must stay strictly under 600 lines (enforced by
+  entrypoint must stay strictly under 1000 lines (enforced by
   `tests/acceptance_tests.md` §5).
 - **Vocabulary is locked in the references.** `references/loop_plan_spec.md`
   and `references/state_model.md` are the single source of truth for

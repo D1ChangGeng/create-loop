@@ -5,7 +5,10 @@
   "description": "An append-only record of gate verdicts. Wraps schema_version and an entries array of gate-verdict entries. A node may transition verifying -> completed only when its latest entry has verdict == pass. Field names and enum values are locked byte-for-byte per references/state_model.md (evidence.ledger).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "entries"],
+  "required": [
+    "schema_version",
+    "entries"
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
@@ -14,7 +17,9 @@
     "entries": {
       "type": "array",
       "description": "Append-only list of gate-verdict entries.",
-      "items": { "$ref": "#/$defs/entry" }
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
     }
   },
   "$defs": {
@@ -58,10 +63,17 @@
         "verdict": {
           "type": "string",
           "description": "The gate verdict.",
-          "enum": ["pass", "fail", "inconclusive"]
+          "enum": [
+            "pass",
+            "fail",
+            "inconclusive"
+          ]
         },
         "score": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "description": "Numeric score for scored gates (0..1), or null for pass/fail gates.",
           "minimum": 0,
           "maximum": 1
@@ -82,7 +94,19 @@
         "verifier": {
           "type": "string",
           "description": "Who produced the verdict.",
-          "enum": ["agent", "subagent", "user", "script"]
+          "enum": [
+            "agent",
+            "subagent",
+            "user",
+            "script"
+          ]
+        },
+        "supersedes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "entry_id of a prior ledger entry this entry corrects/supersedes, or null. Lets 'latest entry governs' pick the correction rather than the stale verdict."
         }
       }
     }

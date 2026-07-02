@@ -1,0 +1,15 @@
+# Live pointer file (loop.state.yaml) — distinct from the durable checkpoint.
+# Cheap to read for "what is running now" without replaying the event log.
+loop_id: L001
+plan_id: p-example
+plan_version: 1
+phase: 0
+active_node: n7_implementation     # the node currently executing, or null
+ready_set: [n8_review]
+lease_index:
+  - node_id: n7_implementation
+    owner_id: session-abc
+    lease_expires_at: "2026-07-02T14:10:00Z"
+event_log_ref: events.jsonl
+checkpoint_ref: checkpoint.yaml
+updated_at: "2026-07-02T14:05:00Z"

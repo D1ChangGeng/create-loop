@@ -44,10 +44,13 @@ describe **what nodes do**. The mapping is fixed and exhaustive:
   `branch` reads the relevant state and emits exactly one successor;
   the others are skipped. The successor is a fixed edge from the
   `branch`'s output.
-- **`command`** routing is a node whose return is `{update, goto}`.
-  In `create-loop`, any node kind can carry `command: true` to opt
-  into the combined update-and-route form. The most common
-  application is `mapper` and `branch` nodes.
+- **`command`** routing — a step that both updates state and chooses
+  its successor in one move — is modelled with the existing node
+  **kinds**, not a separate field: a `branch` node performs the
+  update-and-route decision, and a `mapper` node updates state as it
+  materialises its successor subgraph. `create-loop` does not add a
+  `command` node field; the routing lives in the node's `kind` and its
+  `requires`/subgraph edges.
 - **`fanout`** is realised by a `fanout` node dispatching work and a
   `join` node collecting it. The fanout produces multiple successors;
   the join waits for all of them.
@@ -176,19 +179,21 @@ its successors may proceed.
 
 ### 5.1 The reducer
 
-The `join` node declares a `reducer` that determines how the
-branch outputs are combined. Three reducers are first-class:
+How a `join` combines its branch outputs is a **convention**, not a
+schema field. `create-loop` does not add a `reducer` node field; the
+join records the strategy it used in its `notes` and enforces it
+through its `gate`. Three reduction strategies are common:
 
-- **`concat`**: ordered concatenation, deterministic, order is the
-  order the `fanout` declared the branches.
+- **`concat`**: ordered concatenation, deterministic, in the order the
+  `fanout` declared the branches.
 - **`merge`**: structured merge keyed by branch id, useful when each
   branch contributes a different field of a result object.
 - **`vote`**: majority vote or weighted aggregation, used when branches
-  are sampling the same question and the `join` is acting as a
+  sample the same question and the `join`'s gate is a
   `self_consistency` aggregator.
 
-The reducer choice is part of the plan; it is not negotiated at
-runtime.
+The strategy is fixed in the plan (recorded in the join node), not
+negotiated at runtime.
 
 ### 5.2 Conflicting branch outputs
 
@@ -212,10 +217,12 @@ responses are available:
 ### 5.3 Partial coverage
 
 A `join` whose branches include `cancelled` nodes does not necessarily
-fail. The plan author declares whether partial coverage is acceptable
-via the `on_partial` field on the `join`. If `on_partial: accept`, the
-`join` proceeds with the surviving branches; if `on_partial: fail`,
-the `join` transitions to `verification_failed` and the ladder runs.
+fail. Whether partial coverage is acceptable is a **convention** the
+plan author records in the join node's `preconditions`/`notes` and
+enforces through the join's `gate` — not a schema field. If partial
+coverage is accepted, the `join` proceeds with the surviving branches;
+otherwise the `join`'s gate fails and the node transitions to
+`verification_failed`, running the ladder.
 
 ---
 
@@ -230,7 +237,7 @@ a recorded rationale.
 Cancellation rules:
 
 - A branch can only be cancelled after at least one sibling branch is
-  `completed` AND the `join`'s `on_partial: accept` is set, OR the
+  `completed` AND the `join` accepts partial coverage (per §5.3), OR the
   `join`'s `gate` would never pass given the surviving output.
 - The cancellation is recorded in the `event_log` with
   `reason: overtaken_by_sibling` or `reason: gate_will_fail`, plus
@@ -312,11 +319,12 @@ branches, then to cancelling the plan and escalating.
 
 Concurrency has a separate cap, which is host-dependent: the runner
 honours whatever the host can deliver. The plan does not declare a
-parallelism limit of its own; the host's limit plus the cost cap is
-the de facto limit. If the plan needs an explicit cap (for example to
-prevent an API rate-limit collision), it declares it as a node-level
-`parallelism` hint that the runner translates to a host-specific
-concurrency primitive.
+parallelism limit of its own; the host's limit plus the cost cap
+(`termination.max_cost_units`) is the de facto limit. If the plan needs
+an explicit ceiling (for example to prevent an API rate-limit
+collision), it lowers `termination.max_cost_units` or narrows the
+`fanout`'s declared branches — there is no separate `parallelism` node
+field.
 
 ---
 

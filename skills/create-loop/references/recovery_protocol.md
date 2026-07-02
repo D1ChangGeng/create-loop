@@ -97,10 +97,22 @@ not `ready`.
 The recomputed set always wins. If it disagrees with the stored
 `ready_set`, write the recomputed set to the next checkpoint.
 
-A node whose `status == running` in a fresh session indicates a prior
-crash mid-attempt. Reconcile via the `event_log`: if the activity
-already produced a recorded completion, demote to `verifying`; if not,
-demote to `retry_pending` (subject to `retry_policy.max_attempts`).
+#### 2.1 Reconciling a `running` node
+
+A node whose `status == running` in a fresh session is disambiguated by its
+**claim** (`contracts/<node-id>.claim`, see
+[`state_model.md` → Per-node claim/lease](./state_model.md#per-node-claimlease)):
+
+- **Lease unexpired** — a worker is live on this node. Leave it; do NOT
+  re-dispatch (avoids double-execution under concurrency).
+- **`delegated_to` set** — the node is delegated to a live child loop. Await
+  that child's `closeout`; never re-dispatch the parent node.
+- **Lease expired** — the prior owner crashed. Reclaim and reconcile via the
+  `event_log`: if the activity already produced a recorded completion, demote to
+  `verifying`; otherwise demote to `retry_pending` (subject to
+  `retry_policy.max_attempts`; if exhausted, `blocked`).
+- **No claim at all** — invalid state; a crash leaves an *expired* claim, not
+  none. Rejected by rule R22 (`[R22 UNCLAIMED-RUNNING]`).
 
 ### Step 5. Check termination
 
@@ -108,8 +120,8 @@ Compare `iteration` to `termination.max_iterations` and
 `cost_units_spent` to `termination.max_cost_units` from
 [`loop_plan_spec.md` §1.2](./loop_plan_spec.md#12-termination-object).
 If either cap is reached, or any `failure_criteria` evaluates true,
-stop and surface an `escalate` transition rather than dispatching more
-work.
+stop and route to a `waiting_user` approval (the escalation-ladder
+terminus) rather than dispatching more work.
 
 ### Step 6. Pick the next node
 
@@ -163,21 +175,52 @@ classified as `workflow` are replayed freely. Tool calls classified as
 
 ### 3.2 The check
 
-Before every activity:
+### 3.2 Canonical write-ahead ordering
+
+The `event_log` is the **PRIMARY source of truth**; the checkpoint and its
+counters are DERIVED. Every node advance writes in this exact order so a crash
+at any point is recoverable:
+
+1. Append a **`pre_effect`** entry to the `event_log` (`{seq, node_id,
+   from_status, to_status, phase, intent, idempotency_key, ts}`). `seq` is
+   strictly monotonic (rule R24).
+2. Execute the activity (the side effect).
+3. Append a **`post_effect`** entry (`{seq, node_id, outcome, result_hash,
+   ts}`).
+4. Append the `evidence.ledger` entry for the gate verdict.
+5. Write the `checkpoint` **last**, via a temp file + atomic `rename` (+ `fsync`
+   where available), so a half-written checkpoint is never observed.
+
+Because the checkpoint is written last and is derived, a crash between any two
+steps leaves the log authoritative and the checkpoint at worst one step stale —
+never contradictory.
+
+### 3.2.1 The activity check (before every activity)
 
 1. Compute the activity's stable identity from the plan (the node
    `id`, the attempt number from `node.contract.attempt`, and a hash of
    the activity's inputs).
 2. Look up that identity in the `event_log`.
-3. If a recorded result exists with `outcome == success`, return the
-   recorded result without re-executing.
-4. If no entry exists, execute the activity, then append a new entry to
-   the log before returning.
-5. If an entry exists with `outcome == failure`, apply the node's
+3. If a `post_effect` with `outcome == ok` exists, return the recorded
+   result without re-executing.
+4. If no `pre_effect` exists, execute (following the ordering above).
+5. If a `post_effect` with `outcome == fail` exists, apply the node's
    `on_failure` ladder step instead of re-executing.
+6. **In-doubt** — a `pre_effect` exists with no matching `post_effect`
+   (crash between steps 1 and 3): if the entry carries an
+   `idempotency_key`, re-execution is safe, so re-run; otherwise route the
+   node to `blocked` for human/compensation resolution — **never blind-replay
+   a non-idempotent activity**. Rule R23 rejects an in-doubt entry that has
+   neither resolution.
 
-This is what makes "crash anywhere, resume anywhere" cheap. The log
-absorbs the partial progress; the deterministic plan walks over it.
+### 3.2.2 Reconciliation on resume
+
+Rebuild the derived state from the log, not the (possibly stale) checkpoint:
+replay the `event_log` in `seq` order and recompute `node_states`,
+`cost_units_spent`, `iteration`, and each node's `attempt`. If the recomputed
+values disagree with the loaded checkpoint, the **log wins** — write the
+reconciled values into the next checkpoint. This is why a lost checkpoint write
+cannot silently roll back the budget counters (Oracle F8).
 
 ### 3.3 Non-determinism is the failure mode
 

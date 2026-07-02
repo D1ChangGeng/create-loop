@@ -166,23 +166,21 @@ The Promotion Gate is the key operating rule of this document.
 > **Default to creating a `subgraph` first; promote to a `subloop` ONLY when a
 > lightweight subgraph cannot safely, clearly, and recoverably manage the work.**
 
-A subgraph is promoted to a subloop when **at least one** promotion condition
-holds. Each condition names a governance need the parent node cannot meet on the
-subgraph's behalf. Each maps onto a Sub-loop Admission Gate criterion in
-[`recursive_loops.md` §8](./recursive_loops.md#8-sub-loop-admission-gate).
+A subgraph is promoted to a subloop when **at least one** of the same criteria
+that drive the Sub-loop Admission Gate holds. The Promotion Gate is the
+**tier-level restatement** of the Admission Gate observed at the subgraph tier:
+promoting a subgraph and admitting a child loop are the same event seen from the
+two tiers.
 
-| # | promotion condition | promote because… | Admission Gate criterion |
-|---|---------------------|------------------|--------------------------|
-| 1 | expected to cross sessions | light state hosted in the parent is not a durable resume entry | independent state persistence |
-| 2 | needs independent checkpoint / recovery | the work must resume on its own, not only through the parent | independent state persistence |
-| 3 | complex evidence chain | the evidence needs its own audit trail (independent `evidence.ledger.yaml`) | independent evidence audit |
-| 4 | complex decisions / approvals | the decisions need their own `decision.log.md` and gate history | high risk / uncertainty |
-| 5 | parallel isolation (subagent / separate executor) | a concurrent worker needs an isolated workspace (one writer per file) | may run in parallel |
-| 6 | many artifacts | the outputs do not fit inside a single parent node's `produces[]` | produces multiple artifacts |
-| 7 | elevated risk | the work needs independent decision-making and independent recovery | high risk / uncertainty |
-| 8 | large multi-phase scope (research + design + impl + verify) | the work needs its own DAG, not a local fragment | high complexity |
-| 9 | may recursively spawn further loops | the work needs its own `_loops/` for grandchildren | needs recursive decomposition |
-| 10 | needs independent closeout + return contract | the parent must integrate a formal result, not read inline state | high complexity + produces multiple artifacts |
+The full, authoritative criteria list (with sub-signals) lives in
+[`recursive_loops.md` §8](./recursive_loops.md#8-sub-loop-admission-gate) — that
+section is the **single canonical source of truth** for admission and promotion
+criteria across the create-loop package. This section does **not** re-enumerate
+the list, to avoid drift; consult §8 for the criteria, sub-signals, and the
+verdict-level decision rule. The short summary in this section is: a subgraph
+crosses the Promotion Gate when a parent-hosted runtime can no longer
+satisfactorily host, recover, or audit it — the same need that, if predictable
+up front, would have produced a subloop directly ([§11](#11-the-decision-tree)).
 
 **Simple decision rule (verbatim):**
 
@@ -382,6 +380,19 @@ eight.
 > derived from each local node's `output` plus the `completion_gate`. The field
 > **names** above are canonical.
 
+**Evidence rule (R25).** A subgraph is lightweight but not evidence-free — it is
+held to the same "evidence, not the agent, says done" guarantee as a full node
+([`evidence_gates.md` §6](./evidence_gates.md#6-the-non-trivial-node-rule)),
+recorded through its compact shape:
+
+- a subgraph-local node MUST NOT be `completed` with a null `output` — the
+  `output` artifact path is its evidence;
+- a subgraph whose own `status` is `completed` MUST carry a
+  `completion_gate.pass_condition` stating how completion was verified.
+
+The `node.runtime` validator enforces both (rule R25), so a subgraph cannot reach
+`completed` with nothing to show.
+
 ### 8.1 Optional enhancement fields
 
 These MAY be added when a subgraph warrants richer tracking:
@@ -465,6 +476,13 @@ considered.
 
 ## 11. The decision tree
 
+The criteria that fire the "promote to subloop" branch below are the canonical
+Sub-loop Admission Gate criteria in
+[`recursive_loops.md` §8](./recursive_loops.md#8-sub-loop-admission-gate) — this
+diagram references them rather than re-listing them, to keep the criteria list
+single-sourced. Read §8 first; this section is the tier-level navigation aid,
+not the criteria source.
+
 ```
 new work arrives
 │
@@ -475,16 +493,8 @@ new work arrives
 │  and can the parent node safely host and recover it?
 │     └─ YES → subgraph
 │              │
-│              └─ DURING the subgraph, does ANY of the following become true?
-│                   • expected to cross sessions
-│                   • high risk
-│                   • complex evidence chain
-│                   • many artifacts
-│                   • many key decisions / approvals
-│                   • needs an independent checkpoint
-│                   • parallel isolation (subagent / separate executor)
-│                   • affects multiple parent nodes
-│                   • may recursively spawn further loops
+│              └─ DURING the subgraph, does ANY canonical criterion in
+│                 recursive_loops.md §8 become true?
 │                     │
 │                     ├─ YES (any) → promote to a subloop (Promotion Gate, §5)
 │                     └─ NO        → stay a subgraph
@@ -492,6 +502,10 @@ new work arrives
 └─ Otherwise (needs its own plan / state / checkpoint / evidence / closeout
    from the start) → subloop
 ```
+
+Use this diagram together with the canonical criteria in §8: the diagram routes
+the tier choice (`action` / `subgraph` / `subloop`), and §8 supplies the
+criteria that decide the subgraph → subloop promotion.
 
 ---
 
@@ -561,12 +575,12 @@ treat it as the normative summary of everything above.*
 > options; fixing a small design hole; backfilling a small evidence set; a few
 > parallel checks inside a node; rewriting a small artifact.
 >
-> **When to use a subloop:** a complex implementation module; a long research
-> task; multi-agent parallel development; a high-risk compliance review; work that
-> is expected to cross sessions, needs an independent checkpoint or evidence
-> chain, produces many artifacts, involves many key decisions or approvals, needs
-> parallel isolation, spans a large multi-phase scope, or may recursively spawn
-> further loops.
+> **When to use a subloop:** when the work meets at least one criterion of the
+> Sub-loop Admission Gate — the canonical list lives in
+> [`recursive_loops.md` §8](./recursive_loops.md#8-sub-loop-admission-gate)
+> and is **not** re-enumerated here. Common triggers: a complex implementation
+> module; a long research task; multi-agent parallel development; a high-risk
+> compliance review.
 >
 > **Subgraphs must not hide work that requires independent governance; subloops
 > must not be created for trivial local tasks; start with the lightest sufficient

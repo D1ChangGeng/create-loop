@@ -1,0 +1,22 @@
+# Append-only event log — the PRIMARY source of truth. Each node advance:
+#   1) append a pre_effect entry  2) execute  3) append a post_effect entry
+# Checkpoint counters are DERIVED and reconciled by replaying this log.
+schema_version: "1.0"
+entries:
+  - seq: 0
+    node_id: n1_charter
+    ts: "2026-07-02T14:00:00Z"
+    kind: pre_effect
+    from_status: ready
+    to_status: running
+    phase: 0
+    intent: "run the Charter interview"
+    idempotency_key: "n1_charter#attempt1"
+    outcome: null
+    result_hash: null
+  - seq: 1
+    node_id: n1_charter
+    ts: "2026-07-02T14:03:00Z"
+    kind: post_effect
+    outcome: ok
+    result_hash: "sha256:abc123"

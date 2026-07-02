@@ -2,13 +2,15 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://create-loop/schemas/loops.index.schema.json",
   "title": "loops.index",
-  "description": "An INDEX.yaml file for the loop tree. Two forms: the global index (.agents/loops/INDEX.yaml, lists every top-level loop under key loops) and the local child index (<loop>/_loops/INDEX.yaml, lists a loop's direct children under key children). Field names and enum values are locked byte-for-byte per references/recursive_loops.md §11. All status values reuse the 15 canonical node statuses from references/state_model.md.",
+  "description": "An INDEX.yaml file for the loop tree. Two forms: the global index (.agents/loops/INDEX.yaml, lists every top-level loop under key loops) and the local child index (<loop>/_loops/INDEX.yaml, lists a loop's direct children under key children). Field names and enum values are locked byte-for-byte per references/recursive_loops.md \u00a711. All status values reuse the 15 canonical node statuses from references/state_model.md.",
   "oneOf": [
     {
       "type": "object",
-      "description": "Global index — .agents/loops/INDEX.yaml. Lists every top-level loop.",
+      "description": "Global index \u2014 .agents/loops/INDEX.yaml. Lists every top-level loop.",
       "additionalProperties": false,
-      "required": ["loops"],
+      "required": [
+        "loops"
+      ],
       "properties": {
         "loops": {
           "type": "array",
@@ -16,7 +18,16 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["loop_id", "slug", "path", "status", "title", "checkpoint", "updated_at"],
+            "required": [
+              "loop_id",
+              "slug",
+              "path",
+              "status",
+              "title",
+              "checkpoint",
+              "updated_at",
+              "current_active_node"
+            ],
             "properties": {
               "loop_id": {
                 "type": "string",
@@ -63,6 +74,13 @@
                 "type": "string",
                 "description": "When this index entry was last updated (ISO-8601 date-time).",
                 "format": "date-time"
+              },
+              "current_active_node": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The node currently executing in this loop (mirrors loop.state.active_node), or null when idle. Lets loop-status answer 'what is running now' from the index without opening each checkpoint."
               }
             }
           }
@@ -71,9 +89,11 @@
     },
     {
       "type": "object",
-      "description": "Local child index — <loop>/_loops/INDEX.yaml. Lists a loop's direct children.",
+      "description": "Local child index \u2014 <loop>/_loops/INDEX.yaml. Lists a loop's direct children.",
       "additionalProperties": false,
-      "required": ["children"],
+      "required": [
+        "children"
+      ],
       "properties": {
         "children": {
           "type": "array",
@@ -81,7 +101,14 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["loop_id", "slug", "path", "status", "parent_node_id"],
+            "required": [
+              "loop_id",
+              "slug",
+              "path",
+              "status",
+              "parent_node_id",
+              "current_active_node"
+            ],
             "properties": {
               "loop_id": {
                 "type": "string",
@@ -119,6 +146,13 @@
               "parent_node_id": {
                 "type": "string",
                 "description": "The node in the parent plan that owns this child loop."
+              },
+              "current_active_node": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The node currently executing in this loop (mirrors loop.state.active_node), or null when idle. Lets loop-status answer 'what is running now' from the index without opening each checkpoint."
               }
             }
           }

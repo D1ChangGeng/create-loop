@@ -1940,6 +1940,536 @@ python3 scripts/validate_loop_plan.py /tmp/fx_bad_hip.yaml && echo FAIL || echo 
 
 ---
 
+## R19 — non-terminal dead-end (deprecated-dependency deadlock)
+
+**What's wrong:** node `n2` (status `pending`) requires `n1`, but `n1` is
+`deprecated` with no superseding rewire. `n2` can never become `ready` — a
+retired node silently deadlocks its dependent. The transition table's
+deprecated-dependent re-evaluation rule forbids this.
+
+Checkpoint fixture (validated against its plan):
+
+```yaml
+schema_version: "1.0"
+plan_id: p-deadend
+plan_version: 1
+checkpoint_id: cp-1
+created: "2026-07-02"
+phase: 0
+node_states:
+  n1: deprecated
+  n2: pending
+ready_set: []
+last_completed: []
+blocked: []
+pending_approvals: []
+next_suggested_action: "advance"
+open_assumptions: []
+event_log_ref: events.jsonl
+evidence_ledger_ref: evidence.ledger.yaml
+cost_units_spent: 0
+iteration: 1
+```
+
+Companion plan (minimal, valid): two nodes `n1`,`n2` where `n2` requires `n1`.
+
+**Command:**
+
+```bash
+python3 scripts/validate_checkpoint.py /tmp/fx_deadend_ckpt.yaml --plan /tmp/fx_deadend_plan.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R19 NON-TERMINAL DEAD-END]` naming `n2`
+and its deprecated dependency `n1`.
+
+---
+
+## R20 — `escalate` used as a node status
+
+**What's wrong:** the checkpoint records `node_states.n1: escalate`. `escalate`
+is an escalation-ladder rung, NOT one of the 15 node statuses; the only legal
+values are the 15 in the status enum (a human escalation is represented as
+`waiting_user`).
+
+```yaml
+schema_version: "1.0"
+plan_id: p-esc
+plan_version: 1
+checkpoint_id: cp-1
+created: "2026-07-02"
+phase: 0
+node_states:
+  n1: escalate
+ready_set: []
+last_completed: []
+blocked: []
+pending_approvals: []
+next_suggested_action: "resolve"
+open_assumptions: []
+event_log_ref: events.jsonl
+evidence_ledger_ref: evidence.ledger.yaml
+cost_units_spent: 0
+iteration: 1
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_checkpoint.py /tmp/fx_escalate_status.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R20 ESCALATE-NOT-A-STATUS]`.
+
+---
+
+## R25 — subgraph fake completion (no evidence)
+
+**What's wrong:** a subgraph-local node has `status: completed` but `output: null`.
+A subgraph is held to the same "evidence, not the agent, says done" rule as a
+full node — a completed subgraph node MUST record its evidence artifact in
+`output`. (Equivalently, a subgraph whose own `status` is `completed` must carry
+a `completion_gate.pass_condition`.)
+
+```yaml
+node_id: n4_build
+runtime_subgraphs:
+  - subgraph_id: SG-n4-001
+    title: Fix the effectiveness defect
+    status: running
+    spawn_reason: "local diagnostic + fix"
+    scope:
+      in: [reproduce the defect]
+      out: [redesign the module]
+    nodes:
+      - id: s1
+        title: Reproduce
+        status: completed
+        output: null
+    edges: []
+    completion_gate:
+      required_outputs: [artifacts/repro.md]
+      pass_condition: "defect reproduced"
+    outputs: []
+    promotion_policy:
+      status: not_promoted
+      promote_to_subloop_if: []
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_loop_plan.py --kind node_runtime /tmp/fx_subgraph_fakecomplete.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R25 SUBGRAPH-FAKE-COMPLETION]` naming
+the completed local node with the null `output`.
+
+---
+
+## R26 — unapproved (silent) goal change
+
+**What's wrong:** the plan's `goal` was changed but the latest `plan_history`
+entry's `goal_hash` was not updated through an approved, provenanced version
+bump. The validator recomputes `sha256(normalized goal)` and rejects when it
+does not match the recorded hash — a silent goal mutation cannot pass.
+
+Reproduce from the known-good template plan (any valid plan works):
+
+```bash
+python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open("templates/loop.plan.yaml"))
+d["goal"] = "A completely different, never-approved goal"   # mutate goal only
+yaml.safe_dump(d, open("/tmp/fx_silent_goal_change.yaml", "w"), sort_keys=False)
+PY
+python3 scripts/validate_loop_plan.py /tmp/fx_silent_goal_change.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R26 UNAPPROVED-GOAL-CHANGE]`.
+
+---
+
+## R27 — malformed plan_history
+
+**What's wrong:** a `plan_history` entry is missing `goal_hash` (a required
+provenance field), or the entry's `plan_version` does not match the plan's
+top-level `plan_version`, or versions are not unique+increasing.
+
+```bash
+python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open("templates/loop.plan.yaml"))
+del d["plan_history"][0]["goal_hash"]   # drop a required provenance field
+yaml.safe_dump(d, open("/tmp/fx_bad_plan_history.yaml", "w"), sort_keys=False)
+PY
+python3 scripts/validate_loop_plan.py /tmp/fx_bad_plan_history.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R27 BAD plan_history]`.
+
+---
+
+## R32 — bad checkpoint_seq
+
+**What's wrong:** `checkpoint_seq` is not a non-negative integer (here a string).
+Resume selects the latest checkpoint by MAX `checkpoint_seq`, so a non-integer
+breaks monotonic ordering.
+
+```bash
+python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open("templates/checkpoint.yaml"))
+d["checkpoint_seq"] = "3"   # must be an int
+yaml.safe_dump(d, open("/tmp/fx_bad_checkpoint_seq.yaml", "w"), sort_keys=False)
+PY
+python3 scripts/validate_checkpoint.py /tmp/fx_bad_checkpoint_seq.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R32 BAD-CHECKPOINT-SEQ]`.
+
+---
+
+## R35 — top-level design_invariant:false
+
+**What's wrong:** a top-level node declares `design_invariant: false`. The
+top-level graph holds only design-time invariants; runtime-discovered work must
+live in a subgraph or child loop.
+
+```bash
+python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open("templates/loop.plan.yaml"))
+d["nodes"][0]["design_invariant"] = False
+yaml.safe_dump(d, open("/tmp/fx_toplevel_invariant_false.yaml", "w"), sort_keys=False)
+PY
+python3 scripts/validate_loop_plan.py /tmp/fx_toplevel_invariant_false.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R35 TOPLEVEL-INVARIANT-FALSE]`.
+
+---
+
+## R21 — bad claim file
+
+**What's wrong:** a `contracts/<node>.claim` file is missing a required lease
+field (here `lease_expires_at`). Without an expiry the lease can neither be
+renewed nor reclaimed — single-flight breaks.
+
+```yaml
+node_id: n7_implementation
+owner_id: session-abc
+acquired_at: "2026-07-02T14:00:00Z"
+phase: 0
+heartbeat_at: "2026-07-02T14:05:00Z"
+delegated_to: null
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_loop_plan.py --kind claim /tmp/fx_bad_claim.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R21 BAD-CLAIM]` naming
+`lease_expires_at`.
+
+---
+
+## R22 — unclaimed running node
+
+**What's wrong:** a checkpoint has a node in status `running`, but no claim file
+exists for it in the `contracts/` directory. A running node MUST hold a claim
+(single-flight); a crash leaves an *expired* claim, never none.
+
+Checkpoint fixture (validated with an empty claims dir):
+
+```yaml
+schema_version: "1.0"
+plan_id: p-r22
+plan_version: 1
+checkpoint_id: cp-1
+checkpoint_seq: 1
+created: "2026-07-02"
+phase: 0
+node_states:
+  n1: running
+ready_set: []
+last_completed: []
+blocked: []
+pending_approvals: []
+next_suggested_action: "advance"
+open_assumptions: []
+event_log_ref: events.jsonl
+evidence_ledger_ref: evidence.ledger.yaml
+cost_units_spent: 0
+iteration: 1
+```
+
+**Command:**
+
+```bash
+mkdir -p /tmp/fx_r22_claims_empty
+python3 scripts/validate_checkpoint.py /tmp/fx_r22_unclaimed.yaml --claims /tmp/fx_r22_claims_empty && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R22 UNCLAIMED-RUNNING]` naming `n1`.
+
+---
+
+## R33 — child-loop checkpoint missing a required field
+
+**What's wrong:** the owning `loop.meta.type == child_loop`, but the checkpoint
+omits one of the 7 child-loop fields (here `parent_node_id`). A child-loop
+checkpoint must carry all 7 so a fresh session can locate its parent and return
+contract.
+
+Reproduce from the shipped child-loop example:
+
+```bash
+CH=examples/example_child_loop_tree/L001-example-delivery/_loops/L001.01-fix-effectiveness-bug
+python3 - <<PY
+import yaml
+d = yaml.safe_load(open("$CH/checkpoint.yaml"))
+d.pop("parent_node_id", None)
+yaml.safe_dump(d, open("/tmp/fx_child_missing_field.yaml", "w"), sort_keys=False)
+PY
+python3 scripts/validate_checkpoint.py /tmp/fx_child_missing_field.yaml --meta $CH/loop.meta.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R33 CHILD-FIELD-MISSING]`.
+
+---
+
+## R34 — approval node without a human_approval gate
+
+**What's wrong:** a node of kind `approval` has `gate: null` (or a gate whose
+kind is not `human_approval`). An approval node is the control point that
+suspends on `waiting_user` and records the user's verdict — it must carry a
+`human_approval` gate.
+
+```bash
+python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open("templates/loop.plan.yaml"))
+for n in d["nodes"]:
+    if n.get("kind") == "approval":
+        n["gate"] = None
+yaml.safe_dump(d, open("/tmp/fx_approval_nogate.yaml", "w"), sort_keys=False)
+PY
+python3 scripts/validate_loop_plan.py /tmp/fx_approval_nogate.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R34 APPROVAL-GATE-REQUIRED]`.
+
+---
+
+## R23 — in-doubt non-idempotent event
+
+**What's wrong:** the event log has a `pre_effect` entry with no matching
+`post_effect` and no `idempotency_key`. This is an in-doubt transaction — a crash
+after the side effect but before its outcome was recorded. Recovery cannot know
+whether the effect happened, and without an idempotency key it cannot safely
+re-run.
+
+```yaml
+schema_version: "1.0"
+entries:
+  - seq: 0
+    node_id: n7_deploy
+    ts: "2026-07-02T14:00:00Z"
+    kind: pre_effect
+    intent: "post the deploy webhook"
+    idempotency_key: null
+    outcome: null
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_loop_plan.py --kind event_log /tmp/fx_indoubt.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R23 IN-DOUBT-NONIDEMPOTENT]`.
+
+---
+
+## R24 — non-monotonic event_log seq
+
+**What's wrong:** `entries[].seq` is not strictly increasing (here 5 then 3).
+The log must be strictly monotonic so replay has a total order.
+
+```yaml
+schema_version: "1.0"
+entries:
+  - {seq: 5, node_id: n1, ts: "2026-07-02T14:00:00Z", kind: note}
+  - {seq: 3, node_id: n1, ts: "2026-07-02T14:01:00Z", kind: note}
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_loop_plan.py --kind event_log /tmp/fx_eventlog_seq.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R24 EVENTLOG-SEQ]`.
+
+---
+
+## R28 — recursion/child-loop cap exceeded
+
+**What's wrong:** the plan declares more child loops (or deeper nesting) than
+`termination.max_child_loops` / `max_depth` allows — unbounded growth.
+
+```bash
+python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open("templates/loop.plan.yaml"))
+d["termination"]["max_child_loops"] = 0
+for n in d["nodes"]:
+    if n.get("allow_subgraph"):
+        n["child_loops"] = [{"loop_id":"L001.01","path":"_loops/x","spawn_reason":"r","status":"running","closeout":"c"}]
+        break
+yaml.safe_dump(d, open("/tmp/fx_overcap.yaml","w"), sort_keys=False, width=100)
+PY
+python3 scripts/validate_loop_plan.py /tmp/fx_overcap.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R28 CAP-EXCEEDED]`.
+
+---
+
+## R29 — node.contract missing cost_units
+
+**What's wrong:** a `node.contract` omits `cost_units`, the per-node cost accrual
+that feeds the enforced budget.
+
+```bash
+python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open("templates/node.contract.yaml"))
+d.pop("cost_units", None)
+yaml.safe_dump(d, open("/tmp/fx_no_cost.yaml","w"), sort_keys=False)
+PY
+python3 scripts/validate_loop_plan.py --kind node_contract /tmp/fx_no_cost.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R29 MISSING-COST]`.
+
+---
+
+## R30 — bad loop.state
+
+**What's wrong:** `loop.state.yaml` omits a required field (here `active_node`) or
+has a malformed `lease_index`.
+
+```bash
+python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open("templates/loop.state.yaml"))
+del d["active_node"]
+yaml.safe_dump(d, open("/tmp/fx_bad_loop_state.yaml","w"), sort_keys=False)
+PY
+python3 scripts/validate_loop_plan.py --kind loop_state /tmp/fx_bad_loop_state.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R30 BAD-LOOP-STATE]`.
+
+---
+
+## R31 — bad event_log kind
+
+**What's wrong:** an event_log entry has a `kind` outside
+`{pre_effect, post_effect, note}`.
+
+```yaml
+schema_version: "1.0"
+entries:
+  - {seq: 0, node_id: n1, ts: "2026-07-02T14:00:00Z", kind: bogus}
+```
+
+**Command:**
+
+```bash
+python3 scripts/validate_loop_plan.py --kind event_log /tmp/fx_bad_event_kind.yaml
+```
+
+**Expected:** exit nonzero; message tags `[R31 BAD-EVENT-KIND]`.
+
+---
+
+## R36 — self-verified risky side-effecting node
+
+**What's wrong:** a `med`/`high`-risk side-effecting node's evidence-ledger entry
+has `verifier: agent`. A risky side-effecting node needs an independent verifier
+(user/subagent/script), not self-certification.
+
+Ledger (validated against a plan where node `deploy` is `risk: med` with a
+non-empty `produces`):
+
+```yaml
+schema_version: "1.0"
+entries:
+  - entry_id: e1
+    node_id: deploy
+    gate_kind: automated_check
+    verdict: pass
+    score: null
+    artifact_path: a
+    rationale: r
+    recorded: "2026-07-02"
+    verifier: agent
+```
+
+**Command:**
+
+```bash
+python3 - <<'PY'
+import yaml
+ledger = {"schema_version":"1.0","entries":[{"entry_id":"e1","node_id":"deploy","gate_kind":"automated_check","verdict":"pass","score":None,"artifact_path":"a","rationale":"r","recorded":"2026-07-02","verifier":"agent"}]}
+yaml.safe_dump(ledger, open("/tmp/fx_self_verify.yaml","w"), sort_keys=False)
+plan = yaml.safe_load(open("templates/loop.plan.yaml"))
+plan["nodes"][0]["risk"] = "med"
+plan["nodes"][0]["produces"] = ["prod.url"]
+plan["nodes"][0]["id"] = "deploy"
+yaml.safe_dump(plan, open("/tmp/fx_self_verify_plan.yaml","w"), sort_keys=False, width=100)
+PY
+python3 scripts/validate_loop_plan.py --kind evidence_ledger /tmp/fx_self_verify.yaml --plan /tmp/fx_self_verify_plan.yaml && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R36 SELF-VERIFY-RISK]`.
+
+---
+
+## R37 — INDEX↔directory drift
+
+**What's wrong:** an `INDEX.yaml` entry names a `path` that does not exist under
+the loops root (a loop was moved/archived without updating the index, or vice
+versa), or an entry omits the required `current_active_node`.
+
+```yaml
+loops:
+  - loop_id: L001
+    slug: ghost
+    path: L001-ghost
+    status: running
+    title: A loop with no directory
+    checkpoint: L001-ghost/checkpoint.yaml
+    updated_at: "2026-07-02T14:00:00Z"
+    current_active_node: null
+```
+
+**Command:**
+
+```bash
+mkdir -p /tmp/fx_idx_root
+python3 scripts/validate_loop_plan.py --kind loops_index /tmp/fx_index_drift.yaml --root /tmp/fx_idx_root && echo FAIL || echo PASS-rejected
+```
+
+**Expected:** exit nonzero; message tags `[R37 INDEX-RECONCILE]` (the `L001-ghost`
+directory does not exist under the root).
+
+---
+
 ## Fixture-to-rule map
 
 | rule | fixture file |
@@ -1962,3 +2492,22 @@ python3 scripts/validate_loop_plan.py /tmp/fx_bad_hip.yaml && echo FAIL || echo 
 | `R16` bad INDEX shape | `/tmp/fx_bad_index_shape.yaml` |
 | `R17` child_loop with no parent | `/tmp/fx_child_no_parent.yaml` |
 | `R18` bad human_intervention_policy | `/tmp/fx_bad_hip.yaml` |
+| `R19` non-terminal dead-end (deprecated-dependency) | `/tmp/fx_deadend_ckpt.yaml` (+ `/tmp/fx_deadend_plan.yaml`) |
+| `R20` escalate used as a status | `/tmp/fx_escalate_status.yaml` |
+| `R21` bad claim file | `/tmp/fx_bad_claim.yaml` |
+| `R22` unclaimed running node | `/tmp/fx_r22_unclaimed.yaml` (+ empty `/tmp/fx_r22_claims_empty/`) |
+| `R23` in-doubt non-idempotent event | `/tmp/fx_indoubt.yaml` |
+| `R24` non-monotonic event_log seq | `/tmp/fx_eventlog_seq.yaml` |
+| `R25` subgraph fake completion | `/tmp/fx_subgraph_fakecomplete.yaml` |
+| `R26` unapproved goal change | `/tmp/fx_silent_goal_change.yaml` |
+| `R27` malformed plan_history | `/tmp/fx_bad_plan_history.yaml` |
+| `R28` recursion/child-loop cap exceeded | `/tmp/fx_overcap.yaml` |
+| `R29` node.contract missing cost_units | `/tmp/fx_no_cost.yaml` |
+| `R30` bad loop.state | `/tmp/fx_bad_loop_state.yaml` |
+| `R31` bad event_log kind | `/tmp/fx_bad_event_kind.yaml` |
+| `R36` self-verified risky node | `/tmp/fx_self_verify.yaml` (+ `/tmp/fx_self_verify_plan.yaml`) |
+| `R37` INDEX↔directory drift | `/tmp/fx_index_drift.yaml` (+ empty `/tmp/fx_idx_root/`) |
+| `R32` bad checkpoint_seq | `/tmp/fx_bad_checkpoint_seq.yaml` |
+| `R33` child-loop checkpoint missing field | `/tmp/fx_child_missing_field.yaml` |
+| `R34` approval node without human_approval gate | `/tmp/fx_approval_nogate.yaml` |
+| `R35` top-level design_invariant:false | `/tmp/fx_toplevel_invariant_false.yaml` |

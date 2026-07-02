@@ -17,7 +17,8 @@
     "evidence_ref",
     "started",
     "finished",
-    "compensation_of"
+    "compensation_of",
+    "cost_units"
   ],
   "properties": {
     "node_id": {
@@ -51,23 +52,42 @@
     "on_failure": {
       "type": "string",
       "description": "Ladder start.",
-      "enum": ["local_retry", "local_patch", "replan", "escalate"]
+      "enum": [
+        "local_retry",
+        "local_patch",
+        "replan",
+        "escalate"
+      ]
     },
     "evidence_ref": {
       "type": "string",
       "description": "Path to this node's evidence artifact."
     },
     "started": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "When the current attempt started (ISO-8601), or null."
     },
     "finished": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "When the current attempt finished (ISO-8601), or null."
     },
     "compensation_of": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "If this is a compensation node, the node_id it undoes (saga pairing); else null."
+    },
+    "cost_units": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Accrued cost units for this node (1 unit ~= 1 activity/LLM call). Summed into checkpoint.cost_units_spent."
     }
   },
   "$defs": {
@@ -96,7 +116,12 @@
       "type": "object",
       "description": "The evidence gate ({kind, threshold, rubric, evidence_ref}).",
       "additionalProperties": false,
-      "required": ["kind", "threshold", "rubric", "evidence_ref"],
+      "required": [
+        "kind",
+        "threshold",
+        "rubric",
+        "evidence_ref"
+      ],
       "properties": {
         "kind": {
           "type": "string",
@@ -113,13 +138,19 @@
           ]
         },
         "threshold": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "description": "Pass threshold for scored gates (0..1). null for pass/fail gates.",
           "minimum": 0,
           "maximum": 1
         },
         "rubric": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Path to a rubric document for judged gates, or null."
         },
         "evidence_ref": {
@@ -131,7 +162,11 @@
     "retry_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["max_attempts", "backoff_base_seconds", "jitter"],
+      "required": [
+        "max_attempts",
+        "backoff_base_seconds",
+        "jitter"
+      ],
       "properties": {
         "max_attempts": {
           "type": "integer",

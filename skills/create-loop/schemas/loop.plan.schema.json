@@ -17,7 +17,8 @@
     "constraints",
     "nodes",
     "created",
-    "plan_version"
+    "plan_version",
+    "plan_history"
   ],
   "properties": {
     "schema_version": {
@@ -34,22 +35,28 @@
     },
     "true_intent": {
       "type": "string",
-      "description": "The underlying intent surfaced by the interview — what success really means, which may be broader or narrower than goal."
+      "description": "The underlying intent surfaced by the interview \u2014 what success really means, which may be broader or narrower than goal."
     },
     "non_goals": {
       "type": "array",
       "description": "Explicitly out-of-scope outcomes. May be empty.",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "success_criteria": {
       "type": "array",
       "description": "Measurable definitions of done.",
-      "items": { "$ref": "#/$defs/success_criterion" }
+      "items": {
+        "$ref": "#/$defs/success_criterion"
+      }
     },
     "failure_criteria": {
       "type": "array",
       "description": "Conditions that mean the task has failed and must stop or escalate. May be empty.",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "termination": {
       "$ref": "#/$defs/termination",
@@ -58,20 +65,28 @@
     "constraints": {
       "type": "array",
       "description": "Hard constraints the plan and its execution must respect (budget, tech, policy). May be empty.",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "nodes": {
       "type": "array",
       "description": "The DAG. Each entry is a node object. Must be non-empty.",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/node" }
+      "items": {
+        "$ref": "#/$defs/node"
+      }
     },
     "created": {
       "type": "string",
       "description": "Date the plan was created (ISO-8601 date or date-time).",
       "anyOf": [
-        { "format": "date" },
-        { "format": "date-time" }
+        {
+          "format": "date"
+        },
+        {
+          "format": "date-time"
+        }
       ]
     },
     "plan_version": {
@@ -81,6 +96,47 @@
     "human_intervention_policy": {
       "$ref": "#/$defs/human_intervention_policy",
       "description": "OPTIONAL. Plan-level policy encoding the Human Decision Package rules (references/human_approval.md): when a decision package is required, and the shape that package must take. Absent on legacy plans; a plan without it stays valid."
+    },
+    "plan_history": {
+      "type": "array",
+      "description": "Append-only provenance of plan versions. Each entry records a plan_version, why it changed, when it was superseded, and content hashes of the goal + true_intent at that version. A goal/true_intent change between the two latest entries requires an approved human_approval (enforced by the checkpoint validator, rule R26).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "plan_version",
+          "reason",
+          "superseded_at",
+          "goal_hash",
+          "true_intent_hash"
+        ],
+        "properties": {
+          "plan_version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The plan version this entry describes."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this version was created."
+          },
+          "superseded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ISO-8601 timestamp when superseded, or null if current."
+          },
+          "goal_hash": {
+            "type": "string",
+            "description": "sha256 of the normalized goal string at this version (trim + collapse internal whitespace)."
+          },
+          "true_intent_hash": {
+            "type": "string",
+            "description": "sha256 of the normalized true_intent string at this version."
+          }
+        }
+      }
     }
   },
   "$defs": {
@@ -92,7 +148,10 @@
         "default_mode": {
           "type": "string",
           "description": "How the agent surfaces a decision to the human by default. Default: structured_decision_package.",
-          "enum": ["structured_decision_package", "direct_question"]
+          "enum": [
+            "structured_decision_package",
+            "direct_question"
+          ]
         },
         "forbid_low_context_questions": {
           "type": "boolean",
@@ -109,7 +168,11 @@
         "preferred_answer_format": {
           "type": "string",
           "description": "The preferred serialization for the human's machine-ingestible answer.",
-          "enum": ["yaml", "json", "structured_text"]
+          "enum": [
+            "yaml",
+            "json",
+            "structured_text"
+          ]
         },
         "decision_package_required_when": {
           "type": "array",
@@ -133,7 +196,9 @@
         "package_must_include": {
           "type": "array",
           "description": "The components a decision package must include (e.g. the 15 canonical components: decision_id, required_decision, ... required_answer_schema).",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -160,9 +225,15 @@
     },
     "child_loop_ref": {
       "type": "object",
-      "description": "A reference from a node to one of its directory-materialized child loops (subloops). Field names and enum reuse are locked byte-for-byte per references/recursive_loops.md §10.1. status reuses the same 15 node-status enum ($defs.status).",
+      "description": "A reference from a node to one of its directory-materialized child loops (subloops). Field names and enum reuse are locked byte-for-byte per references/recursive_loops.md \u00a710.1. status reuses the same 15 node-status enum ($defs.status).",
       "additionalProperties": false,
-      "required": ["loop_id", "path", "spawn_reason", "status", "closeout"],
+      "required": [
+        "loop_id",
+        "path",
+        "spawn_reason",
+        "status",
+        "closeout"
+      ],
       "properties": {
         "loop_id": {
           "type": "string",
@@ -174,22 +245,26 @@
         },
         "spawn_reason": {
           "type": "string",
-          "description": "Why this child loop was materialized — which Sub-loop Admission Gate criterion held."
+          "description": "Why this child loop was materialized \u2014 which Sub-loop Admission Gate criterion held."
         },
         "status": {
           "$ref": "#/$defs/status",
-          "description": "The child's current status. One of the 15 canonical node statuses — reused, not a new enum."
+          "description": "The child's current status. One of the 15 canonical node statuses \u2014 reused, not a new enum."
         },
         "closeout": {
           "type": "string",
-          "description": "Path (relative to the parent loop directory) to the child's closeout.md — the parent's read entry point for the return contract."
+          "description": "Path (relative to the parent loop directory) to the child's closeout.md \u2014 the parent's read entry point for the return contract."
         }
       }
     },
     "success_criterion": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "statement", "measurable"],
+      "required": [
+        "id",
+        "statement",
+        "measurable"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -208,23 +283,54 @@
     "termination": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["max_iterations", "max_wall_clock_hours", "max_cost_units", "done_when"],
+      "required": [
+        "max_iterations",
+        "max_wall_clock_hours",
+        "max_cost_units",
+        "done_when",
+        "max_depth",
+        "max_child_loops"
+      ],
       "properties": {
         "max_iterations": {
           "type": "integer",
           "description": "Hard cap on loop iterations."
         },
         "max_wall_clock_hours": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "description": "Wall-clock budget in hours, or null for unbounded."
         },
         "max_cost_units": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "description": "Budget in abstract cost units, or null for unbounded. Tracked against checkpoint cost_units_spent."
         },
         "done_when": {
           "type": "string",
           "description": "The single overriding done condition, typically \"all success_criteria met and all top-level nodes completed\"."
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Max recursion depth of child loops (loop.meta.depth). 0 = no child loops allowed."
+        },
+        "max_child_loops": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Max total number of directory-materialized child loops the whole tree may spawn."
+        },
+        "max_active_subgraphs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Optional cap on concurrently-active inline subgraphs."
         }
       }
     },
@@ -232,7 +338,12 @@
       "type": "object",
       "description": "The evidence gate. A node cannot transition to completed until its gate passes.",
       "additionalProperties": false,
-      "required": ["kind", "threshold", "rubric", "evidence_ref"],
+      "required": [
+        "kind",
+        "threshold",
+        "rubric",
+        "evidence_ref"
+      ],
       "properties": {
         "kind": {
           "type": "string",
@@ -249,13 +360,19 @@
           ]
         },
         "threshold": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "description": "Pass threshold for scored gates (0..1). null for pass/fail gates.",
           "minimum": 0,
           "maximum": 1
         },
         "rubric": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Path to a rubric document for judged gates, or null."
         },
         "evidence_ref": {
@@ -267,7 +384,11 @@
     "retry_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["max_attempts", "backoff_base_seconds", "jitter"],
+      "required": [
+        "max_attempts",
+        "backoff_base_seconds",
+        "jitter"
+      ],
       "properties": {
         "max_attempts": {
           "type": "integer",
@@ -287,7 +408,12 @@
       "type": "object",
       "description": "A nested loop.plan fragment (isomorphic), materialised by a mapper node or any node with allow_subgraph: true.",
       "additionalProperties": false,
-      "required": ["parent_ref", "schema_version", "plan_version", "nodes"],
+      "required": [
+        "parent_ref",
+        "schema_version",
+        "plan_version",
+        "nodes"
+      ],
       "properties": {
         "parent_ref": {
           "type": "string",
@@ -304,7 +430,9 @@
         "nodes": {
           "type": "array",
           "description": "The fragment's nodes. Typically design_invariant: false (runtime-discovered).",
-          "items": { "$ref": "#/$defs/node" }
+          "items": {
+            "$ref": "#/$defs/node"
+          }
         }
       }
     },
@@ -369,12 +497,16 @@
         "requires": {
           "type": "array",
           "description": "Ids of nodes this node depends on. This node is ready only when every id here is completed. May be empty for a root node.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "produces": {
           "type": "array",
           "description": "Artifact paths or ids this node produces. May be empty.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "inputs": {
           "type": "array",
@@ -383,18 +515,26 @@
         "preconditions": {
           "type": "array",
           "description": "Conditions that must hold before the node may run, beyond requires. May be empty.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "postconditions": {
           "type": "array",
           "description": "Conditions guaranteed true after successful completion. May be empty.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "gate": {
           "description": "The evidence gate. null only for trivial nodes.",
           "anyOf": [
-            { "$ref": "#/$defs/gate" },
-            { "type": "null" }
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "retry_policy": {
@@ -404,7 +544,12 @@
         "on_failure": {
           "type": "string",
           "description": "Where this node starts on the escalation ladder.",
-          "enum": ["local_retry", "local_patch", "replan", "escalate"]
+          "enum": [
+            "local_retry",
+            "local_patch",
+            "replan",
+            "escalate"
+          ]
         },
         "priority": {
           "type": "integer",
@@ -413,7 +558,11 @@
         "risk": {
           "type": "string",
           "description": "Risk level.",
-          "enum": ["low", "med", "high"]
+          "enum": [
+            "low",
+            "med",
+            "high"
+          ]
         },
         "parallelizable": {
           "type": "boolean",
@@ -426,19 +575,29 @@
         "subgraph": {
           "description": "A nested loop.plan fragment, or null if none has been materialised.",
           "anyOf": [
-            { "$ref": "#/$defs/subgraph" },
-            { "type": "null" }
+            {
+              "$ref": "#/$defs/subgraph"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "child_loops": {
           "type": "array",
-          "description": "REQUIRED node field. The node's directory-materialized child loops (subloops). Empty array [] is the explicit sentinel for a node with no materialized children — mirrors how subgraph is required-but-null. Reference shape locked byte-for-byte per references/recursive_loops.md §10.",
-          "items": { "$ref": "#/$defs/child_loop_ref" }
+          "description": "REQUIRED node field. The node's directory-materialized child loops (subloops). Empty array [] is the explicit sentinel for a node with no materialized children \u2014 mirrors how subgraph is required-but-null. Reference shape locked byte-for-byte per references/recursive_loops.md \u00a710.",
+          "items": {
+            "$ref": "#/$defs/child_loop_ref"
+          }
         },
         "assignee": {
           "type": "string",
           "description": "Who executes the node.",
-          "enum": ["agent", "user", "subagent"]
+          "enum": [
+            "agent",
+            "user",
+            "subagent"
+          ]
         },
         "notes": {
           "type": "string",

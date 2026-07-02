@@ -28,3 +28,4 @@ event_log_ref: "state/event_log.jsonl"
 evidence_ledger_ref: "state/evidence.ledger.yaml"
 cost_units_spent: 96.0
 iteration: 3
+checkpoint_seq: 1

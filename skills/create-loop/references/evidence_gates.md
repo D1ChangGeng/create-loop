@@ -291,8 +291,20 @@ just `artifact_exists`. The reason: a node without a `gate` cannot
 fail cleanly, and a node that cannot fail cleanly cannot be retried,
 replanned, or escalated. The exemption whitelist is small on purpose.
 
-A node in a `subgraph` is held to the same rule. Subgraphs do not get
-to relax gate requirements.
+A node in a `subgraph` is held to the same rule — subgraphs do not get
+to relax evidence requirements — but a lightweight subgraph records its
+evidence through its own compact shape rather than a full `gate` object:
+
+- A subgraph-local node cannot reach `status: completed` with a null
+  `output`; the `output` artifact path IS its evidence (enforced by
+  rule **R25**).
+- A subgraph whose own `status` is `completed` MUST carry a
+  `completion_gate.pass_condition` recording how completion was verified
+  (also R25).
+
+So the guarantee "evidence, not the agent, says done" holds at both the
+node and the subgraph tier; only the recording mechanism is lighter. See
+[`subgraph_subloop_policy.md` §8](./subgraph_subloop_policy.md#8-subgraph-control-fields).
 
 ---
 

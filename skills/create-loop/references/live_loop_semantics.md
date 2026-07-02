@@ -141,9 +141,11 @@ live growth detected (§3 trigger)
   -> enter as a lightweight subgraph inside the owning node — the default tier
   -> gather evidence; assess impact / cost / risk / necessity
   -> if governance complexity crosses the Promotion Gate
-       (cross-session, independent checkpoint, complex evidence, many artifacts,
-        parallel isolation, elevated risk, multi-node impact, may recurse,
-        or needs independent closeout — see subgraph_subloop_policy.md §5)
+       (any canonical criterion in
+        [recursive_loops.md §8](./recursive_loops.md#8-sub-loop-admission-gate)
+        — that section is the single source of truth for admission and
+        promotion criteria; the Promotion Gate is the same rule observed at
+        this live-growth tier)
      -> promote_to_subloop — materialize a directory-materialized child loop
   -> otherwise, complete the subgraph inside the parent
   -> update loop.plan / evidence.ledger / decision.log

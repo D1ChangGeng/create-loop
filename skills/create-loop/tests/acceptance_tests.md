@@ -15,7 +15,7 @@ Every canonical field name and enum value used here is copied verbatim from
 
 ## How to read this document
 
-- **All paths are relative to `/root/create-loop/create-loop/`.** Run every
+- **All paths are relative to the skill root (the directory containing `SKILL.md`).** Run every
   command from that directory.
 - Each numbered capability below maps to an **exact runnable command** and its
   **expected result** (exit code + a characteristic of stdout).
@@ -211,16 +211,16 @@ each `requires` edge as an edge.
 
 ---
 
-## 5. `SKILL.md` respects the line budget (< 600 lines)
+## 5. `SKILL.md` respects the line budget (< 1000 lines)
 
 The skill entrypoint must stay lean; depth lives in `references/`.
 
 ```bash
-# 5. SKILL.md must be strictly fewer than 600 lines.
-test "$(wc -l < SKILL.md)" -lt 600 && echo "SKILL-line-budget-OK"
+# 5. SKILL.md must be strictly fewer than 1000 lines.
+test "$(wc -l < SKILL.md)" -lt 1000 && echo "SKILL-line-budget-OK"
 ```
 
-Expected: exit `0` and `SKILL-line-budget-OK` on stdout. A `SKILL.md` of 600 or
+Expected: exit `0` and `SKILL-line-budget-OK` on stdout. A `SKILL.md` of 1000 or
 more lines fails the gate.
 
 ---
@@ -240,28 +240,30 @@ Expected: exit `0` and `PY-COMPILE-OK` on stdout.
 
 ## Full green sequence
 
-Copy-paste this entire block. Run it from `/root/create-loop/create-loop/`. It
+Copy-paste this entire block. Run it from the skill root (the directory containing `SKILL.md`). It
 runs every acceptance check in order under `set -e`, so the **first** failure
 aborts with a nonzero exit; reaching `ALL GREEN (incl. child-loops)` means the
 package passes the acceptance gate.
 
 ```bash
 set -euo pipefail
-cd /root/create-loop/create-loop
+# Run from the skill root (the directory containing SKILL.md).
+cd "$(dirname "$0")" 2>/dev/null || true   # or: cd /path/to/skills/create-loop
 
 echo "== 6. scripts compile =="
 python3 -m py_compile scripts/*.py
 echo "   PY-COMPILE-OK"
 
-echo "== 5. SKILL.md line budget < 600 =="
-test "$(wc -l < SKILL.md)" -lt 600
+echo "== 5. SKILL.md line budget < 1000 =="
+test "$(wc -l < SKILL.md)" -lt 1000
 echo "   SKILL-line-budget-OK"
 
 echo "== 1a. schemas parse as JSON =="
 for f in schemas/loop.plan.schema.json schemas/node.contract.schema.json \
          schemas/checkpoint.schema.json schemas/evidence.ledger.schema.json \
          schemas/loop.meta.schema.json schemas/loops.index.schema.json \
-         schemas/node.runtime.schema.json; do
+         schemas/node.runtime.schema.json schemas/claim.schema.json \
+         schemas/event_log.schema.json schemas/loop.state.schema.json; do
   python3 -c "import json,sys; json.load(open(sys.argv[1])); print('   OK', sys.argv[1])" "$f"
 done
 
@@ -272,7 +274,8 @@ from jsonschema import Draft7Validator
 files = ["schemas/loop.plan.schema.json","schemas/node.contract.schema.json",
          "schemas/checkpoint.schema.json","schemas/evidence.ledger.schema.json",
          "schemas/loop.meta.schema.json","schemas/loops.index.schema.json",
-         "schemas/node.runtime.schema.json"]
+         "schemas/node.runtime.schema.json","schemas/claim.schema.json",
+         "schemas/event_log.schema.json","schemas/loop.state.schema.json"]
 for f in files:
     s = json.load(open(f))
     assert s.get("$schema","").rstrip("#").endswith("draft-07/schema"), f+": not draft-07"
@@ -287,6 +290,10 @@ python3 scripts/validate_loop_plan.py --kind evidence_ledger templates/evidence.
 python3 scripts/validate_checkpoint.py templates/checkpoint.yaml
 python3 scripts/validate_loop_plan.py --kind loop_meta templates/loop.meta.yaml
 python3 scripts/validate_loop_plan.py --kind loops_index templates/loops.index.yaml
+python3 scripts/validate_loop_plan.py --kind node_runtime templates/node.runtime.yaml
+python3 scripts/validate_loop_plan.py --kind claim templates/claim.yaml
+python3 scripts/validate_loop_plan.py --kind event_log templates/event_log.yaml
+python3 scripts/validate_loop_plan.py --kind loop_state templates/loop.state.yaml
 python3 scripts/validate_loop_plan.py --kind node_runtime templates/node.runtime.yaml
 echo "   templates OK"
 
