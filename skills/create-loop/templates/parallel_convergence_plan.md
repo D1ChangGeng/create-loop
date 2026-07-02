@@ -165,8 +165,6 @@ The plan is committed on the integration branch next to the loop's checkpoint.
 The related durable artifacts a reader opens alongside it:
 
 ```
-## Pointers
-
 - checkpoint:     {path to checkpoint.yaml}
 - event_log:      {path to event_log.jsonl}
 - decision_log:   {path to decision.log.md}
