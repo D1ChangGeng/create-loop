@@ -1,0 +1,133 @@
+=== PROJECT SCAN ===
+Generated: 2026-07-02T19:36:39Z
+Project Root: /root/create-loop
+
+--- PROJECT IDENTITY ---
+Name: create-loop
+Git Remote: https://github.com/D1ChangGeng/create-loop.git
+Primary Language: JavaScript/TypeScript
+
+--- MANIFEST DETECTION ---
+[FOUND] package.json
+[NOT FOUND] package-lock.json
+[NOT FOUND] yarn.lock
+[NOT FOUND] pnpm-lock.yaml
+[NOT FOUND] Cargo.toml
+[NOT FOUND] Cargo.lock
+[NOT FOUND] go.mod
+[NOT FOUND] go.sum
+[NOT FOUND] pyproject.toml
+[NOT FOUND] requirements.txt
+[NOT FOUND] setup.py
+[NOT FOUND] Pipfile
+[NOT FOUND] pom.xml
+[NOT FOUND] build.gradle
+[NOT FOUND] build.gradle.kts
+[NOT FOUND] Gemfile
+[NOT FOUND] composer.json
+[NOT FOUND] CMakeLists.txt
+[NOT FOUND] Makefile
+[NOT FOUND] .csproj files
+
+--- DIRECTORY STRUCTURE ---
+.claude/        5 files
+.codegraph/     0 files
+.gitignore      file
+.omo/           56 files
+.opencode/      8 files
+AGENTS.md       file
+LICENSE         file
+README.md       file
+bin/            1 files
+command/        8 files
+install-commands.sh file
+package.json    file
+skills/         89 files
+test/           1 files
+Total: 174 files
+
+--- CODE METRICS ---
+Top extensions by file count:
+json            74 files
+md              52 files
+yaml            24 files
+py              18 files
+js              2 files
+gitignore       2 files
+sh              1 files
+[no extension]  1 files
+
+Largest files by line count:
+   2617 skills/create-loop/tests/failure_mode_tests.md
+    959 skills/create-loop/references/recursive_loops.md
+    869 skills/create-loop/references/research_dags_multiagent.md
+    777 .opencode/opencode.json
+    699 skills/create-loop/SKILL.md
+    690 skills/create-loop/references/self_evolution_integration.md
+    686 skills/create-loop/references/subgraph_subloop_policy.md
+    662 skills/create-loop/examples/example_product_delivery/loop.plan.yaml
+    660 skills/create-loop/schemas/loop.plan.schema.json
+    657 skills/create-loop/examples/example_research_project/loop.plan.yaml
+
+--- EXISTING DOCUMENTATION ---
+[FOUND] README.md
+[NOT FOUND] README.rst
+[NOT FOUND] README.txt
+[FOUND] AGENTS.md
+[NOT FOUND] CLAUDE.md
+[FOUND] .claude/
+[NOT FOUND] .cursor/rules/
+[NOT FOUND] .cursorrules
+[NOT FOUND] docs/
+[NOT FOUND] CONTRIBUTING.md
+[NOT FOUND] CHANGELOG.md
+
+--- CI/CD & INFRASTRUCTURE ---
+[NOT FOUND] .github/workflows/
+[NOT FOUND] .gitlab-ci.yml
+[NOT FOUND] Dockerfile
+[NOT FOUND] docker-compose.yml
+[NOT FOUND] .env.example
+[NOT FOUND] .env.template
+[NOT FOUND] Makefile
+
+--- TESTING ---
+[NOT FOUND] tests/
+[FOUND] test/
+[NOT FOUND] __tests__/
+[NOT FOUND] spec/
+[NOT FOUND] jest.config.*
+[NOT FOUND] vitest.config.*
+[NOT FOUND] pytest.ini
+[NOT FOUND] .pytest_cache/
+
+--- CONFIGURATION ---
+[NOT FOUND] .eslintrc*
+[NOT FOUND] .prettierrc*
+[NOT FOUND] biome.json
+[NOT FOUND] tsconfig.json
+[NOT FOUND] jsconfig.json
+[NOT FOUND] .editorconfig
+[NOT FOUND] config.yaml
+[NOT FOUND] config.json
+[NOT FOUND] config.toml
+[NOT FOUND] config.example.*
+
+--- DETECTED TECHNOLOGIES ---
+[DETECTED] Node.js (package.json)
+
+--- HEURISTIC GAPS ---
+This scanner uses static file-presence checks. It cannot detect:
+- Technologies loaded via workspace/monorepo indirection (e.g., packages/*/package.json)
+- Runtime-only frameworks not declared in manifests (e.g., loaded via CDN, vendor/)
+- Custom build systems without standard manifest files
+- Language versions, feature flags, or conditional compilation targets
+- Service dependencies (databases, message queues, external APIs)
+- Deployment targets not expressed as Dockerfile/CI config (e.g., serverless, PaaS)
+
+LLM action after reading this scan:
+1. Check if the project has patterns not covered above (monorepo, polyglot, embedded, etc.)
+2. Read manifests and imports to find technologies the scanner missed
+3. Add [DETECTED] lines to domain files for anything discovered manually
+4. If this project type would benefit from additional scanner checks, record a
+   [SKILL-IDEA:self-evolution] entry: "scan-project.sh should detect X via Y"

@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-07-02T19:36:38Z",
+  "last_evolved_at": null,
+  "last_health_check": null,
+  "project": {
+    "name": "create-loop",
+    "initialized_from": "existing"
+  },
+  "inventory": [
+    {
+      "path": "domains/tech-stack.md",
+      "type": "domain",
+      "scope": ["package.json", "bin/", "test/", "skills/create-loop/scripts/"],
+      "confidence": "observed",
+      "last_verified": "2026-07-03"
+    },
+    {
+      "path": "domains/installer.md",
+      "type": "domain",
+      "scope": ["bin/", "install-commands.sh", "test/", "package.json"],
+      "confidence": "observed",
+      "last_verified": "2026-07-03"
+    },
+    {
+      "path": "domains/commands.md",
+      "type": "domain",
+      "scope": ["command/", ".opencode/command/", ".claude/commands/"],
+      "confidence": "observed",
+      "last_verified": "2026-07-03"
+    },
+    {
+      "path": "domains/skill-protocol.md",
+      "type": "domain",
+      "scope": ["skills/create-loop/SKILL.md", "skills/create-loop/references/", "skills/create-loop/templates/", "skills/create-loop/examples/"],
+      "confidence": "observed",
+      "last_verified": "2026-07-03"
+    },
+    {
+      "path": "domains/validator-engine.md",
+      "type": "domain",
+      "scope": ["skills/create-loop/scripts/", "skills/create-loop/schemas/", "skills/create-loop/tests/"],
+      "confidence": "observed",
+      "last_verified": "2026-07-03"
+    },
+    {
+      "path": "reference/code-map.md",
+      "type": "reference",
+      "scope": ["bin/", "command/", ".opencode/command/", ".claude/commands/", "install-commands.sh", "test/", "skills/create-loop/"],
+      "confidence": "observed",
+      "last_verified": "2026-07-03"
+    },
+    {
+      "path": "inbox/2026-07.md",
+      "type": "inbox",
+      "scope": [],
+      "confidence": "observed",
+      "last_verified": "2026-07-03"
+    }
+  ],
+  "health": {
+    "total_files": 7,
+    "by_type": {
+      "domain": 5,
+      "reference": 1,
+      "decision": 0,
+      "pattern": 0,
+      "crystallized": 0,
+      "inbox": 1,
+      "archived": 0
+    },
+    "by_confidence": {
+      "observed": 7,
+      "verified": 0,
+      "canonical": 0
+    },
+    "inbox_count": 3,
+    "inbox_oldest_unprocessed": "2026-07-03",
+    "stale_candidates": [],
+    "conflicts": [],
+    "days_since_evolution": null
+  },
+  "skills": {
+    "installed": [],
+    "pending_review": []
+  },
+  "hooks": {
+    "integration": "opencode",
+    "decided_at": "2026-07-03T12:20:00Z",
+    "adapter_path": ".opencode/opencode.json",
+    "note": "Native ESM plugin at .agents/hooks/opencode-plugin.mjs; .opencode/opencode.json plugin array references it by absolute file:// URL (providers/plugins preserved). Adapter file is gitignored (.gitignore:24) so it is local-only. Fixed a stale /root/alpha path the installer copied from global config."
+  }
+}

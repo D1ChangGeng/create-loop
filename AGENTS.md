@@ -28,6 +28,8 @@ create-loop/
 | Change install behavior | [bin/create-loop.js](bin/create-loop.js) |
 | Validator rules (R1–R41) | [skills/create-loop/scripts/](skills/create-loop/scripts/) |
 | Regression gate | `skills/create-loop/tests/acceptance_tests.md` + `test/installer.test.js` |
+| Deep per-area knowledge | [.agents/knowledge/domains/](.agents/knowledge/domains/) (installer, commands, skill-protocol, validator-engine, tech-stack) |
+| Full code map + routing | [.agents/knowledge/reference/code-map.md](.agents/knowledge/reference/code-map.md) |
 
 ## COMMANDS
 ```bash
@@ -56,3 +58,71 @@ python3 skills/create-loop/scripts/check_loop_integrity.py <loop-dir>
 ## NOTES
 - Three user install paths: (A) `npx github:D1ChangGeng/create-loop` = Node installer, skill + commands, hash-tracked upgrade; (B) `./install-commands.sh` = commands only; (C) `npx skills add … --skill create-loop` = skill only (`npx skills add` never writes a host command dir — that is why commands ship separately at repo root).
 - Installer tracks every written file by sha256 in `install-state.json` (global `~/.config/create-loop/`, project `<proj>/.create-loop/`) → re-run upgrades in place, preserves user-edited files (`--force` to overwrite).
+
+## SESSION START
+
+1. Read this file for project overview and routing.
+2. Check `.agents/knowledge/manifest.json` — if `inbox_count > 10` or `days_since_evolution > 14`, suggest an evolution pass to the user.
+3. Read the relevant `.agents/knowledge/domains/*.md` for your current task (use the WHERE TO LOOK table above).
+
+## CODING DISCIPLINE
+
+These behavioral rules reduce common AI coding mistakes. They bias toward caution over speed — for trivial, local tasks, use judgment. Escalate caution on subsystem transitions, external-system operations, or knowledge-affecting work.
+
+**Think before coding.** State assumptions explicitly. If multiple interpretations exist, present them — don't pick silently. If a simpler approach exists, say so. If something is unclear, stop and ask.
+
+**Simplicity first.** Minimum code that solves the problem. No speculative features, no premature abstractions, no error handling for impossible scenarios. If you wrote 200 lines and it could be 50, rewrite it.
+
+**Surgical changes.** Touch only what you must. Don't "improve" adjacent code, comments, or formatting. Match existing style. If your changes create orphans (unused imports/variables), clean those up — but don't remove pre-existing dead code unless asked.
+
+**Goal-driven execution.** Transform tasks into verifiable goals before starting. For multi-step tasks, state a plan with verification checkpoints. Loop until verified — don't declare done without evidence.
+
+**Context familiarity is not domain competence.** When a task shifts to a subsystem you haven't read the source for in this session, read the relevant domain file before acting. If you cannot cite the specific file/line that governs the behavior you're about to change, you don't know enough yet.
+
+**No partial delivery.** When a task requires multiple steps, complete all of them. If blocked, state the blocker and propose alternatives instead of delivering an incomplete result.
+
+**Project-specific gates.** Editing `command/` bodies or `manifest.json` → run `node bin/create-loop.js render` then `node test/installer.test.js`, and commit `command/` + both rendered dirs together. Editing the skill's vocabulary → follow the source-of-truth order (references → schemas → `scripts/checks/__init__.py` → SKILL.md) and re-run the acceptance gate.
+
+## POST-TASK CHECKLIST
+
+After completing any non-trivial task:
+
+1. Run tests if code was changed (`node test/installer.test.js` for installer/command changes; the skill acceptance gate for skill changes).
+2. Check if any of these knowledge capture conditions apply:
+   - Discovered how something works that was not already documented
+   - Fixed a bug that revealed a hidden assumption
+   - Made a decision that constrains future implementation choices
+   - Noticed a pattern that spans multiple files, modules, or workflows
+   - Found that existing knowledge was wrong, incomplete, or outdated
+   - Found that the self-evolution skill itself had a flaw (tag as `[SKILL-FIX:self-evolution]`)
+3. If any condition is met, **write the inbox entry NOW** — append to `.agents/knowledge/inbox/{YYYY-MM}.md` before reporting completion:
+   ```
+   ## {date} {time} — {context}
+   - {observation}
+   - [source: {file:line}]
+   ```
+   If existing knowledge needs correction, tag with `[DOMAIN-FIX: domains/X.md]`.
+4. **State your capture decision in one line** after acting (e.g. `Capture: none`, `Capture: inbox (hidden assumption in X)`).
+
+### Skill Ecosystem
+
+Before building a capability from scratch, check if a skill already exists: ensure `find-skills` is available (`npx skills add https://github.com/vercel-labs/skills --skill find-skills -g -y`), then `npx skills find [query]`. If a workflow has been refined 3+ times, consider crystallizing it via `skill-creator`.
+
+See `.agents/knowledge/README.md` for the full protocol, confidence model, and promotion rules.
+
+## SELF-EVOLUTION RULES
+
+When modifying this codebase, update knowledge **in the same commit**:
+
+- New host adapter / installer behavior → update `domains/installer.md`
+- New slash command or render change → update `domains/commands.md` + `reference/code-map.md`
+- New skill vocabulary / status / gate / node kind → update `domains/skill-protocol.md` and `domains/validator-engine.md`
+- New validator rule → update `domains/validator-engine.md`
+- Significant structure change → update `reference/code-map.md` and the STRUCTURE + WHERE TO LOOK sections above
+
+**Single Source of Truth:** Each rule has exactly one canonical home in `.agents/knowledge/domains/`. This file holds summaries with pointers. When updating a rule, update the domain file — not this file.
+
+- **Confidence:** All AI-generated knowledge starts as `observed`. To earn `verified`, cite 2+ corroborating sources. Only human-approved, stable knowledge becomes `canonical`.
+- **Evidence:** Every non-trivial claim needs `[source: file:line]`.
+- **Unknowns:** "Open Questions" sections are mandatory in domain files.
+- **Conflicts:** When two knowledge entries contradict, surface BOTH. Never silently pick one side.
