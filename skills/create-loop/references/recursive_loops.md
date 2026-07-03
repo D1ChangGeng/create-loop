@@ -857,6 +857,10 @@ parent node's `child_loops[]` reference ([§10](#10-the-child_loops-node-field-l
   — the execution rhythm that decides when a node descends into a
   directory-materialized child loop and how the child's `closeout.md` is written
   back to the parent.
+- [`layered_execution_chain.md`](./layered_execution_chain.md)
+  — the layer ladder (Top-level Loop → Node → Subgraph → Subloop → Action Plan →
+  Immersive Action → Return) and the leaf-action stop-test that decide how far a
+  node's work descends before it executes.
 
 ---
 
@@ -971,3 +975,6 @@ state, evidence, checkpoint, or closeout, it should be a child loop.*
   — the execution rhythm that decides when a node descends into a
   directory-materialized child loop and how the child's `closeout.md` is written
   back to the parent.
+- [`layered_execution_chain.md`](./layered_execution_chain.md)
+  — the layer ladder and the leaf-action stop-test that decide how far a node's
+  work descends before it stops to execute.

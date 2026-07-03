@@ -483,6 +483,17 @@ rhythm's write-back step is exactly the subgraph `completion_gate` / subloop
 decisions, and state land back in the parent so it can re-plan. See
 [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md).
 
+### 10.2 Relationship to the Layered Execution Chain
+
+The three tiers (`action` / `subgraph` / `subloop`) are the layers the chain's
+6-step layer-switch cascade routes work INTO. The Promotion Gate defined in §5
+of this document IS the chain's subgraph → subloop decision: when the cascade
+reaches "does this need its own governance?" and answers yes, the Promotion Gate
+is what executes that step. The chain's "Action Plan" is not a new tier — it is a
+`subgraph` of `action` leaves: an ordered list of single-step operations scoped
+to one descent, hosted by whichever layer the cascade lands on. See
+[`layered_execution_chain.md`](./layered_execution_chain.md).
+
 ---
 
 ## 11. The decision tree
@@ -620,6 +631,9 @@ treat it as the normative summary of everything above.*
 - [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md)
   — the two-view rhythm that decides, at runtime, which tier a node's work
   descends into and how each descent writes back to the parent.
+- [`layered_execution_chain.md`](./layered_execution_chain.md)
+  — the layer ladder the tiers here are routed into, the 6-step layer-switch
+  cascade, and the leaf-action stop-test that ends a descent.
 
 ---
 

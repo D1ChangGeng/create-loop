@@ -363,6 +363,7 @@ Evidence gates         = prevent growth from becoming random requirement-adding
 Human approval         = only for goal / permission / risk / responsibility boundaries
 Three-tier model      = action (leaf) / subgraph (lightweight, default) / subloop (materialized child loop); Live Loop promotes subgraph → subloop at the Promotion Gate
 Recursive planning ⇄ immersive execution = the rhythm that switches between whole-graph planning and per-node execution, descends into a subgraph/subloop on local complexity, and writes results back to the parent
+Layered execution chain = the ladder that rhythm descends (Top-level Loop → Node → Subgraph → Subloop → Action Plan → Immersive Action → Return) plus the leaf-action stop-test that ends each descent and prevents premature execution / over-planning
 ```
 
 | component | owns | reference |
@@ -374,6 +375,7 @@ Recursive planning ⇄ immersive execution = the rhythm that switches between wh
 | Human approval | the boundary conditions where autonomy hands off | [`human_approval.md`](./human_approval.md), [`SKILL.md` §3](../SKILL.md#3-autonomy-first-control-principle-read-before-any-mode) |
 | Three-tier model | the action → subgraph → subloop ladder Live Loop growth climbs (default: subgraph; promote to subloop at the Promotion Gate) | [`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md), [`recursive_loops.md`](./recursive_loops.md) |
 | Recursive planning ⇄ immersive execution | the runtime rhythm that switches between the whole-graph planning view and the per-node execution view, descends a level when a node proves complex, and writes the descent's results back to the parent | [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md) |
+| Layered execution chain | the ladder of layers the rhythm descends and the leaf-action stop-test that ends a descent | [`layered_execution_chain.md`](./layered_execution_chain.md) |
 
 The components share the same vocabulary: they all speak in
 terms of the locked field set, the 15-status enum, the 8 node kinds,
@@ -401,3 +403,4 @@ It is a usage pattern over the existing machinery.
 - [`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md). The **three-tier execution model** (`action` / `subgraph` / `subloop`), the **Promotion Gate** that escalates a lightweight `subgraph` to a directory-materialized `subloop`, and the two worked examples (acceptance-criteria and effectiveness-bug) that illustrate the default-then-maybe-promote rule.
 - [`recursive_loops.md`](./recursive_loops.md). The directory-materialized **child loop** spec — the substrate a promoted `subloop` is built on: directory shape, `loop.meta.yaml`, `child_loops[]` reference, `return_contract` / `closeout.md`, child-checkpoint additions, and the Sub-loop Admission Gate.
 - [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md). The execution rhythm Live Loop growth runs inside: switching between the whole-graph planning view and the per-node immersive view, descending into a subgraph/subloop on local complexity, and writing results back to the parent.
+- [`layered_execution_chain.md`](./layered_execution_chain.md). The layers this rhythm descends and the leaf-action stop-test — Live Loop growth is admitted into one of these layers without bypassing the parent gate.

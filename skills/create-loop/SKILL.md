@@ -365,7 +365,65 @@ Full spec: [`references/recursive_loops.md`](references/recursive_loops.md) and
 
 ---
 
-## 8. Mode A — Create a loop
+## 8. Layered Execution Chain (read with §6 and §7)
+
+§6 is the *rhythm* (switch between planning and execution views); §7 names the
+*tiers*. This section is the **ladder** the rhythm descends and the **stop-test**
+that ends a descent — so the runner never over-plans clear work nor executes
+vague work.
+
+```
+Top-level Loop → Node/Task Stage → Subgraph → Subloop
+              → Action Plan → Immersive Action → Result Verification → Return to Parent
+```
+
+Every layer is existing machinery, not new vocabulary. `Action Plan` = a
+`subgraph` of `action` leaves (or a node's ordered `action` list) — a scoped step
+list, **not** a governed unit. `Immersive Action` = executing one `action` leaf.
+This adds **no** status, kind, gate, tier, or ladder rung.
+
+**Layer-switch cascade — judge any work item in order, stop at the first match:**
+
+1. Executable & verifiable directly? → **Immersive Action** (execute now).
+2. Just needs a few clear ordered steps? → write an **Action Plan**.
+3. Multiple local tasks / dependencies / branches / parallel / join? → **Subgraph**.
+4. Needs own state / recovery / evidence / closeout / directory / executor, or
+   many iterations? → create or promote to a **Subloop** (§7 Promotion Gate).
+5. Exposes a parent plan / requirements / architecture / evidence / control
+   defect? → correction subgraph or **Plan Mutation Proposal** (§4 Live Loop).
+6. Crosses a goal / permission / risk / cost / external-side-effect boundary? →
+   **Human Decision Package** (§3, §13).
+
+Steps 1–5 are autonomous descents (§3); only step 6 escalates. Use the same
+cascade at loop creation, node execution, subgraph extension, subloop promotion,
+live-growth admission, recovery, post-gate-failure correction, and plan change.
+
+**The dual failure this prevents:**
+
+```
+Premature execution: task still vague / deps unclear / output unverifiable — yet acts.
+Over-planning:       task already clear & executable — yet keeps splitting / graphing / spinning up subloops.
+```
+
+**Leaf-action test (the real stop condition).** Splitting stops at a *leaf
+action*, never merely at "a plan exists". A leaf action has a clear boundary,
+known input, clear operation, defined output, defined verification, no hidden
+step / branch / decision / vague verb, a recordable failure state, and crosses no
+permission/cost/risk/side-effect boundary. Anything vague ("analyse and pick the
+best", "fix as appropriate", "handle all edge cases", "improve quality") is NOT a
+leaf — split it or promote it (§4 keep-splitting triggers).
+
+**Return relations.** No layer returns only "done". Each returns a verifiable,
+write-back-ready result (products + evidence + decisions + state + gate effect),
+through the subgraph `completion_gate` or the subloop `return_contract` /
+`closeout.md` — never a direct write into the parent's checkpoint / ledger /
+artifacts (§7 isolation rule).
+
+Full spec: [`references/layered_execution_chain.md`](references/layered_execution_chain.md).
+
+---
+
+## 9. Mode A — Create a loop
 
 Use this mode when the user is starting fresh or is restarting with a new goal.
 
@@ -435,7 +493,7 @@ and [`schemas/evidence.ledger.schema.json`](schemas/evidence.ledger.schema.json)
 
 ---
 
-## 9. Mode B — Run / advance a loop
+## 10. Mode B — Run / advance a loop
 
 Use this mode when `loop.plan v0` exists and the loop is in motion. Execute
 this loop **per node**, until `termination.done_when` holds. Run it with the
@@ -513,7 +571,7 @@ Per-node intent and resulting artifact templates:
 
 ---
 
-## 10. Mode C — Resume from a blank session
+## 11. Mode C — Resume from a blank session
 
 Use this mode when a fresh agent with no chat memory takes over a half-finished
 loop. The checkpoint is the only source of truth.
@@ -543,7 +601,7 @@ Rationale, edge cases, and the cross-agent hand-off schema are in
 
 ---
 
-## 11. Exceptions & escalation
+## 12. Exceptions & escalation
 
 Every node declares `on_failure` — its starting rung on the bounded, ordered
 ladder:
@@ -561,7 +619,7 @@ on an `approval` node with a `human_approval` gate.
 
 ---
 
-## 12. Human approval
+## 13. Human approval
 
 Approval is a **bounded exception**, not a routine step (see §3). It is planned
 in advance, never improvised as a first reaction to a branch or blocker. Two
@@ -592,7 +650,7 @@ protocol in [`references/human_approval.md`](references/human_approval.md) §7.
 
 ---
 
-## 13. Knowledge promotion
+## 14. Knowledge promotion
 
 Verified, reusable findings may be promoted from transient loop state to
 durable project knowledge (the `self-evolution` skill). The boundary is
@@ -610,7 +668,7 @@ Loop closeout itself produces
 
 ---
 
-## 14. Platform capability & degradation
+## 15. Platform capability & degradation
 
 Do **not** assume the host provides background execution, subagents, a
 durable runtime, or lifecycle hooks. When any are missing, degrade to the
@@ -621,7 +679,7 @@ filesystem primitives that always exist:
 | background execution | persistent files + explicit checkpoints written at every transition |
 | subagents | the single agent runs nodes serially; `assignee: subagent` collapses to `assignee: agent` |
 | durable runtime | the `.agents/loops/L<seq>-<slug>/` directory tree + event log + checkpoint on the filesystem *is* the runtime (see [`references/recursive_loops.md`](references/recursive_loops.md)) |
-| lifecycle hooks | a handoff doc per stop + manual re-invocation + the §10 resume algorithm at startup |
+| lifecycle hooks | a handoff doc per stop + manual re-invocation + the §11 resume algorithm at startup |
 
 Probe via `task_profile.yaml:platform_capability`. Set
 `fallback_accepted` before emitting `loop.plan v0`. "Degraded mode" is the
@@ -629,7 +687,7 @@ same contract with fewer conveniences — not a second implementation.
 
 ---
 
-## 15. Reference map (progressive disclosure index)
+## 16. Reference map (progressive disclosure index)
 
 Every link below points to a real file. Read it when its row says to. Most
 rows only matter in their respective modes.
@@ -642,6 +700,7 @@ rows only matter in their respective modes.
 | [`live_loop_semantics.md`](references/live_loop_semantics.md) | The execution path grew, a gate exposed an omission/defect, or you must decide whether new work is goal-necessary growth vs scope creep. Triggers, admission criteria, and the three-classes-of-change table. |
 | [`execution_intelligence_policy.md`](references/execution_intelligence_policy.md) | You are *running* a loop (Mode B) and want the high-ceiling execution temperament: Bounded Maximalism, root-cause protocol, deepening triggers, quality-uplift vs the gate floor, Goal Alignment Check, counterexample review, execution profiles, and the anti-risk table. Behavioral policy (no schema), backs SKILL §5. |
 | [`recursive_planning_immersive_execution.md`](references/recursive_planning_immersive_execution.md) | You want the execution *rhythm*: switching between the global whole-graph planning view and the local immersive per-node view, descending into a subgraph/subloop when a node proves complex, and writing the descent's products/evidence/decisions/state back to the parent so it re-plans. Behavioral policy (no schema), backs SKILL §6. |
+| [`layered_execution_chain.md`](references/layered_execution_chain.md) | You want the *layers* the rhythm descends and the *stop-test* that ends a descent: the Top-level Loop → Node → Subgraph → Subloop → Action Plan → Immersive Action → Verification → Return chain, the 6-step layer-switch cascade, the leaf-action test, the premature-execution vs over-planning dual failure, and each layer's return relation. Behavioral policy (no schema), backs SKILL §8. |
 | [`loop_plan_spec.md`](references/loop_plan_spec.md) | You need the authoritative field dictionary for `loop.plan`, node kinds, gate kinds, `retry_policy`, the escalation ladder, control-flow vocabularies, subgraphs, or the locked **Glossary**. |
 | [`state_model.md`](references/state_model.md) | You need the 15-status enum, the state transition table, **checkpoint** / **node.contract** / **evidence.ledger** field sets, or the §"Resume from a blank session" algorithm. |
 | [`recursive_loops.md`](references/recursive_loops.md) | You need the isomorphic per-loop directory layout, `loop.meta.yaml` field set, `child_loops[]` reference shape, `return_contract` / `closeout.md`, child-checkpoint additions, the Sub-loop Admission Gate, the isolation rule, or the INDEX files. Read when promoting to or working inside a **subloop**. |
@@ -725,11 +784,11 @@ Each example directory contains a `README.md`, `loop.plan.yaml`, and `checkpoint
 
 ## Quick orientation for the model running this skill
 
-1. Did the user hand you a short goal with no plan? → **Mode A** (§8).
+1. Did the user hand you a short goal with no plan? → **Mode A** (§9).
 2. Did the user hand you an existing `.agents/loops/L<seq>-<slug>/` or
    `loop.plan.yaml` and ask you to continue? → **Mode B** if `loop.plan v0`
-   exists and work was in progress; **Mode C** (§10) if the session is blank
-   and you must recover. When unsure, run the §10 resume algorithm first — it is
+   exists and work was in progress; **Mode C** (§11) if the session is blank
+   and you must recover. When unsure, run the §11 resume algorithm first — it is
    read-only and safe.
 3. Did the user describe a goal that *might* need a loop but is small enough
    to do in one shot? Then you don't need this skill — say so and do the task.

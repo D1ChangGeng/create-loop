@@ -305,7 +305,11 @@ defined authoritatively in
 [`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md). The directory
 convention, `loop.meta.yaml` field set, `child_loops[]` reference shape, and
 Sub-loop Admission Gate are defined authoritatively in
-[`recursive_loops.md`](./recursive_loops.md).
+[`recursive_loops.md`](./recursive_loops.md). A node's ordered `action` list
+(or a `subgraph` of `action` leaves) is what
+[`layered_execution_chain.md`](./layered_execution_chain.md) calls an **Action
+Plan** — a scoped step list, not a new tier; the same doc's **leaf-action test**
+is the stop condition for how far to decompose before executing.
 
 ---
 

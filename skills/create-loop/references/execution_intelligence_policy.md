@@ -407,6 +407,7 @@ Sharper:
 - [`SKILL.md` §3](../SKILL.md). The Autonomy-First Control Principle: the routing rule ("explore before asking") this policy inherits and sharpens.
 - [`live_loop_semantics.md`](./live_loop_semantics.md). The enforceable admission gate for necessary growth (§5–§7) — the mechanism behind §3.4 "complete work the goal requires."
 - [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md). The Planner ⇄ Executor rhythm this temperament drives: when to descend into a subgraph/subloop and when to close it out and write results back to the parent.
+- [`layered_execution_chain.md`](./layered_execution_chain.md). The layer ladder + leaf-action stop-test this temperament's deepening triggers (keep splitting) and diminishing-returns stop (leaf test) operate over.
 - [`exception_handling.md`](./exception_handling.md). The bounded `local_retry → local_patch → replan → escalate` ladder that §3.2 root-cause analysis feeds into.
 - [`evidence_gates.md`](./evidence_gates.md). The eight gate kinds — the quality *floor* that §3.6 quality-uplift distinguishes from the quality *ceiling*.
 - [`human_approval.md`](./human_approval.md). The boundary conditions where autonomy hands off — the "escalate only if a boundary issue" branch of §3.3.

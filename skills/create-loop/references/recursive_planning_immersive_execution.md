@@ -255,6 +255,7 @@ the runner moves through the machinery they define, not a competing mechanism.
 | **Live Loop** ([`live_loop_semantics.md`](./live_loop_semantics.md)) | how the graph extends downward under evidence | the mechanism the *local view* uses when it exposes a goal-necessary gap |
 | **High-Ceiling Execution** ([`execution_intelligence_policy.md`](./execution_intelligence_policy.md)) | the temperament for depth vs stop | decides *when* to open a level and *when* to close it (pre-execution review, quality-uplift, deepening triggers, Goal Alignment Check) |
 | **three-tier model** ([`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md), [`recursive_loops.md`](./recursive_loops.md)) | action / subgraph / subloop and their gates | the *levels* the descent moves between, and the write-back interface |
+| **Layered Execution Chain** ([`layered_execution_chain.md`](./layered_execution_chain.md)) | the ladder of layers (Top-level Loop → Node → Subgraph → Subloop → Action Plan → Immersive Action → Return) and the leaf-action stop-test | this rhythm decides *when* to change levels; the chain defines *what the levels are* and *how far a descent goes before stopping to execute* |
 
 ```
 global planning view  = build/refresh the current-level control graph
@@ -274,6 +275,7 @@ evidence, risks, and decisions to the whole plan so it can move forward.
 
 ## See also
 
+- [`layered_execution_chain.md`](./layered_execution_chain.md). The matched-pair companion: the concrete **layers** this rhythm descends and the **leaf-action stop-test** that ends each descent.
 - [`concepts.md`](./concepts.md). The **why** of the shape: the top-level invariant rule (§3) and isomorphic subgraph recursion (§4) this rhythm moves through.
 - [`subgraph_subloop_policy.md`](./subgraph_subloop_policy.md). The three-tier model (`action` / `subgraph` / `subloop`), the Promotion Gate, and the subgraph ↔ parent-node permission table — the levels the descent chooses between.
 - [`recursive_loops.md`](./recursive_loops.md). The directory-materialized child loop, the `return_contract` / `closeout.md` write-back interface, the isolation rule, and the Sub-loop Admission Gate — the substrate of a subloop descent and its write-back.

@@ -21,7 +21,7 @@ The model is layered:
 - **Layer 2** is the runtime subgraphs generated inside each node when
   concrete work becomes knowable.
 
-Three principles govern how the plan behaves at runtime. **Autonomy-first**:
+Four principles govern how the plan behaves at runtime. **Autonomy-first**:
 the loop resolves branches, unknowns, and blockers by spawning exploration
 and diagnostic subgraphs and gathering evidence — it asks the user only at
 genuine boundaries (goal, authorization, irreversibility, cost, risk, value).
@@ -32,7 +32,11 @@ Execution**: the loop recursively switches between a global whole-graph
 planning view and a local immersive per-node execution view; when a node
 proves complex it descends into a subgraph or child subloop, then writes
 products, evidence, and decisions back to the parent, which re-plans and
-advances.
+advances. **Layered Execution Chain**: the runner descends a ladder of
+execution layers (Top-level Loop → Node → Subgraph → Subloop → Action Plan →
+Immersive Action → Return) and uses a leaf-action test to decide when to stop
+planning and execute — avoiding both premature execution (acting while work is
+still vague) and over-planning (splitting work that is already executable).
 
 The plan is also **recursive**: each node dispatches its work across a
 **three-tier model** (`action` atomic, `subgraph` lightweight inline
@@ -57,7 +61,8 @@ rollback ladder).
 Full reasoning lives in `references/concepts.md`. The vocabulary
 (vocabulary, enums, transitions) lives in `references/loop_plan_spec.md`
 and `references/state_model.md`. The recursive planning-and-execution rhythm
-is in `references/recursive_planning_immersive_execution.md`.
+is in `references/recursive_planning_immersive_execution.md`, and the layer
+ladder it descends is in `references/layered_execution_chain.md`.
 
 ---
 

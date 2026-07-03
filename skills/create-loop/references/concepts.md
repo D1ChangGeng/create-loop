@@ -331,3 +331,4 @@ and an explicit state machine rather than in a live process's memory.
 - [`./research_dags_multiagent.md`](./research_dags_multiagent.md) — DAG
   engines, multi-agent orchestration, evidence gates, state machines.
 - [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md) — the runtime rhythm that moves through the isomorphic recursion this document motivates: global planning view ⇄ local immersive execution, with write-back to the parent.
+- [`layered_execution_chain.md`](./layered_execution_chain.md) — the layers the recursion descends through (Top-level Loop → Node → Subgraph → Subloop → Action Plan → Immersive Action → Return) and the leaf-action test that stops a descent.
