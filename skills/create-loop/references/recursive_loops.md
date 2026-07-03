@@ -91,6 +91,12 @@ same-run natural growth ([`live_loop_semantics.md`](./live_loop_semantics.md));
 the directory-materialized `child_loop` is the escalation for work that needs its
 own plan, state, evidence, checkpoint, or closeout.
 
+The choice between an inline `subgraph` and a directory-materialized `child_loop`
+is made at runtime by the Recursive Planning ⇄ Immersive Execution rhythm: the
+executor descends into whichever tier the node's proven complexity demands, then
+writes results back on close. See
+[`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md).
+
 ---
 
 ## 3. Directory root & naming (LOCKED)
@@ -847,6 +853,10 @@ parent node's `child_loops[]` reference ([§10](#10-the-child_loops-node-field-l
   transient (`create-loop`) vs durable (`self-evolution`) boundary; a child
   loop's `closeout.md` is the promotion candidate source, never a direct write
   into `.agents/knowledge/`.
+- [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md)
+  — the execution rhythm that decides when a node descends into a
+  directory-materialized child loop and how the child's `closeout.md` is written
+  back to the parent.
 
 ---
 
@@ -957,3 +967,7 @@ state, evidence, checkpoint, or closeout, it should be a child loop.*
   that decide when a unit is an inline `subgraph` vs a materialized `subloop`.
 - [`state_model.md`](./state_model.md#node-status-enum) — the status enum and the
   per-node claim/lease this layer reuses.
+- [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md)
+  — the execution rhythm that decides when a node descends into a
+  directory-materialized child loop and how the child's `closeout.md` is written
+  back to the parent.

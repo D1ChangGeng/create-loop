@@ -4,7 +4,7 @@ The user's goal is: $ARGUMENTS
 
 **Load these skill files BEFORE you act — they are the source of truth. Read them; do not restate their contents from memory, and do not paste their vocabulary into your output.**
 
-- `skills/create-loop/SKILL.md` §3 (Autonomy-First Control Principle) and §7 (Mode A steps) — the mode contract you are executing.
+- `skills/create-loop/SKILL.md` §3 (Autonomy-First Control Principle) and §8 (Mode A steps) — the mode contract you are executing.
 - `skills/create-loop/templates/interview_brief.md` — the Charter interview protocol. Obey §2 (adaptive rules), §3 (**What the interview MUST NOT ask** — never ask vendors/stack/files/tests/compliance up front; route them to `research_questions` with an `owner_node`), and §5 (**Stop condition** — do not stop the interview until every bullet holds).
 - `skills/create-loop/templates/task_profile.yaml` — the control-profile artifact you populate as the interview's audit trail.
 - `skills/create-loop/references/loop_plan_spec.md` §1 (top-level `loop.plan` fields) and §2 (the `node` object — every node carries all its required fields; use the locked enums exactly as defined there).

@@ -136,6 +136,12 @@ of [Airflow, Prefect, Dagster, and Argo](./research_dags_multiagent.md), where a
 node expands into a runtime-determined fan of child tasks that are collected back
 before the parent proceeds.
 
+This structural recursion is exercised at runtime as a deliberate rhythm — the
+runner switches between a whole-graph planning view and an inside-one-node
+execution view, descending a level when a node proves complex and writing results
+back when it closes; see
+[`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md).
+
 ## 5. Why evidence gates
 
 A milestone is not "done" because an agent said so. It is done because
@@ -324,3 +330,4 @@ and an explicit state machine rather than in a live process's memory.
   execution, agentic loops, checkpoint/recovery sources.
 - [`./research_dags_multiagent.md`](./research_dags_multiagent.md) — DAG
   engines, multi-agent orchestration, evidence gates, state machines.
+- [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md) — the runtime rhythm that moves through the isomorphic recursion this document motivates: global planning view ⇄ local immersive execution, with write-back to the parent.

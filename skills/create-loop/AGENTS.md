@@ -6,7 +6,7 @@ The `create-loop` Agent Skill proper. Everything a host loads. Turns a short goa
 ```
 skills/create-loop/
 ├── SKILL.md         entrypoint, ≤1000 lines (HARD budget, enforced by tests); Modes A/B/C + reference map
-├── references/      18 docs: locked vocabulary, spec, state model, live-loop, recursion, policies
+├── references/      19 docs: locked vocabulary, spec, state model, live-loop, recursion, policies, recursive-planning-immersive-execution
 ├── templates/       19 fill-in run artifacts (loop.plan.yaml, checkpoint.yaml, task_profile.yaml, …)
 ├── schemas/         11 JSON Schemas (Draft-07) — machine contract mirror of references
 ├── scripts/         Python validators R1–R41 + integrity gate + DAG renderer (see its AGENTS.md)
@@ -19,7 +19,7 @@ skills/create-loop/
 - **Layer 1 — `loop.plan v0`** (`templates/loop.plan.yaml`): `design_invariant: true` governance nodes only. NO vendor names, file paths, or test specs here.
 - **Layer 2 — runtime subgraphs**: concrete work materialized inside `mapper` / `allow_subgraph: true` nodes once research makes it knowable.
 
-Two runtime principles: **Autonomy-first** (resolve branches/unknowns/blockers by spawning subgraphs + gathering evidence; escalate only at genuine boundaries) and **Live Loop Semantics** (stable goal + invariant skeleton + live runtime subgraphs; evidence-driven completeness growth, NOT scope creep).
+Three runtime principles: **Autonomy-first** (resolve branches/unknowns/blockers by spawning subgraphs + gathering evidence; escalate only at genuine boundaries) and **Live Loop Semantics** (stable goal + invariant skeleton + live runtime subgraphs; evidence-driven completeness growth, NOT scope creep); and **Recursive Planning ⇄ Immersive Execution** (recursively switch between a global whole-graph planning view and local immersive per-node execution; descend into a subgraph/subloop on local complexity and write results back to the parent).
 
 ## SOURCE-OF-TRUTH ORDER (when editing the skill)
 1. `references/loop_plan_spec.md` + `references/state_model.md` = **locked vocabulary** (enums, fields, transitions). Anything disagreeing with them is wrong.

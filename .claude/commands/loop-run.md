@@ -16,6 +16,7 @@ Optional target node or loop: $ARGUMENTS
 - `skills/create-loop/references/evidence_gates.md` — evaluate each node's gate against its defined kind.
 - `skills/create-loop/references/exception_handling.md` — the escalation ladder (`local_retry → local_patch → replan → escalate`), retry-policy math, and saga compensation when a node fails.
 - `skills/create-loop/references/execution_intelligence_policy.md` — the High-Ceiling temperament: root-cause over symptom, deepening triggers, Goal Alignment Check.
+- `skills/create-loop/references/recursive_planning_immersive_execution.md` §6 — the execution rhythm: switch between the whole-graph planning view and the per-node immersive view, descend into a subgraph/subloop when a node proves complex, and write the descent's products/evidence/decisions back to the parent before advancing.
 - `skills/create-loop/references/live_loop_semantics.md` — before admitting new work, judge evidence-driven completeness growth vs scope creep; every growth event is a typed, reasoned `mutation`.
 - `skills/create-loop/references/parallel_development_protocol.md` — **CONDITIONAL: read only when more than one code-development unit runs at once** (parallel actions, sibling subgraphs, concurrent sub-loops, or a multi-role team) — git-worktree-per-unit isolation and the owner-gate on push/merge.
 

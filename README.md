@@ -87,7 +87,7 @@ npx github:D1ChangGeng/create-loop --commands-only -g     # global
 Given a short goal, `create-loop` runs a **Charter interview** (Layer 0) to fix
 the control profile, emits a **`loop.plan v0`** (Layer 1) of design-time-invariant
 governance nodes, and grows **runtime subgraphs** (Layer 2) inside those nodes as
-concrete work becomes knowable. Two principles govern execution:
+concrete work becomes knowable. Three principles govern execution:
 
 - **Autonomy-first** — the loop resolves branches, unknowns, and blockers by
   spawning exploration and diagnostic subgraphs and gathering evidence; it asks
@@ -96,6 +96,11 @@ concrete work becomes knowable. Two principles govern execution:
 - **Live Loop Semantics** — the top-level goal and governance skeleton stay
   stable while the execution path grows from evidence: evidence-driven
   completeness growth, not scope creep.
+- **Recursive Planning ⇄ Immersive Execution** — the loop recursively switches
+  between a global whole-graph planning view and a local immersive per-node
+  execution view; when a node proves complex it descends into a subgraph or
+  child subloop, then writes products, evidence, and decisions back to the
+  parent, which re-plans and advances.
 
 The plan, checkpoints, evidence ledger, and per-node contracts are plain files,
 so any fresh agent can resume across sessions with no runtime, database, or

@@ -472,6 +472,17 @@ Promotion Gate condition holds. See
 triggers, and boundaries that govern the subgraph before any promotion is
 considered.
 
+### 10.1 Relationship to Recursive Planning ⇄ Immersive Execution
+
+The three tiers are the LEVELS the Planner ⇄ Executor rhythm descends between.
+`action` is the leaf the executor runs in place; `subgraph` is a local
+re-decomposition the parent node hosts when its work proves complex; `subloop` is
+an independently-governed descent with its own plan, state, and closeout. The
+rhythm's write-back step is exactly the subgraph `completion_gate` / subloop
+`return_contract` — the mechanism by which a descent's products, evidence,
+decisions, and state land back in the parent so it can re-plan. See
+[`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md).
+
 ---
 
 ## 11. The decision tree
@@ -606,6 +617,9 @@ treat it as the normative summary of everything above.*
   governance complexity exceeds the threshold.
 - [`human_approval.md`](./human_approval.md) — the autonomy boundary set that a
   subgraph inherits (goal / permission / risk / external-side-effect boundaries).
+- [`recursive_planning_immersive_execution.md`](./recursive_planning_immersive_execution.md)
+  — the two-view rhythm that decides, at runtime, which tier a node's work
+  descends into and how each descent writes back to the parent.
 
 ---
 

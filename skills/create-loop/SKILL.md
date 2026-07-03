@@ -273,7 +273,51 @@ anti-risk table are in
 
 ---
 
-## 6. Execution units: action / subgraph / subloop
+## 6. Recursive Planning ⇄ Immersive Execution (read before Mode B)
+
+The rhythm that ties §3–§5 together. A `loop.plan` is **not** decomposed once
+and run in a straight line, and **not** improvised while wandering. A complex
+goal is completed by **recursively switching between two views**:
+
+- **global / planning view** (architect · project lead): understand the goal
+  structure, build/refresh the current level's control graph, and see the
+  design-invariant gates, real `produces/requires` dependencies, what is parallel
+  vs serial, which nodes need evidence gates, and which risk/permission/HITL
+  boundaries must be controlled up front.
+- **local / immersive-execution view** (engineer · researcher · verifier): enter
+  one ready node and work it deeply — analyse, design, implement, verify — and
+  surface any omission, contradiction, weak assumption, hidden risk, or unknown.
+
+When the local view exposes complexity, the runner **descends a level** — never
+improvising, never polluting the top-level graph:
+
+```
+build the current level's control graph            (global view)
+  → enter a ready node and execute immersively       (local view)
+  → discover local complexity / gap / risk / unknown
+  → descend: subgraph (in-node) or subloop (child loop)   (recurse — same rhythm)
+  → decompose, execute, verify inside the sub-level
+  → sub-level closeout: products + evidence + decisions + state
+  → write back to the parent  (subgraph gate / subloop return_contract + closeout.md)
+  → the parent re-evaluates and keeps advancing the original goal
+```
+
+The descent is **isomorphic** (a sub-level has the same shape as the top, §7),
+**tiered** by governance need (§7 `action` / `subgraph` / `subloop`), admitted
+only under a trigger (§5 deepening triggers), and its write-back never edits the
+parent's checkpoint / ledger / artifacts directly — it flows through the
+subgraph's `completion_gate` or the subloop's `return_contract` / `closeout.md`
+merge protocol. This is a **usage pattern over existing machinery**: it adds no
+new status, kind, gate, tier, or ladder rung. It is how a stable top-level
+structure absorbs real complexity level by level — the way a strong team sets a
+top structure, sends specialists deep into the hard parts, spins off workstreams
+when local work turns complex, and returns results, evidence, and decisions to
+the whole plan. Full spec:
+[`references/recursive_planning_immersive_execution.md`](references/recursive_planning_immersive_execution.md).
+
+---
+
+## 7. Execution units: action / subgraph / subloop
 
 Three tiers, distinguished by **governance need, not size**. Start at the
 lightest tier; promote only when governance demands it (Promotion Gate below).
@@ -321,7 +365,7 @@ Full spec: [`references/recursive_loops.md`](references/recursive_loops.md) and
 
 ---
 
-## 7. Mode A — Create a loop
+## 8. Mode A — Create a loop
 
 Use this mode when the user is starting fresh or is restarting with a new goal.
 
@@ -352,7 +396,7 @@ Run these in order. Do not skip.
 - Every node MUST carry all 21 fields per
       [`references/loop_plan_spec.md`](references/loop_plan_spec.md) §2
       (the 21st is `child_loops` — the directory-materialized child-loop
-      reference list; see §6).
+      reference list; see §7).
    - Edges go in `requires` (a `produces/requires` artifact dependency,
      not habitual order).
    - Each `mapper` / `allow_subgraph: true` node has `subgraph: null` and
@@ -391,7 +435,7 @@ and [`schemas/evidence.ledger.schema.json`](schemas/evidence.ledger.schema.json)
 
 ---
 
-## 8. Mode B — Run / advance a loop
+## 9. Mode B — Run / advance a loop
 
 Use this mode when `loop.plan v0` exists and the loop is in motion. Execute
 this loop **per node**, until `termination.done_when` holds. Run it with the
@@ -469,7 +513,7 @@ Per-node intent and resulting artifact templates:
 
 ---
 
-## 9. Mode C — Resume from a blank session
+## 10. Mode C — Resume from a blank session
 
 Use this mode when a fresh agent with no chat memory takes over a half-finished
 loop. The checkpoint is the only source of truth.
@@ -499,7 +543,7 @@ Rationale, edge cases, and the cross-agent hand-off schema are in
 
 ---
 
-## 10. Exceptions & escalation
+## 11. Exceptions & escalation
 
 Every node declares `on_failure` — its starting rung on the bounded, ordered
 ladder:
@@ -517,7 +561,7 @@ on an `approval` node with a `human_approval` gate.
 
 ---
 
-## 11. Human approval
+## 12. Human approval
 
 Approval is a **bounded exception**, not a routine step (see §3). It is planned
 in advance, never improvised as a first reaction to a branch or blocker. Two
@@ -548,7 +592,7 @@ protocol in [`references/human_approval.md`](references/human_approval.md) §7.
 
 ---
 
-## 12. Knowledge promotion
+## 13. Knowledge promotion
 
 Verified, reusable findings may be promoted from transient loop state to
 durable project knowledge (the `self-evolution` skill). The boundary is
@@ -566,7 +610,7 @@ Loop closeout itself produces
 
 ---
 
-## 13. Platform capability & degradation
+## 14. Platform capability & degradation
 
 Do **not** assume the host provides background execution, subagents, a
 durable runtime, or lifecycle hooks. When any are missing, degrade to the
@@ -577,7 +621,7 @@ filesystem primitives that always exist:
 | background execution | persistent files + explicit checkpoints written at every transition |
 | subagents | the single agent runs nodes serially; `assignee: subagent` collapses to `assignee: agent` |
 | durable runtime | the `.agents/loops/L<seq>-<slug>/` directory tree + event log + checkpoint on the filesystem *is* the runtime (see [`references/recursive_loops.md`](references/recursive_loops.md)) |
-| lifecycle hooks | a handoff doc per stop + manual re-invocation + the §9 resume algorithm at startup |
+| lifecycle hooks | a handoff doc per stop + manual re-invocation + the §10 resume algorithm at startup |
 
 Probe via `task_profile.yaml:platform_capability`. Set
 `fallback_accepted` before emitting `loop.plan v0`. "Degraded mode" is the
@@ -585,7 +629,7 @@ same contract with fewer conveniences — not a second implementation.
 
 ---
 
-## 14. Reference map (progressive disclosure index)
+## 15. Reference map (progressive disclosure index)
 
 Every link below points to a real file. Read it when its row says to. Most
 rows only matter in their respective modes.
@@ -597,6 +641,7 @@ rows only matter in their respective modes.
 | [`concepts.md`](references/concepts.md) | You want the *why* of the shape (DAG not checklist, top-level invariant rule, recursion, evidence gates, durable primitives, three-layer model, §8 interview as Layer 0). |
 | [`live_loop_semantics.md`](references/live_loop_semantics.md) | The execution path grew, a gate exposed an omission/defect, or you must decide whether new work is goal-necessary growth vs scope creep. Triggers, admission criteria, and the three-classes-of-change table. |
 | [`execution_intelligence_policy.md`](references/execution_intelligence_policy.md) | You are *running* a loop (Mode B) and want the high-ceiling execution temperament: Bounded Maximalism, root-cause protocol, deepening triggers, quality-uplift vs the gate floor, Goal Alignment Check, counterexample review, execution profiles, and the anti-risk table. Behavioral policy (no schema), backs SKILL §5. |
+| [`recursive_planning_immersive_execution.md`](references/recursive_planning_immersive_execution.md) | You want the execution *rhythm*: switching between the global whole-graph planning view and the local immersive per-node view, descending into a subgraph/subloop when a node proves complex, and writing the descent's products/evidence/decisions/state back to the parent so it re-plans. Behavioral policy (no schema), backs SKILL §6. |
 | [`loop_plan_spec.md`](references/loop_plan_spec.md) | You need the authoritative field dictionary for `loop.plan`, node kinds, gate kinds, `retry_policy`, the escalation ladder, control-flow vocabularies, subgraphs, or the locked **Glossary**. |
 | [`state_model.md`](references/state_model.md) | You need the 15-status enum, the state transition table, **checkpoint** / **node.contract** / **evidence.ledger** field sets, or the §"Resume from a blank session" algorithm. |
 | [`recursive_loops.md`](references/recursive_loops.md) | You need the isomorphic per-loop directory layout, `loop.meta.yaml` field set, `child_loops[]` reference shape, `return_contract` / `closeout.md`, child-checkpoint additions, the Sub-loop Admission Gate, the isolation rule, or the INDEX files. Read when promoting to or working inside a **subloop**. |
@@ -680,11 +725,11 @@ Each example directory contains a `README.md`, `loop.plan.yaml`, and `checkpoint
 
 ## Quick orientation for the model running this skill
 
-1. Did the user hand you a short goal with no plan? → **Mode A** (§7).
+1. Did the user hand you a short goal with no plan? → **Mode A** (§8).
 2. Did the user hand you an existing `.agents/loops/L<seq>-<slug>/` or
    `loop.plan.yaml` and ask you to continue? → **Mode B** if `loop.plan v0`
-   exists and work was in progress; **Mode C** (§9) if the session is blank
-   and you must recover. When unsure, run the §9 resume algorithm first — it is
+   exists and work was in progress; **Mode C** (§10) if the session is blank
+   and you must recover. When unsure, run the §10 resume algorithm first — it is
    read-only and safe.
 3. Did the user describe a goal that *might* need a loop but is small enough
    to do in one shot? Then you don't need this skill — say so and do the task.

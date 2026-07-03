@@ -38,7 +38,7 @@ create-loop/
     ├── SKILL.md                      699-line entrypoint (≤1000-line hard budget)
     ├── AGENTS.md                     locked vocabulary + anti-patterns
     ├── README.md                     usage / maintain / extend guide
-    ├── references/                   18 docs — locked vocabulary + policy
+    ├── references/                   19 docs — locked vocabulary + policy
     ├── templates/                    19 fill-in run artifacts
     ├── schemas/                      11 Draft-07 JSON Schemas (mirror the Python enums)
     ├── scripts/                      Python validator engine (R1–R41)
@@ -81,7 +81,7 @@ create-loop/
 
 ## Open Questions
 
-- Full per-doc map of the 18 `references/` files is not yet built — only the 4 locked-vocabulary docs were read at init. [TODO]
+- Full per-doc map of the 19 `references/` files is not yet built — only the 4 locked-vocabulary docs were read at init. [TODO]
 - Which of R1–R41 are implemented vs reserved is not confirmed. [TODO]
 
 ## Intent vs Reality
