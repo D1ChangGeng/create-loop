@@ -1,6 +1,6 @@
 {
   "name": "create-loop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Standalone installer for the create-loop meta-skill and its /loop-new /loop-run /loop-resume /loop-status slash commands. Installs the skill AND commands into OpenCode / Claude Code in one command; re-run to upgrade in place.",
   "keywords": [
     "agent-skill",
