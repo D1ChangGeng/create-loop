@@ -16,7 +16,7 @@ Single source of truth for the four slash commands (`/loop-new`, `/loop-run`, `/
 4. Commit `command/` **AND** the regenerated `../.opencode/command/` + `../.claude/commands/` together.
 
 ## CONVENTIONS
-- Frontmatter is injected per host by the renderer, NOT stored here: OpenCode gets `description` + `agent: build`; Claude Code gets `description` + `argument-hint`. Storing the body once prevents the two hosts from drifting.
+- Frontmatter is injected per host by the renderer, NOT stored here: OpenCode gets `description` only (no `agent` — the command inherits the user's current agent, per OpenCode's optional-`agent` default); Claude Code gets `description` + `argument-hint`. Storing the body once prevents the two hosts from drifting.
 - Adding a command: add `command/loop-foo.md` (no frontmatter) → add a `manifest.json` entry (`id`, `description`, optional `argumentHint`, `"body":"loop-foo.md"`) → render → test → commit all three dirs.
 
 ## ANTI-PATTERNS

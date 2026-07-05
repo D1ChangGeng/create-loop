@@ -13,7 +13,8 @@ commands here, then regenerate the host-specific files.
 | `<id>.md` | The frontmatter-free command **body**, shared verbatim across every host. |
 
 Frontmatter is **not** stored in the bodies. Each host needs different
-frontmatter (OpenCode uses `agent: build`; Claude Code uses `argument-hint`),
+frontmatter (OpenCode gets `description` only, so the command inherits the
+user's current agent; Claude Code adds `argument-hint`),
 so the installer generates it per host from the manifest metadata. Storing the
 body once and rendering the frontmatter keeps the two hosts from drifting.
 

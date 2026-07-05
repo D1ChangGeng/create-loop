@@ -1,6 +1,5 @@
 ---
 description: Create a new create-loop control plan from a fuzzy goal — runs the Charter interview and emits loop.plan v0 (Mode A).
-agent: build
 ---
 
 Use the create-loop skill and run **Mode A (Create a loop)**.

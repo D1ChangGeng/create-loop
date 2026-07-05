@@ -1,6 +1,5 @@
 ---
 description: Advance an existing create-loop by executing the next ready node(s) (Mode B).
-agent: build
 ---
 
 Use the create-loop skill and run **Mode B (Run / advance a loop)**.

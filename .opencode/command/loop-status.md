@@ -1,6 +1,5 @@
 ---
 description: Show a create-loop status snapshot — goal, current node, ready set, blockers, next action (read-only).
-agent: build
 ---
 
 Use the create-loop skill to produce a read-only **status snapshot** for a loop.

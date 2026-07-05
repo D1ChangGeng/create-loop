@@ -1,6 +1,5 @@
 ---
 description: Resume a create-loop from its checkpoint in a fresh session after interruption (Mode C).
-agent: build
 ---
 
 Use the create-loop skill and run **Mode C (Resume from a blank session)**.

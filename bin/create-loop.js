@@ -92,7 +92,6 @@ const HOSTS = {
     renderCommand: (cmd, body) =>
       frontmatter([
         ['description', cmd.description],
-        ['agent', 'build'],
       ]) + body,
   },
 
