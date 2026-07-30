@@ -25,6 +25,13 @@ GATE_KINDS: frozenset[str] = frozenset({
     "automated_check", "test", "llm_judge", "self_consistency",
     "evaluator_optimizer", "step_verifier", "human_approval", "artifact_exists",
 })
+ASSURANCE_CLASSES: frozenset[str] = frozenset({
+    "external", "blind", "self_attested",
+})
+EVENT_KINDS: frozenset[str] = frozenset({
+    "pre_effect", "post_effect", "note", "mutation", "dissent",
+})
+EVENT_EFFECT_KINDS: frozenset[str] = frozenset({"pre_effect", "post_effect"})
 ON_FAILURE: frozenset[str] = frozenset({
     "local_retry", "local_patch", "replan", "escalate",
 })
@@ -85,6 +92,11 @@ NODE_REQUIRED: tuple[str, ...] = (
     "subgraph", "child_loops", "assignee", "notes",
 )
 LEDGER_REQUIRED: tuple[str, ...] = ("schema_version", "entries")
+LEDGER_ENTRY_REQUIRED: tuple[str, ...] = (
+    "entry_id", "node_id", "gate_kind", "verdict", "score", "artifact_path",
+    "rationale", "recorded", "verifier", "assurance",
+)
+EVENT_TRANSITION_REQUIRED: tuple[str, ...] = ("from_status", "to_status")
 CONTRACT_REQUIRED: tuple[str, ...] = (
     "node_id", "plan_id", "cache_key", "attempt", "status", "gate",
     "retry_policy", "on_failure", "evidence_ref", "started", "finished",

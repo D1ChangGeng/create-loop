@@ -500,19 +500,72 @@ this loop **per node**, until `termination.done_when` holds. Run it with the
 §5 High-Ceiling temperament — a **pre-execution review** before acting and a
 **quality-uplift decision** after the gate passes bracket the raw loop:
 
-```
-for the chosen ready node:
-  acquire claim           (contracts/<node>.claim, O_CREAT|O_EXCL — single-flight)
-  read state              (checkpoint, contract, ledger)
-  append pre_effect        (event_log — the primary source of truth)
-  execute                 (workflow vs activity; skip if idempotency_key already recorded)
-  append post_effect       (event_log: outcome + result_hash)
-  evaluate gate           (verdict pass | fail | inconclusive)
-  append evidence         (evidence.ledger entry with verifier + rationale)
-  transition status       (commit requires an evidence entry)
-  write new checkpoint    (LAST: temp file + atomic rename; counters reconcile from event_log)
-  decide next             (recompute ready_set from the graph)
-```
+### ORIENT (read-only)
+
+Purpose: reconstruct the decision context without changing any artifact.
+
+1. Re-read the goal contract at the mandatory **dispatch** read point, before
+   choosing ready work.
+2. Recompute the frontier from `requires` + `node_states`; the stored
+   `ready_set` is advisory. Apply parallel dispatch and priority ordering, then
+   choose the node.
+3. Read that node's contract and the current evidence ledger. Do not write,
+   claim, append, renew, or edit anything during ORIENT.
+
+### WORK (engineering)
+
+Purpose: perform and verify the node's real work under crash-safe execution.
+
+1. Acquire `contracts/<node>.claim` with `O_CREAT|O_EXCL` when claims are in
+   use, maintain its lease, and begin the selected node attempt.
+2. Append `pre_effect` to the `event_log` **before** the side effect, recording
+   its `idempotency_key`. Skip execution when that key is already recorded.
+3. Execute the workflow or activity. If execution requires any plan edit,
+   re-read the goal contract at the mandatory **mutation** read point first;
+   append the typed, reasoned `mutation` event and apply the edit under the hard
+   rules below.
+4. Append `post_effect` to the `event_log` **after** the side effect, with its
+   `outcome` and `result_hash`.
+5. Re-read the goal contract at the mandatory **verification** read point, then
+   evaluate the gate as `pass`, `fail`, or `inconclusive`. The runner makes the
+   semantic judgment required by §17; no filled field or validator result makes
+   the decision automatically.
+
+### COMMIT (append-only, then regenerate)
+
+Purpose: record the WORK judgment once, then derive the resumable projection.
+
+1. Append one evidence-ledger entry with `gate_kind`, `assurance`, `verifier`,
+   and `rationale`. Commit the status transition only from that entry and the
+   runner's semantic review. If R48 applies, append the required `dissent` event
+   rather than duplicating its reason elsewhere.
+2. Re-read the goal contract at the mandatory **termination** read point before
+   declaring `termination.done_when` satisfied, and recompute the next frontier
+   from the graph.
+ 3. Regenerate the complete checkpoint projection from the plan, event log, and
+    ledger. Write it **LAST** by temporary file plus atomic rename. Never
+    hand-maintain its fields one by one. Fields the log carries (`node_states`,
+    `current_node`, `last_completed`, `phase`, `ready_set`, `last_event_seq`)
+    derive from replay; `iteration` and `cost_units_spent` have **no carrier
+    field in the event schema**, so they are carried forward from the previous
+    checkpoint and cannot be rebuilt if it is lost.
+
+A mutation-free, dissent-free node advance mandates **four control-state write
+operations**: three appends (`pre_effect`, `post_effect`, evidence) plus one
+atomic checkpoint regeneration. COMMIT contributes one of those appends, never
+more than three, before regeneration. Claim/lease maintenance and produced work
+artifacts are execution effects, not duplicate state bookkeeping. Conditional
+`mutation` and `dissent` events are additional facts and are each written once.
+
+#### Attention invoice (derived, read-only)
+
+After a node advance or when reviewing bookkeeping growth, run
+[`attention_invoice.py`](scripts/attention_invoice.py). It derives per-node event-kind
+and evidence-entry counts from the checkpoint-declared log and ledger, persists
+nothing, and proves only how many control-state writes were appended per node.
+It does not prove that bookkeeping was necessary, attention was well spent, work
+was good, or a node is genuinely done: high and low counts are inputs to the
+runner's §17 judgment, never verdicts.
 
 Hard rules:
 
@@ -521,14 +574,29 @@ Hard rules:
   exploration or diagnostic subgraph and resolve it with evidence — NOT to ask
   the user. Escalate only when the decision crosses a §3 boundary
   (goal/scope/irreversible/external side effect/cost/legal/value/authorization).
-- A node transitions to `completed` **only** when its latest ledger entry has
-  `verdict: pass`. Anything else routes to `verification_failed`.
+- A node transitions to `completed` **only** when its latest active ledger entry
+  has `verdict: pass` and either `assurance: external` or
+  `gate_kind: human_approval`. Passing `self_attested` evidence is
+  `provisional` evidence standing, not a 16th node status, and can never satisfy
+  `done_when`; passing `blind` evidence is also non-authorizing. This rule reads
+  declared provenance only and does not establish evidence adequacy or correctness.
+- A negative active `blind` verdict is either addressed before completion or
+  overridden on record: the overriding ledger entry sets `overrides_entry_id`,
+  and a `kind: dissent` event records why the runner proceeded (R48). R48 proves
+  only that this record is absent; it does not judge the override or either verdict.
 - **Evidence has a lifecycle.** An entry marked `superseded`/`stale`/`invalid`/
   `retired` must NOT keep `verdict: pass` — inactive evidence can never back a
   gate (R38). Re-verify, or degrade the node.
 - **Every live plan change is a typed, reasoned `mutation` event** appended to
   the `event_log` (`kind: mutation` with `mutation_type` + `reason`, R39) — never
-  an untracked edit. This is what keeps live growth from becoming scope creep.
+  an untracked edit. Before adding or retiring nodes, materializing subgraphs,
+  or making any other plan edit, re-read the goal contract (`success_criteria`,
+  `failure_criteria`, `non_goals`, `constraints`). This is the mutation read
+  point that keeps live growth from becoming scope creep.
+- **The goal contract has exactly four mandatory read points:** dispatch before
+  choosing ready work; mutation before any plan edit; verification before
+  writing a verdict; termination before declaring `done_when` satisfied. See
+  [`references/state_model.md`](references/state_model.md#goal-contract-read-points).
 - **A retired node is tombstoned, not deleted** (R40): a `deprecated`/`cancelled`
   node carries a `retirement{type, reason}`; `superseded`/`merged` names its
   replacement. Deleting it would dangle every reference that points at it.
@@ -574,7 +642,9 @@ Per-node intent and resulting artifact templates:
 ## 11. Mode C — Resume from a blank session
 
 Use this mode when a fresh agent with no chat memory takes over a half-finished
-loop. The checkpoint is the only source of truth.
+loop. The event log is the source of truth for what happened; the checkpoint is
+a fast-resume cache trusted only where it agrees with the log and ledger. On
+conflict, the log wins and the checkpoint is rebuilt.
 
 Run the algorithm from [`references/state_model.md`](references/state_model.md)
 §"Resume from a blank session", in order:
@@ -584,9 +654,10 @@ Run the algorithm from [`references/state_model.md`](references/state_model.md)
    per loop directory).
 2. Read state — latest `checkpoint.yaml` for current `plan_id` +
    `plan_version`.
-3. Verify evidence — every node marked `completed` must have a matching
-   `evidence.ledger` entry with `verdict: pass`. Mismatches demote the node
-   to `verifying` so the gate re-runs.
+3. Verify evidence — every node marked `completed` must have a matching active
+   passing entry with `assurance: external` or `gate_kind: human_approval`.
+   Mismatches demote the node to `verifying` so the gate re-runs. This checks
+   declared provenance only; the runner still judges evidence adequacy.
 4. Verify consistency — recompute readiness from the graph (every
    `pending` node's `requires` all `completed`). The recomputed `ready_set`
    wins on conflict. A `running` node in a fresh session means a prior
@@ -698,16 +769,16 @@ rows only matter in their respective modes.
 |------|-----------|
 | [`concepts.md`](references/concepts.md) | You want the *why* of the shape (DAG not checklist, top-level invariant rule, recursion, evidence gates, durable primitives, three-layer model, §8 interview as Layer 0). |
 | [`live_loop_semantics.md`](references/live_loop_semantics.md) | The execution path grew, a gate exposed an omission/defect, or you must decide whether new work is goal-necessary growth vs scope creep. Triggers, admission criteria, and the three-classes-of-change table. |
-| [`execution_intelligence_policy.md`](references/execution_intelligence_policy.md) | You are *running* a loop (Mode B) and want the high-ceiling execution temperament: Bounded Maximalism, root-cause protocol, deepening triggers, quality-uplift vs the gate floor, Goal Alignment Check, counterexample review, execution profiles, and the anti-risk table. Behavioral policy (no schema), backs SKILL §5. |
+| [`execution_intelligence_policy.md`](references/execution_intelligence_policy.md) | You are *running* a loop (Mode B) and want the high-ceiling execution temperament: Bounded Maximalism, root-cause protocol, deepening triggers, quality-uplift vs the gate floor, Goal Alignment Check, counterexample review, execution profiles, the anti-risk table, **and §3.9 the external-knowledge acquisition procedure (when to ground a claim in a primary source, how to verify by execution, how the finding enters the evidence ledger)**. Behavioral policy (no schema), backs SKILL §5. |
 | [`recursive_planning_immersive_execution.md`](references/recursive_planning_immersive_execution.md) | You want the execution *rhythm*: switching between the global whole-graph planning view and the local immersive per-node view, descending into a subgraph/subloop when a node proves complex, and writing the descent's products/evidence/decisions/state back to the parent so it re-plans. Behavioral policy (no schema), backs SKILL §6. |
 | [`layered_execution_chain.md`](references/layered_execution_chain.md) | You want the *layers* the rhythm descends and the *stop-test* that ends a descent: the Top-level Loop → Node → Subgraph → Subloop → Action Plan → Immersive Action → Verification → Return chain, the 6-step layer-switch cascade, the leaf-action test, the premature-execution vs over-planning dual failure, and each layer's return relation. Behavioral policy (no schema), backs SKILL §8. |
 | [`loop_plan_spec.md`](references/loop_plan_spec.md) | You need the authoritative field dictionary for `loop.plan`, node kinds, gate kinds, `retry_policy`, the escalation ladder, control-flow vocabularies, subgraphs, or the locked **Glossary**. |
 | [`state_model.md`](references/state_model.md) | You need the 15-status enum, the state transition table, **checkpoint** / **node.contract** / **evidence.ledger** field sets, or the §"Resume from a blank session" algorithm. |
 | [`recursive_loops.md`](references/recursive_loops.md) | You need the isomorphic per-loop directory layout, `loop.meta.yaml` field set, `child_loops[]` reference shape, `return_contract` / `closeout.md`, child-checkpoint additions, the Sub-loop Admission Gate, the isolation rule, or the INDEX files. Read when promoting to or working inside a **subloop**. |
 | [`subgraph_subloop_policy.md`](references/subgraph_subloop_policy.md) | You need the action / subgraph / subloop three-tier model, the **Promotion Gate** (when a subgraph must be promoted to a subloop), the 8-value subgraph status enum, `node.runtime.yaml` hosting, or the subgraph ↔ parent-node permission table. |
-| [`branching_parallelism.md`](references/branching_parallelism.md) | You are dispatching nodes, wiring `fanout`/`join`, choosing serial vs parallel, or designing `branch` / merge / cancellation. |
+| [`branching_parallelism.md`](references/branching_parallelism.md) | You are dispatching nodes, wiring `fanout`/`join`, choosing serial vs parallel, designing `branch` / merge / cancellation, or running a **design tournament** (§4.4: N isolated candidates, planned casualties, blind non-authorizing selection). |
 | [`parallel_development_protocol.md`](references/parallel_development_protocol.md) | You are running MORE THAN ONE code-development unit at once (parallel actions / sibling subgraphs / concurrent sub-loops / a multi-role team). The git-worktree-per-unit isolation, non-mutating merge pre-flight, owner-gate on push/merge, capability detection + filesystem fallback, and the rollback ladder. Behavioral protocol — no schema. |
-| [`evidence_gates.md`](references/evidence_gates.md) | You are picking which of the 8 gate kinds to assign to a node, or deciding between `llm_judge` vs `human_approval` vs `evaluator_optimizer`. |
+| [`evidence_gates.md`](references/evidence_gates.md) | You are picking which of the 8 gate kinds to assign, classifying verdict provenance with the orthogonal `assurance` axis, or deciding between `llm_judge` vs `human_approval` vs `evaluator_optimizer`. |
 | [`exception_handling.md`](references/exception_handling.md) | A node fails, the ladder fires, a saga needs compensation, or you need retry-policy math / per-exception response table. |
 | [`human_approval.md`](references/human_approval.md) | You are deciding what an agent may do autonomously, scoping an `approval` node, or writing a cross-session handoff token. |
 | [`recovery_protocol.md`](references/recovery_protocol.md) | You are resuming mid-flight, handling a stale `running` node, reconciling event-log drift, or building the handoff doc. |
@@ -725,17 +796,18 @@ rows only matter in their respective modes.
 | [`loop.plan.yaml`](templates/loop.plan.yaml) | Mode A: the `loop.plan v0` template — every node carries all 21 fields (incl. `child_loops`). |
 | [`loops.index.yaml`](templates/loops.index.yaml) | Mode A / Mode C: the global `.agents/loops/INDEX.yaml` (and the per-loop `_loops/INDEX.yaml`) — read the index before traversing the directory tree. |
 | [`checkpoint.yaml`](templates/checkpoint.yaml) | Modes B/C: the durable snapshot you read on resume and rewrite after every transition. |
-| [`evidence.ledger.yaml`](templates/evidence.ledger.yaml) | Mode B: the append-only record of gate verdicts a node needs to reach `completed`. Each entry carries a lifecycle `status` — only `active` evidence may back a gate (R38). |
+| [`evidence.ledger.yaml`](templates/evidence.ledger.yaml) | Mode B: the append-only record of gate verdicts and declared `assurance` provenance. Each entry carries a lifecycle `status`; only active passing `external` evidence or `human_approval` may authorize `completed` (R38/R43/R44). An overriding entry may identify the prior verdict with `overrides_entry_id` (R48). |
 | [`node.contract.yaml`](templates/node.contract.yaml) | Mode B: per-node execution contract (`cache_key`, `attempt`, gate copy, evidence pointer). |
 | [`node.runtime.yaml`](templates/node.runtime.yaml) | Mode B: per-node runtime hosting for in-node `subgraph`s (`nodes/<node_id>/node.runtime.yaml`, the `runtime_subgraphs[]` list). |
 | [`claim.yaml`](templates/claim.yaml) | Mode B: the per-node claim/lease (`contracts/<node-id>.claim`) that makes `ready → running` single-flight — acquire before executing, on resume it says whether a `running` node is live, crashed, or delegated. |
-| [`event_log.yaml`](templates/event_log.yaml) | Modes B/C: the append-only, primary-source-of-truth event log (pre/post-effect entries) the checkpoint counters are reconciled from. Also hosts `kind: mutation` events — the typed, reasoned record of every live plan change (R39). |
+| [`event_log.yaml`](templates/event_log.yaml) | Modes B/C: the append-only, primary-source-of-truth event log the checkpoint's node/frontier fields are replayed from (`iteration` and `cost_units_spent` have no carrier field here — see §10 COMMIT). Its five kinds are `pre_effect`, `post_effect`, `note`, `mutation`, and `dissent`; dissent records why the runner overrode a negative blind verdict (R48). |
 | [`loop.state.yaml`](templates/loop.state.yaml) | Mode B: the live pointer file (active node, ready set, lease index) — cheap "what is running now" without replaying the log. |
 | [`artifact.index.yaml`](templates/artifact.index.yaml) | Any mode: the `artifacts/INDEX.yaml` registry — one authoritative version per path via lifecycle status + supersedes chain (R41). |
 | [`handoff.md`](templates/handoff.md) | Modes B/C: when the session ends mid-node, this is the handoff the next session reads first. |
 | [`human_decision_request.md`](templates/human_decision_request.md) | You must ask the user to decide: fill this context-complete Human Decision Package (options, trade-offs, recommendation, YAML answer schema) instead of a bare question. |
 | [`run.log.md`](templates/run.log.md) | Mode B: human-readable per-node run narrative (not a source of truth). |
 | [`decision.log.md`](templates/decision.log.md) | Mode B: ADR-style log of major plan/scope decisions. |
+| [`design_brief.md`](templates/design_brief.md) | Mode B: a `mapper` / `milestone` / high-risk node is about to ship non-trivial code, a discovery subgraph is collapsing into a concrete plan, a `replan` is in progress, or a `human_approval` gate needs more than a one-line rationale — read this to load the executable-design procedure (D1 interfaces at clean seams, D2 data flow, D3 falsifiable assumptions) and the citation-to-`success_criteria_id` rule. Per [`references/execution_intelligence_policy.md` §3.10](references/execution_intelligence_policy.md); filling it in is a prerequisite for design review, not the review itself (§17). |
 | [`closeout.md`](templates/closeout.md) | Mode B / after done: the closeout summary — also the **return interface** for a child loop to its parent. |
 
 ### Schemas — `schemas/` (locked JSON Schema; validators are authoritative)
@@ -758,10 +830,11 @@ rows only matter in their respective modes.
 
 | File | Use when |
 |------|----------|
-| [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` + hand-rolled graph/provenance/cap/lifecycle rules (R1–R41). Required gate at v0 and after any `replan` or mutation. `--kind loop_plan \| node_contract \| evidence_ledger \| loop_meta \| loops_index \| node_runtime \| claim \| event_log \| loop_state \| artifact_index`; `--plan` (ledger R36), `--root` (index R37). Covers evidence lifecycle (R38), node retirement (R40), artifact authority (R41), plan-mutation events (R39, via `event_log`). |
+| [`validate_loop_plan.py`](scripts/validate_loop_plan.py) | Validates `loop.plan` + hand-rolled graph/provenance/cap/lifecycle rules. Required gate at v0 and after any `replan` or mutation. `--kind loop_plan \| node_contract \| evidence_ledger \| loop_meta \| loops_index \| node_runtime \| claim \| event_log \| loop_state \| artifact_index \| checkpoint`; `--plan` (ledger R36), `--root` (index R37). Covers evidence lifecycle (R38), missing assurance (R44), node retirement (R40), artifact authority (R41), and plan-mutation events (R39). |
 | [`validate_checkpoint.py`](scripts/validate_checkpoint.py) | Validates checkpoint schema + `--plan` consistency (R6), transition-closure (R19/R20), `--claims` + `--enforce-claims` single-flight in concurrency mode (R22), `--meta` child-loop fields (R33). |
-| [`check_loop_integrity.py`](scripts/check_loop_integrity.py) | **Whole-loop-directory anti-corruption gate.** Composes the per-file validators AND the cross-file reconciliation (checkpoint↔plan↔ledger↔index, completed-needs-active-evidence, evidence-artifact-exists). Run at every session start, after every node completion, and after every mutation; a violation means enter recovery instead of advancing. |
+| [`check_loop_integrity.py`](scripts/check_loop_integrity.py) | **Whole-loop-directory cross-file gate.** Composes per-file validators and reference reconciliation, including R43 declared assurance authorization and R48 missing-dissent detection for completed nodes. Success does not establish evidence adequacy, correctness, or genuine completion. |
 | [`render_dag.py`](scripts/render_dag.py) | Optional DAG render for human inspection. |
+| [`attention_invoice.py`](scripts/attention_invoice.py) | Read-only Mode B instrument: derives per-node control-state write and evidence-entry counts from checkpoint-declared references, persists nothing, and never gates or judges their necessity, value, work quality, or genuine completion. |
 
 ### Examples — `examples/`
 
@@ -801,3 +874,38 @@ Run `python3 scripts/validate_loop_plan.py <plan>` and
 `loop.plan v0` is ready. Never edit `loop.plan.yaml` and `checkpoint.yaml`
 independently — both must agree on `plan_id`, `plan_version`, and every
 `node_id`.
+
+---
+
+## 17. Validator / runner division of labor (governs every mode)
+
+**Programs verify determinable low-level facts; the runner judges what those
+facts mean and what to do next.** A validator may conclude only the bounded fact
+it directly inspected: for example, tests passed, required keys are present, a
+status field changed, a citation resolves, or output matches a format. Only the
+runner may conclude adequacy, correctness, real progress, risk resolution, or
+genuine node / loop completion, and must record that semantic review.
+
+No surface field drives consequential state. Any status change affecting
+resource allocation, direction, or completion must rest on the runner's semantic
+review of actual results, not on fields being filled, a checklist being ticked,
+or a model score crossing a threshold.
+
+**Six-part admission test.** A validator may decide state or completion only if
+ALL hold:
+
+1. the condition has a clear, stable, computable definition;
+2. the validator directly inspects the fact it claims;
+3. passing yields a bounded conclusion, not an extrapolation;
+4. the result triggers a clear, justified next action;
+5. false-pass and false-reject risk is acceptable; and
+6. the program is genuinely more reliable, cheaper, or more consistent than
+   model judgment.
+
+Fail any one: the validator may not determine state, certify completion, or
+dictate next steps. Every validator rule and failure message must state the exact
+fact inspected **and** the conclusion it does not license. A rule whose name or
+message implies more than it inspected is defective even when its logic is
+correct. See [`references/evidence_gates.md`](references/evidence_gates.md) §4
+for the assurance axis and the permanent R46 threshold-check tombstone; R49
+reports only checkpoint/projection status disagreement, never semantic completion.

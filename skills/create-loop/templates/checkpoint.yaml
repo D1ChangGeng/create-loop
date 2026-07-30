@@ -28,8 +28,9 @@ pending_approvals: []             # each item: {node_id, token, requested}; empt
 next_suggested_action: "Await the build test gate verdict; on pass, ready final_approval."
 open_assumptions:                 # unverified assumptions; drives needs_clarification resolution
   - "The provided test suite fully covers the success criteria."
-event_log_ref: "state/event_log.jsonl"       # append-only log for deterministic replay
-evidence_ledger_ref: "state/evidence.ledger.yaml"  # path to the evidence.ledger
+event_log_ref: "./event_log.jsonl"       # append-only log for deterministic replay
+last_event_seq: 2
+evidence_ledger_ref: "./evidence.ledger.yaml"  # path to the evidence.ledger
 cost_units_spent: 137.5           # cumulative; checked vs termination.max_cost_units
 iteration: 4                      # loop iteration counter; checked vs termination.max_iterations
 

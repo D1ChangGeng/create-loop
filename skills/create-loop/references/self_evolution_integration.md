@@ -310,7 +310,7 @@ table below is exhaustive for the events we have defined so far.
 | event | source artifact | stays in `.agents/loops/` | eligible for `.agents/knowledge/` (marker) |
 |---|---|---|---|
 | Node transitions to a terminal status (`completed`, `cancelled`, `deprecated`) | `checkpoint.node_states` | yes (always) | no — terminal status is a per-node fact, not project knowledge |
-| Node transitions to `verifying → completed` with `verdict: pass` AND finding is reusable and decision-influencing | `evidence.ledger` (pass entry) | yes (the evidence stays) | yes (`[LOOP]`); only the reusable, decision-influencing finding, not the node outcome itself |
+| Node transitions to `verifying → completed` on completion-authorizing evidence (`verdict: pass` **and** `assurance: external` or `gate_kind: human_approval`) AND finding is reusable and decision-influencing | `evidence.ledger` (authorizing pass entry) | yes (the evidence stays) | yes (`[LOOP]`); only the reusable, decision-influencing finding, not the node outcome itself |
 | Gate fails (`verdict: fail` or `inconclusive`) and the failure mode is reusable | `evidence.ledger` (fail entry) + `node.contract.on_failure` ladder | yes | yes (`[LOOP]`) — as an anti-pattern / pitfall entry, only if the failure mode generalises |
 | Architectural decision recorded mid-run (schema choice, vendor choice, approach pivot) | `decision.log` | yes | yes — **directly to `decisions/`** as an ADR (NOT via inbox), per SKILL.md §3 |
 | Discovered invariant ("node `n` requires X to be Y before dispatch") | `node.contract`, `loop.plan` | yes | yes (`[LOOP]`) — only if the invariant is reusable beyond this run |
@@ -356,8 +356,9 @@ spawned materialised sub-loops):
 
 1. Locate the `run_id_directory` (single-flight check).
 2. Read the latest `checkpoint`.
-3. Verify evidence: every `completed` node must have a matching
-   `evidence.ledger` entry with `verdict: pass`; demote otherwise.
+3. Verify evidence: every `completed` node must have a matching active
+   `evidence.ledger` entry with `verdict: pass` **and** declared
+   `assurance: external` or `gate_kind: human_approval`; demote otherwise.
 4. Verify consistency: `node_states` vs `loop.plan.nodes`, every
    `evidence_ref` resolves.
 5. Rebuild the ready set from the topological readiness rule.

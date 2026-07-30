@@ -7,7 +7,13 @@ from __future__ import annotations
 
 from typing import Any
 
-EVENT_KINDS = frozenset({"pre_effect", "post_effect", "note", "mutation"})
+from checks import (
+    EVENT_EFFECT_KINDS,
+    EVENT_KINDS,
+    EVENT_TRANSITION_REQUIRED,
+    NODE_STATUSES,
+)
+
 MUTATION_TYPES = frozenset({
     "add_action", "add_subgraph", "promote_subgraph_to_subloop", "add_child_loop",
     "update_dependency", "split_node", "merge_nodes", "cancel_node",
@@ -47,6 +53,17 @@ def validate_event_log(doc: Any, errors: list[str]) -> None:
                 f"[R31 BAD-EVENT-KIND] event_log entries[{idx}]: kind {kind!r} is not "
                 f"one of {sorted(EVENT_KINDS)}"
             )
+        transition_fields = [field for field in EVENT_TRANSITION_REQUIRED if field in e]
+        if kind in EVENT_EFFECT_KINDS or transition_fields:
+            for field in EVENT_TRANSITION_REQUIRED:
+                status = e.get(field)
+                if status not in NODE_STATUSES:
+                    errors.append(
+                        f"[EVENT-TRANSITION-PAIR] event_log entries[{idx}]: "
+                        f"{kind!r} entry with transition data must carry both "
+                        f"from_status and to_status as non-null members of the "
+                        f"15-status node enum; {field} is {status!r}"
+                    )
         if kind == "mutation":
             mtype = e.get("mutation_type")
             if mtype not in MUTATION_TYPES:

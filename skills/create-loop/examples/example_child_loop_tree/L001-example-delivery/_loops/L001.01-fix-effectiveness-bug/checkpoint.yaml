@@ -25,6 +25,7 @@ next_suggested_action: "Finish root_cause analysis, then dispatch fix and re-run
 open_assumptions:
   - "The repro is representative of the production effectiveness failure."
 event_log_ref: "./event_log.jsonl"
+last_event_seq: 1
 evidence_ledger_ref: "./evidence.ledger.yaml"
 cost_units_spent: 58.0
 iteration: 5

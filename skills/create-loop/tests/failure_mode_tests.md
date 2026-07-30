@@ -2387,7 +2387,7 @@ python3 scripts/validate_loop_plan.py --kind loop_state /tmp/fx_bad_loop_state.y
 ## R31 — bad event_log kind
 
 **What's wrong:** an event_log entry has a `kind` outside
-`{pre_effect, post_effect, note}`.
+`{pre_effect, post_effect, note, mutation, dissent}`.
 
 ```yaml
 schema_version: "1.0"
@@ -2615,3 +2615,521 @@ python3 scripts/validate_loop_plan.py --kind artifact_index /tmp/fx_artifact_aut
 | `R33` child-loop checkpoint missing field | `/tmp/fx_child_missing_field.yaml` |
 | `R34` approval node without human_approval gate | `/tmp/fx_approval_nogate.yaml` |
 | `R35` top-level design_invariant:false | `/tmp/fx_toplevel_invariant_false.yaml` |
+| `R42` incomplete loop state | `/tmp/fx_r42_incomplete_state/` |
+| `R43` self-attested completion | `/tmp/fx_r43_self_attested_completion/` |
+| `R44` missing assurance | `/tmp/fx_r44_missing_assurance/` |
+| `R45` unresolved goal citation | `/tmp/fx_r45_goal_citation_unresolved/` |
+| `R46` allocated and withdrawn | tombstone only; no fixture |
+| `R47` blind-order violation | `/tmp/fx_r47_blind_order_violation/` |
+| `R48` missing dissent | `/tmp/fx_r48_missing_dissent/` |
+| `R49` checkpoint projection mismatch | `/tmp/fx_r49_projection_mismatch/` (+ control `/tmp/fx_r49_projection_control/`) |
+
+**Fixture readiness:** `R42` is **RED now**; `R43`/`R44`/`R45`/`R47` are
+**GREEN**; `R48` remains **PRE-VOCABULARY (blocked on later schema work)**.
+
+---
+
+## R42 — incomplete state
+
+**What's wrong:** the directory contains a valid `loop.plan.yaml`, but has no
+checkpoint, evidence ledger, or event log. Those missing state artifacts make
+the loop unresumable. The current integrity gate incorrectly treats all three
+as optional and certifies this incomplete directory as healthy.
+
+**Materialize and run:**
+
+```bash
+rm -rf /tmp/fx_r42_incomplete_state
+mkdir -p /tmp/fx_r42_incomplete_state
+python3 - <<'PY'
+from pathlib import Path
+
+source = Path("templates/loop.plan.yaml")
+target = Path("/tmp/fx_r42_incomplete_state/loop.plan.yaml")
+target.write_bytes(source.read_bytes())
+PY
+python3 scripts/check_loop_integrity.py /tmp/fx_r42_incomplete_state
+```
+
+**Observed RED (current validator; exit `0`):**
+
+```text
+INTEGRITY OK: /tmp/fx_r42_incomplete_state
+```
+
+This is the correct RED because the valid plan reaches the missing rule: no
+unrelated parse, schema, or reconciliation error masks acceptance of the
+unresumable directory.
+
+**Expected after repair:** exit nonzero; message tags
+`[R42 INCOMPLETE-STATE]` and names the missing low-level state artifacts.
+
+---
+
+## R43 — self-attested completion
+
+**What's wrong:** node `goal_clarification` is `completed`, and its active
+passing `llm_judge` evidence declares `assurance: self_attested`. The evidence
+entry is structurally present and resolves to the node, but self-graded opinion
+may not authorize completion. This check concerns the declared assurance class;
+it does not infer whether the evidence content is adequate.
+
+**Materialize and run:**
+
+```bash
+if [ -e /tmp/fx_r43_self_attested_completion ]; then
+  mv /tmp/fx_r43_self_attested_completion "/tmp/fx_r43_self_attested_completion.previous.$$"
+fi
+mkdir -p /tmp/fx_r43_self_attested_completion/evidence
+python3 - <<'PY'
+from pathlib import Path
+import json
+import yaml
+
+root = Path("/tmp/fx_r43_self_attested_completion")
+plan = yaml.safe_load(Path("templates/loop.plan.yaml").read_text())
+checkpoint = yaml.safe_load(Path("templates/checkpoint.yaml").read_text())
+node_id = plan["nodes"][0]["id"]
+checkpoint["plan_id"] = plan["plan_id"]
+checkpoint["plan_version"] = plan["plan_version"]
+checkpoint["node_states"] = {node["id"]: "pending" for node in plan["nodes"]}
+checkpoint["node_states"][node_id] = "completed"
+checkpoint["ready_set"] = []
+checkpoint["last_completed"] = [node_id]
+checkpoint["event_log_ref"] = "event_log.jsonl"
+checkpoint["evidence_ledger_ref"] = "evidence.ledger.yaml"
+ledger = {
+    "schema_version": "1.0.0",
+    "entries": [{
+        "entry_id": "ev-r43", "node_id": node_id, "gate_kind": "llm_judge",
+        "verdict": "pass", "score": 0.9,
+        "artifact_path": "evidence/r43-review.txt",
+        "rationale": "producer's own judgment", "recorded": "2026-07-30T10:00:00Z",
+        "verifier": "agent", "status": "active", "assurance": "self_attested",
+    }],
+}
+(root / "loop.plan.yaml").write_text(yaml.safe_dump(plan, sort_keys=False))
+(root / "checkpoint.yaml").write_text(yaml.safe_dump(checkpoint, sort_keys=False))
+(root / "evidence.ledger.yaml").write_text(yaml.safe_dump(ledger, sort_keys=False))
+(root / "event_log.jsonl").write_text(json.dumps({
+    "seq": 0, "node_id": node_id, "ts": "2026-07-30T09:59:00Z",
+    "kind": "note", "outcome": "fixture state prepared",
+}) + "\n")
+(root / "evidence/r43-review.txt").write_text("self-attested verdict\n")
+PY
+python3 scripts/check_loop_integrity.py /tmp/fx_r43_self_attested_completion
+```
+
+**Observed GREEN (exit `1`):**
+
+```text
+[R43 SELF-ATTESTED-COMPLETION] node 'goal_clarification' is 'completed' but has no active passing entry whose declared assurance is 'external' or whose declared gate_kind is 'human_approval'; this checks only those literal ledger fields and does not license any conclusion about evidence adequacy, correctness, or whether the node is genuinely done
+
+INTEGRITY GATE FAILED (1 violation(s)) for /tmp/fx_r43_self_attested_completion.
+Do NOT advance normal work — enter a recovery subgraph (references/recovery_protocol.md).
+```
+
+**Exact command:** `python3 scripts/check_loop_integrity.py
+/tmp/fx_r43_self_attested_completion`. Expected tag:
+`[R43 SELF-ATTESTED-COMPLETION]`.
+
+---
+
+## R44 — missing assurance
+
+**What's wrong:** the active evidence entry omits `assurance`, so its provenance
+class is not recorded. The other required evidence fields are present and its
+artifact path exists. Rejection establishes field presence only; it does not
+claim that any evidence content is adequate.
+
+**Materialize and run:**
+
+```bash
+if [ -e /tmp/fx_r44_missing_assurance ]; then
+  mv /tmp/fx_r44_missing_assurance "/tmp/fx_r44_missing_assurance.previous.$$"
+fi
+mkdir -p /tmp/fx_r44_missing_assurance/evidence
+python3 - <<'PY'
+from pathlib import Path
+import json
+import yaml
+
+root = Path("/tmp/fx_r44_missing_assurance")
+plan = yaml.safe_load(Path("templates/loop.plan.yaml").read_text())
+checkpoint = yaml.safe_load(Path("templates/checkpoint.yaml").read_text())
+node_id = plan["nodes"][0]["id"]
+checkpoint["plan_id"] = plan["plan_id"]
+checkpoint["plan_version"] = plan["plan_version"]
+checkpoint["node_states"] = {node["id"]: "pending" for node in plan["nodes"]}
+checkpoint["ready_set"] = []
+checkpoint["last_completed"] = []
+checkpoint["event_log_ref"] = "event_log.jsonl"
+checkpoint["evidence_ledger_ref"] = "evidence.ledger.yaml"
+ledger = {
+    "schema_version": "1.0.0",
+    "entries": [{
+        "entry_id": "ev-r44", "node_id": node_id, "gate_kind": "test",
+        "verdict": "pass", "score": None,
+        "artifact_path": "evidence/r44-test.txt",
+        "rationale": "record with no assurance field", "recorded": "2026-07-30T10:00:00Z",
+        "verifier": "script", "status": "active",
+    }],
+}
+(root / "loop.plan.yaml").write_text(yaml.safe_dump(plan, sort_keys=False))
+(root / "checkpoint.yaml").write_text(yaml.safe_dump(checkpoint, sort_keys=False))
+(root / "evidence.ledger.yaml").write_text(yaml.safe_dump(ledger, sort_keys=False))
+(root / "event_log.jsonl").write_text(json.dumps({
+    "seq": 0, "node_id": node_id, "ts": "2026-07-30T09:59:00Z",
+    "kind": "note", "outcome": "fixture state prepared",
+}) + "\n")
+(root / "evidence/r44-test.txt").write_text("test output\n")
+PY
+python3 scripts/check_loop_integrity.py /tmp/fx_r44_missing_assurance
+```
+
+**Observed GREEN (exit `1`):**
+
+```text
+[INTEGRITY:evidence] ledger invalid:
+[R44 MISSING-ASSURANCE] ledger entry[0]: declared assurance field is absent; this establishes field absence only and does not license any conclusion about evidence adequacy or correctness
+[jsonschema] entries/0: 'assurance' is a required property
+error: /tmp/fx_r44_missing_assurance/evidence.ledger.yaml is invalid (2 problem(s))
+
+INTEGRITY GATE FAILED (1 violation(s)) for /tmp/fx_r44_missing_assurance.
+Do NOT advance normal work — enter a recovery subgraph (references/recovery_protocol.md).
+```
+
+**Exact command:** `python3 scripts/check_loop_integrity.py
+/tmp/fx_r44_missing_assurance`. Expected tag: `[R44 MISSING-ASSURANCE]`.
+
+---
+
+## R45 — goal citation unresolved
+
+**What's wrong:** evidence entry `ev-r45` cites `success_criteria` id
+`sc-does-not-exist`, but the plan defines no criterion with that id. This is
+strictly a reference-validity check: resolution proves only that an id exists,
+never that the criterion is satisfied or that the evidence content is adequate.
+
+**Materialize and run:**
+
+```bash
+if [ -e /tmp/fx_r45_goal_citation_unresolved ]; then
+  mv /tmp/fx_r45_goal_citation_unresolved "/tmp/fx_r45_goal_citation_unresolved.previous.$$"
+fi
+mkdir -p /tmp/fx_r45_goal_citation_unresolved/evidence
+python3 - <<'PY'
+from pathlib import Path
+import json
+import yaml
+
+root = Path("/tmp/fx_r45_goal_citation_unresolved")
+plan = yaml.safe_load(Path("templates/loop.plan.yaml").read_text())
+checkpoint = yaml.safe_load(Path("templates/checkpoint.yaml").read_text())
+node_id = plan["nodes"][0]["id"]
+checkpoint["plan_id"] = plan["plan_id"]
+checkpoint["plan_version"] = plan["plan_version"]
+checkpoint["node_states"] = {node["id"]: "pending" for node in plan["nodes"]}
+checkpoint["ready_set"] = []
+checkpoint["last_completed"] = []
+checkpoint["event_log_ref"] = "event_log.jsonl"
+checkpoint["evidence_ledger_ref"] = "evidence.ledger.yaml"
+ledger = {
+    "schema_version": "1.0.0",
+    "entries": [{
+        "entry_id": "ev-r45", "node_id": node_id, "gate_kind": "test",
+        "verdict": "pass", "score": None,
+        "artifact_path": "evidence/r45-test.txt",
+        "rationale": "citation-resolution fixture", "recorded": "2026-07-30T10:00:00Z",
+        "verifier": "script", "status": "active", "assurance": "external",
+        "success_criteria_id": "sc-does-not-exist",
+    }],
+}
+(root / "loop.plan.yaml").write_text(yaml.safe_dump(plan, sort_keys=False))
+(root / "checkpoint.yaml").write_text(yaml.safe_dump(checkpoint, sort_keys=False))
+(root / "evidence.ledger.yaml").write_text(yaml.safe_dump(ledger, sort_keys=False))
+(root / "event_log.jsonl").write_text(json.dumps({
+    "seq": 0, "node_id": node_id, "ts": "2026-07-30T09:59:00Z",
+    "kind": "note", "outcome": "fixture state prepared",
+}) + "\n")
+(root / "evidence/r45-test.txt").write_text("test output\n")
+PY
+python3 scripts/check_loop_integrity.py /tmp/fx_r45_goal_citation_unresolved
+```
+
+**Observed GREEN (exit `1`):**
+
+```text
+[INTEGRITY:evidence] ledger invalid:
+[R45 GOAL-CITATION-UNRESOLVED] ledger entry[0] success_criteria_id 'sc-does-not-exist': cited criterion id does not exist in loop.plan.success_criteria[].id; this checks exact-id reference validity only and does not license any conclusion that a criterion is satisfied, met, or demonstrated
+error: /tmp/fx_r45_goal_citation_unresolved/evidence.ledger.yaml is invalid (1 problem(s))
+
+INTEGRITY GATE FAILED (1 violation(s)) for /tmp/fx_r45_goal_citation_unresolved.
+Do NOT advance normal work — enter a recovery subgraph (references/recovery_protocol.md).
+```
+
+**Required GREEN:** exit nonzero, the failure message contains
+`[R45 GOAL-CITATION-UNRESOLVED]`, and it says `cited criterion id does not
+exist`. It must make no claim about criterion satisfaction.
+
+---
+
+## R46 — allocated and withdrawn (tombstone; no fixture)
+
+`R46` was allocated and withdrawn before implementation. It would have enforced
+`score >= threshold` on judged gates. That design was cancelled because a score
+on a judged gate is an LLM's opinion; comparing that opinion with a threshold
+would give a fabricated number deterministic authority over node completion.
+The absence of this threshold check is correct, not a validator gap. `R46` must
+never be reused for another rule because R-numbers are pinned by fixture IDs
+throughout this document.
+
+---
+
+## R47 — blind-order violation
+
+**What's wrong:** active evidence declares `assurance: blind`, while filesystem
+mtimes place the reviewer verdict after the producer claim. This fixture proves
+ordering only. An mtime comparison cannot prove that the reviewer was blind or
+independent, and neither the fixture nor the future validator may infer either
+semantic conclusion from the timestamps.
+
+**Materialize and run:**
+
+```bash
+if [ -e /tmp/fx_r47_blind_order_violation ]; then
+  mv /tmp/fx_r47_blind_order_violation "/tmp/fx_r47_blind_order_violation.previous.$$"
+fi
+mkdir -p /tmp/fx_r47_blind_order_violation/evidence
+python3 - <<'PY'
+from pathlib import Path
+import json
+import os
+import yaml
+
+root = Path("/tmp/fx_r47_blind_order_violation")
+plan = yaml.safe_load(Path("templates/loop.plan.yaml").read_text())
+checkpoint = yaml.safe_load(Path("templates/checkpoint.yaml").read_text())
+node_id = plan["nodes"][0]["id"]
+checkpoint["plan_id"] = plan["plan_id"]
+checkpoint["plan_version"] = plan["plan_version"]
+checkpoint["node_states"] = {node["id"]: "pending" for node in plan["nodes"]}
+checkpoint["ready_set"] = []
+checkpoint["last_completed"] = []
+checkpoint["event_log_ref"] = "event_log.jsonl"
+checkpoint["evidence_ledger_ref"] = "evidence.ledger.yaml"
+claim = root / "evidence/producer-claim.txt"
+verdict = root / "evidence/reviewer-verdict.txt"
+ledger = {
+    "schema_version": "1.0.0",
+    "entries": [{
+        "entry_id": "ev-r47", "node_id": node_id, "gate_kind": "llm_judge",
+        "verdict": "pass", "score": 0.9,
+        "artifact_path": str(verdict),
+        "producer_claim_path": str(claim),
+        "rationale": "blind-order fixture", "recorded": "2026-07-30T10:01:00Z",
+        "verifier": "subagent", "status": "active", "assurance": "blind",
+    }],
+}
+(root / "loop.plan.yaml").write_text(yaml.safe_dump(plan, sort_keys=False))
+(root / "checkpoint.yaml").write_text(yaml.safe_dump(checkpoint, sort_keys=False))
+(root / "evidence.ledger.yaml").write_text(yaml.safe_dump(ledger, sort_keys=False))
+(root / "event_log.jsonl").write_text(json.dumps({
+    "seq": 0, "node_id": node_id, "ts": "2026-07-30T09:59:00Z",
+    "kind": "note", "outcome": "fixture state prepared",
+}) + "\n")
+claim.write_text("producer claim\n")
+verdict.write_text("reviewer verdict\n")
+os.utime(claim, (1000, 1000))
+os.utime(verdict, (1001, 1001))
+PY
+python3 scripts/check_loop_integrity.py /tmp/fx_r47_blind_order_violation
+```
+
+**Observed GREEN (exit `1`):**
+
+```text
+[INTEGRITY:evidence] ledger invalid:
+[R47 BLIND-ORDER-VIOLATION] ledger entry[0] for node 'goal_clarification': reviewer verdict file mtime is after producer claim file mtime; this establishes an ordering violation only and does not license the conclusion that the reviewer was not blind or not independent
+error: /tmp/fx_r47_blind_order_violation/evidence.ledger.yaml is invalid (1 problem(s))
+
+INTEGRITY GATE FAILED (1 violation(s)) for /tmp/fx_r47_blind_order_violation.
+Do NOT advance normal work — enter a recovery subgraph (references/recovery_protocol.md).
+```
+
+**Required GREEN:** exit nonzero, the failure message contains
+`[R47 BLIND-ORDER-VIOLATION]`, and it reports only that the reviewer verdict
+mtime is after the producer claim mtime. It must not claim the reviewer was not
+blind or not independent.
+
+---
+
+## R48 — missing dissent
+
+**What's wrong:** blind review entry `ev-r48-negative` records a negative
+verdict, the checkpoint records the reviewed node as `completed`, and the event
+log contains no `dissent` event corresponding to that review. The fixture checks
+for the explicit override record only. It does not infer whether either verdict
+or the completed design is correct.
+
+**Materialize and run:**
+
+```bash
+rm -rf /tmp/fx_r48_missing_dissent
+mkdir -p /tmp/fx_r48_missing_dissent/evidence
+python3 - <<'PY'
+from pathlib import Path
+import json
+import yaml
+
+root = Path("/tmp/fx_r48_missing_dissent")
+plan = yaml.safe_load(Path("templates/loop.plan.yaml").read_text())
+checkpoint = yaml.safe_load(Path("templates/checkpoint.yaml").read_text())
+node_id = plan["nodes"][0]["id"]
+checkpoint["plan_id"] = plan["plan_id"]
+checkpoint["plan_version"] = plan["plan_version"]
+checkpoint["node_states"] = {node["id"]: "pending" for node in plan["nodes"]}
+checkpoint["node_states"][node_id] = "completed"
+checkpoint["ready_set"] = []
+checkpoint["last_completed"] = [node_id]
+checkpoint["event_log_ref"] = "./event_log.jsonl"
+checkpoint["evidence_ledger_ref"] = "evidence.ledger.yaml"
+ledger = {
+    "schema_version": "1.0.0",
+    "entries": [
+        {
+            "entry_id": "ev-r48-negative", "node_id": node_id,
+            "gate_kind": "llm_judge", "verdict": "fail", "score": 0.2,
+            "artifact_path": "evidence/r48-negative.txt",
+            "rationale": "blind negative verdict", "recorded": "2026-07-30T10:00:00Z",
+            "verifier": "subagent", "status": "active", "assurance": "blind",
+        },
+        {
+            "entry_id": "ev-r48-override", "node_id": node_id,
+            "gate_kind": "human_approval", "verdict": "pass", "score": None,
+            "artifact_path": "evidence/r48-override.txt",
+            "rationale": "parent proceeded", "recorded": "2026-07-30T10:05:00Z",
+            "verifier": "user", "status": "active", "assurance": "external",
+            "overrides_entry_id": "ev-r48-negative",
+        },
+    ],
+}
+event = {
+    "seq": 0, "node_id": node_id, "ts": "2026-07-30T10:05:00Z",
+    "kind": "note", "outcome": "proceeded without a dissent event",
+}
+(root / "loop.plan.yaml").write_text(yaml.safe_dump(plan, sort_keys=False))
+(root / "checkpoint.yaml").write_text(yaml.safe_dump(checkpoint, sort_keys=False))
+(root / "evidence.ledger.yaml").write_text(yaml.safe_dump(ledger, sort_keys=False))
+(root / "event_log.jsonl").write_text(json.dumps(event) + "\n")
+(root / "evidence/r48-negative.txt").write_text("negative verdict\n")
+(root / "evidence/r48-override.txt").write_text("override verdict\n")
+PY
+python3 scripts/check_loop_integrity.py /tmp/fx_r48_missing_dissent
+```
+
+**Observed GREEN (exit `1`):**
+
+```text
+[R48 MISSING-DISSENT] ledger entry[0] 'ev-r48-negative' for completed node 'goal_clarification' is an active blind failure, but the event log has no dissent event for that node; this checks record absence only and does not license any conclusion that the override was wrong or unjustified, or that either verdict or the completed design is correct
+
+INTEGRITY GATE FAILED (1 violation(s)) for /tmp/fx_r48_missing_dissent.
+Do NOT advance normal work — enter a recovery subgraph (references/recovery_protocol.md).
+```
+
+**Required GREEN:** exit nonzero, the failure message contains
+`[R48 MISSING-DISSENT]`, and it identifies the negative review entry lacking a
+corresponding `dissent` event.
+
+---
+
+## R49 — checkpoint projection mismatch
+
+**What's wrong:** the event log projects node `goal_clarification` to `running`,
+while the checkpoint records it as `completed`. The ledger contains valid active
+external passing evidence, but the canonical projection applies a ledger verdict
+only to a node left at `verifying`, so it does not alter the replayed `running`
+status. This fixture establishes a snapshot/projection disagreement only; it does
+not establish that the loop is broken, work is incomplete, evidence is
+inadequate, or the node is or is not done.
+
+**Materialize and run (mismatch plus passing control):**
+
+```bash
+rm -rf /tmp/fx_r49_projection_mismatch /tmp/fx_r49_projection_control
+mkdir -p /tmp/fx_r49_projection_mismatch/evidence /tmp/fx_r49_projection_control/evidence
+python3 - <<'PY'
+from pathlib import Path
+import json
+import yaml
+
+roots = (
+    (Path("/tmp/fx_r49_projection_mismatch"), "completed"),
+    (Path("/tmp/fx_r49_projection_control"), "running"),
+)
+for root, recorded_status in roots:
+    plan = yaml.safe_load(Path("templates/loop.plan.yaml").read_text())
+    checkpoint = yaml.safe_load(Path("templates/checkpoint.yaml").read_text())
+    node_id = plan["nodes"][0]["id"]
+    for node in plan["nodes"]:
+        node["status"] = "pending"
+    checkpoint["plan_id"] = plan["plan_id"]
+    checkpoint["plan_version"] = plan["plan_version"]
+    checkpoint["node_states"] = {node["id"]: node["status"] for node in plan["nodes"]}
+    checkpoint["node_states"][node_id] = recorded_status
+    checkpoint["ready_set"] = []
+    checkpoint["last_completed"] = [node_id] if recorded_status == "completed" else []
+    checkpoint["event_log_ref"] = "event_log.jsonl"
+    checkpoint["evidence_ledger_ref"] = "evidence.ledger.yaml"
+    ledger = {
+        "schema_version": "1.0.0",
+        "entries": [{
+            "entry_id": "ev-r49", "node_id": node_id, "gate_kind": "test",
+            "verdict": "pass", "score": None,
+            "artifact_path": "evidence/r49-test.txt",
+            "rationale": "projection fixture", "recorded": "2026-07-30T10:00:00Z",
+            "verifier": "script", "status": "active", "assurance": "external",
+        }],
+    }
+    event = {
+        "seq": 0, "node_id": node_id, "ts": "2026-07-30T09:59:00Z",
+        "kind": "post_effect", "from_status": "pending", "to_status": "running",
+        "outcome": "ok",
+    }
+    (root / "loop.plan.yaml").write_text(yaml.safe_dump(plan, sort_keys=False))
+    (root / "checkpoint.yaml").write_text(yaml.safe_dump(checkpoint, sort_keys=False))
+    (root / "evidence.ledger.yaml").write_text(yaml.safe_dump(ledger, sort_keys=False))
+    (root / "event_log.jsonl").write_text(json.dumps(event) + "\n")
+    (root / "evidence/r49-test.txt").write_text("test output\n")
+PY
+python3 scripts/check_loop_integrity.py /tmp/fx_r49_projection_mismatch
+python3 scripts/check_loop_integrity.py /tmp/fx_r49_projection_control
+```
+
+**Observed RED before R49 (mismatch exits `0`):**
+
+```text
+CROSS-FILE REFERENCES OK: /tmp/fx_r49_projection_mismatch
+```
+
+**Observed GREEN after R49 (mismatch exits `1`):**
+
+```text
+[R49 CHECKPOINT-PROJECTION-MISMATCH] node 'goal_clarification': projected status 'running' disagrees with checkpoint.node_states recorded status 'completed'; this establishes a replayed-projection/recorded-snapshot consistency disagreement only and does not license any conclusion that the loop is broken, work is incomplete, evidence is inadequate, or the node is or is not done
+
+INTEGRITY GATE FAILED (1 violation(s)) for /tmp/fx_r49_projection_mismatch.
+Do NOT advance normal work — enter a recovery subgraph (references/recovery_protocol.md).
+```
+
+**Observed passing CONTROL after R49 (exit `0`):**
+
+```text
+CROSS-FILE REFERENCES OK: /tmp/fx_r49_projection_control
+Checks run:
+- canonical checkpoint node_states projection consistency (R49)
+```
+
+**Required GREEN:** the mismatch exits nonzero with
+`[R49 CHECKPOINT-PROJECTION-MISMATCH]` and names both exact statuses; the control
+exits zero and lists the R49 check. Neither result licenses a semantic conclusion
+about completion, adequacy, correctness, or the next action.

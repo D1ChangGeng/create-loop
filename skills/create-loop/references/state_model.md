@@ -35,7 +35,7 @@ downstream schema enum uses exactly these values, spelled exactly this way.
 | `verifying` | execution finished; the node's `gate` is being evaluated. |
 | `verification_failed` | the `gate` did not pass. |
 | `retry_pending` | scheduled to retry under `retry_policy` after a failure. |
-| `completed` | executed **and** gate passed. **Terminal.** |
+| `completed` | executed and backed by an active passing `external` evidence entry, or by a passing `human_approval` entry. **Terminal.** |
 | `cancelled` | intentionally abandoned (by user or plan). **Terminal.** |
 | `deprecated` | superseded by a newer plan/version and retired. **Terminal.** |
 
@@ -79,7 +79,7 @@ committed to the checkpoint without its stated evidence.
 | `waiting_external` | `running`, `ready`, `blocked`, `cancelled` | external event arrives / times out | event reference or timeout recorded in `event_log` |
 | `waiting_user` | `ready`, `verifying`, `cancelled` | user responds / approves / abandons | user response recorded; an approved `human_approval` verdict routes to `verifying` (the approval node's own gate) or `ready` (a decision for another node); on abandon, cancellation reason |
 | `blocked` | `ready`, `retry_pending`, `waiting_user`, `cancelled`, `deprecated` | blocker resolved / escalated to a human / superseded by `replan` | resolution note recorded; escalation opens a `pending_approvals` entry and moves the node to `waiting_user`; supersession requires a new `plan_version` |
-| `verifying` | `completed`, `verification_failed` | `gate` evaluated | evidence-ledger entry with `verdict` (`pass` → `completed`, `fail`/`inconclusive` → `verification_failed`) |
+| `verifying` | `completed`, `verification_failed` | `gate` evaluated | active ledger entry: `pass` with `assurance: external`, or `gate_kind: human_approval`, authorizes `completed`; `fail`/`inconclusive` routes to `verification_failed`; passing `blind` or `self_attested` evidence remains provisional and does not authorize a status transition |
 | `verification_failed` | `retry_pending`, `blocked`, `deprecated` | apply `on_failure` ladder | failing evidence-ledger entry; ladder decision recorded; supersession by `replan` requires a new `plan_version` |
 | `retry_pending` | `ready`, `blocked` | backoff elapsed | if `attempt < max_attempts` → `ready` (`node.contract.attempt` incremented); if `attempt == max_attempts` (budget exhausted) → `blocked`; guard read from **persistent** state |
 | `completed` | `deprecated` | superseded by `replan` | new `plan_version` supersedes the node |
@@ -166,8 +166,9 @@ Three artifacts hold the runtime state. Each is filesystem-mappable and keyed by
 
 ### checkpoint fields
 
-The durable snapshot of loop progress. A fresh session reads exactly this to
-resume.
+The durable snapshot of loop progress. A fresh session uses it as a fast-resume
+cache after checking its log position and reconciling it with the event log and
+evidence ledger.
 
 | field | type | required | description |
 |-------|------|----------|-------------|
@@ -185,6 +186,7 @@ resume.
 | `next_suggested_action` | string | yes | Human-readable hint for the next agent; advisory only, never a source of truth over the graph. |
 | `open_assumptions` | list[string] | yes | Assumptions/answers not yet verified; drives `needs_clarification` resolution. |
 | `event_log_ref` | string (path) | yes | Path to the append-only event log (deterministic replay). |
+| `last_event_seq` | int | yes | Maximum event-log `seq` incorporated when this snapshot was written; determines whether resume skips replay or replays only the tail. |
 | `evidence_ledger_ref` | string (path) | yes | Path to the [evidence.ledger](#evidence-ledger). |
 | `cost_units_spent` | number | yes | Cumulative cost, checked against `termination.max_cost_units`. |
 | `iteration` | int | yes | Loop iteration counter, checked against `termination.max_iterations`. |
@@ -212,8 +214,9 @@ are authoritative in [`recursive_loops.md` §7.4](./recursive_loops.md#74-child-
 The base checkpoint fields above (`schema_version`, `plan_id`, `plan_version`,
 `checkpoint_id`, `created`, `phase`, `node_states`, `ready_set`, `last_completed`,
 `blocked`, `pending_approvals`, `next_suggested_action`, `open_assumptions`,
-`event_log_ref`, `evidence_ledger_ref`, `cost_units_spent`, `iteration`) still
-apply verbatim to a child loop's `checkpoint.yaml`. Of the additions above:
+`event_log_ref`, `last_event_seq`, `evidence_ledger_ref`, `cost_units_spent`,
+`iteration`) still apply verbatim to a child loop's `checkpoint.yaml`. Of the
+additions above:
 
 - **Child-only identity fields — no base equivalent:** `loop_id`,
   `parent_loop_id`, `parent_node_id`. The base set carries no parent/child
@@ -263,19 +266,55 @@ An append-only list of gate-verdict entries. Each entry:
 | `rationale` | string | yes | Why the verdict was reached. |
 | `recorded` | string (ISO-8601) | yes | When the entry was recorded. |
 | `verifier` | enum | yes | `agent`, `subagent`, `user`, or `script`. |
+| `assurance` | enum | yes | Provenance of the verdict: `external` (grounded outside the model, such as a process exit code, test result, real tool/API observation, or file existence), `blind` (an independent context produced the verdict without seeing the producer's claim or rationale), or `self_attested` (model opinion about its own or a peer's output). Orthogonal to `gate_kind`. |
+| `success_criteria_id` | string | no | Optional citation to a `loop.plan.success_criteria[].id`. When present, R45 checks only that the cited id exists in the plan; resolution does not establish that the criterion is satisfied or that the evidence demonstrates it. |
+| `overrides_entry_id` | string | no | For an overriding entry, the `entry_id` of the prior verdict it overrides. A completed node with an active blind failure must pair this explicit ledger link with an on-record `dissent` event (R48). |
 
-A node may transition `verifying → completed` **only** when its latest ledger
-entry has `verdict == pass`. A `fail` or `inconclusive` forces
+The assurance axis records provenance only. Its two axes are **what was checked**
+(`gate_kind`) and **where the verdict came from** (`assurance`). A declared
+`assurance` value does **not** establish that the evidence content is adequate,
+correct, or sufficient; the runner judges those semantic questions.
+
+A node may transition `verifying → completed` **only** when its latest active
+ledger entry has `verdict == pass` and either `assurance == external` or
+`gate_kind == human_approval`. Passing `self_attested` evidence has
+**provisional evidence standing** only. `provisional` is deliberately not a
+16th node status: it describes evidence authority, so the locked 15-status
+lifecycle remains unchanged. Passing `blind` evidence is likewise
+non-authorizing under this rule. No provisional evidence may satisfy
+`termination.done_when`. A `fail` or `inconclusive` routes to
 `verification_failed`.
 
 ### event_log
 
-The append-only, **primary** source of truth
+The append-only record of what happened, and the authority for recorded effects
+and status transitions
 ([`recovery_protocol.md` §3.2](./recovery_protocol.md#32-canonical-write-ahead-ordering)).
-Shape `{schema_version, entries[]}`; each entry `{seq (strictly monotonic),
-node_id, ts, kind (pre_effect|post_effect|note), from_status?, to_status?,
-phase?, intent?, idempotency_key?, outcome?, result_hash?}`. Validated with
-`--kind event_log` (rules R23 in-doubt, R24 seq, R31 kind). Schema:
+It is **not** authoritative for the gate outcome — a node reaches `completed`
+only through the ledger — nor for `iteration` / `cost_units_spent`, which no
+entry field carries (see
+[the canonical projection](#the-canonical-checkpoint-projection)).
+Canonical storage is root `event_log.jsonl`, one JSON object per line. Each entry
+has `{seq (strictly monotonic), node_id, ts, kind, from_status?, to_status?,
+phase?, intent?, idempotency_key?, outcome?, result_hash?, reason?,
+evidence_refs?}`. `pre_effect` and `post_effect` entries MUST carry both
+`from_status` and `to_status` as non-null members of the 15-status node enum.
+For every kind, carrying either transition field requires carrying both;
+`note`, `mutation`, and `dissent` need not carry a transition pair. The five
+event kinds are:
+
+| kind | required semantics |
+|------|--------------------|
+| `pre_effect` | Records intent before a side effect so recovery can detect in-doubt work. |
+| `post_effect` | Records the outcome after a side effect. |
+| `note` | Adds an annotation without changing control state. |
+| `mutation` | Records a typed plan change with `mutation_type`, `reason`, and supporting `evidence_refs`. |
+| `dissent` | Records that the runner proceeded despite a negative blind verdict. The overriding ledger entry identifies that verdict through `overrides_entry_id`; the event's `reason` records why the runner proceeded. |
+
+Validated with
+`--kind event_log` (rules R23 in-doubt, R24 seq, R31 kind). Whole-loop rule R49
+compares the plan + log + ledger projection with `checkpoint.node_states`.
+Schema:
 [`schemas/event_log.schema.json`](../schemas/event_log.schema.json).
 
 ### loop.state
@@ -292,6 +331,72 @@ claims if lost.
 
 ---
 
+## The canonical checkpoint projection
+
+There is exactly **one** way to derive the checkpoint's status fields, and it
+reads **three** artifacts. The event log alone is not enough: a node reaches
+`completed` only on a completion-authorizing evidence entry, and that fact lives
+in the ledger.
+
+1. **Seed from the plan.** Every node id in `loop.plan.nodes` starts at its
+   plan-declared `status` (normally `pending`, or `undiscovered` for nodes a
+   `mapper` has yet to materialise). The plan defines the node set; a node absent
+   from the plan cannot appear in the projection.
+2. **Apply recorded transitions from the event log.** Replay in `seq` order. Each
+   `pre_effect` / `post_effect` carrying a `to_status` moves that node to it. This
+   yields every status **except** the gate outcome.
+   A `mutation` event is **not** replayed: it records *that* the plan changed
+   (`mutation_type`, `reason`, `evidence_refs`) but carries no node or edge
+   payload to rebuild the change from. None is needed — step 1 seeds from the
+   *current* plan, which is already the materialised result of every mutation,
+   and `plan_history` is what R27 reconciles that lineage against.
+3. **Apply the ledger verdict.** For each node left at `verifying`, read its
+   latest **active** entry: `verdict: pass` **and** (`assurance: external` **or**
+   `gate_kind: human_approval`) ⇒ `completed`; `verdict: fail` or `inconclusive`
+   ⇒ `verification_failed`. A passing entry whose assurance does not authorize
+   completion leaves the node at `verifying` — its evidence is `provisional`
+   (see [`evidence_gates.md` §4](./evidence_gates.md)).
+4. **Derive the secondary projections.** `ready_set` from the topological
+   readiness rule; `last_completed` from the nodes step 3 moved to `completed`;
+   `phase` from the latest event carrying one.
+
+`current_node` is **not** derivable and must not be projected. It means "the node
+in focus for resume" — a forward-looking intent — while the log only records what
+already happened. The two legitimately differ the moment a node finishes and the
+next becomes ready: a child loop in the shipped examples records
+`current_node: root_cause` while its last event is `reproduce`. Treat it as
+snapshot-carried and advisory, never as authority over the graph.
+
+**Field-level authority.** The projection above is authoritative for
+`node_states`, `ready_set`, `last_completed`, and `phase` — when it disagrees
+with the stored checkpoint, the projection wins and the checkpoint is rewritten.
+It says **nothing** about `iteration`, `cost_units_spent`, `blocked`,
+`pending_approvals`, `open_assumptions`, `next_suggested_action`, or
+`current_node`: no event field carries them, so they are **snapshot-carried** —
+read from the previous checkpoint and carried forward. `current_node` belongs
+here because it names the node *in focus for resume*, which is the runner's
+forward intent; the log only records what already happened.
+
+**The cost of that.** A crash after a paid effect but before the checkpoint is
+regenerated undercounts `cost_units_spent`, and those counters gate termination
+(`max_cost_units`, `max_iterations`). Losing the checkpoint therefore loses the
+budget position, not just a cache. Treat checkpoint regeneration as part of the
+node-advance transaction, not an optional flush.
+
+**What agreement proves.** A projection matching the checkpoint proves the
+recorded facts and the snapshot are consistent. It does **not** prove the
+evidence was adequate, the work was correct, or the node is genuinely done —
+those remain the runner's semantic judgment (see `SKILL.md` §17).
+
+**R49 projection consistency.** When plan, event log, evidence ledger, and
+checkpoint are all present, the whole-loop integrity gate computes steps 1–4
+above and compares the resulting `node_states` with the stored snapshot. A
+status disagreement establishes only that the replayed projection and recorded
+checkpoint differ; it does not establish that the loop is broken, that work is
+incomplete, that evidence is inadequate, or that any node is or is not done.
+
+---
+
 ## Resume from a blank session
 
 The defining requirement: a brand-new session with **no prior chat memory** must
@@ -302,15 +407,27 @@ Execute these steps in order.
    key). If none exists this is a fresh start; if one exists, this is a resume.
    Never create a duplicate — respect `O_CREAT|O_EXCL` single-flight semantics
    ([`concepts.md` §7](./concepts.md#7-why-durability-primitives)).
-2. **Read state.** Load the latest **checkpoint** (highest `checkpoint_id` /
-   `created`) for the current `plan_id` and `plan_version`. Read
-   `node_states`, `ready_set`, `blocked`, `pending_approvals`, `iteration`,
-   `cost_units_spent`, `phase`, `open_assumptions`.
-3. **Verify evidence.** For every node marked `completed` in `node_states`,
-   confirm a matching `evidence.ledger` entry with `verdict == pass` exists at
-   its `evidence_ref`. Any `completed` node lacking passing evidence is demoted to
-   `verifying` (its gate must be re-run) — the checkpoint is not trusted over the
-   ledger.
+2. **Read and reconcile state.** Load the latest **checkpoint** (highest
+   `checkpoint_seq`) for the current `plan_id` and `plan_version`, but do not
+   trust it unconditionally. Compare `checkpoint.last_event_seq` with the
+   maximum `seq` in the event log. If equal, the snapshot is provably current
+   and replay may be skipped. If the log is ahead, rebuild the
+   [canonical projection](#the-canonical-checkpoint-projection) and reconcile;
+   the projection wins on any disagreement about the fields it owns
+   ([`recovery_protocol.md` §3.2.2](./recovery_protocol.md#322-reconciliation-on-resume)).
+   Read the snapshot-carried fields (`iteration`, `cost_units_spent`, `blocked`,
+   `pending_approvals`, `open_assumptions`) from the checkpoint — the log does not
+   carry them.
+3. **Verify evidence.** Step 3 of the canonical projection already applies the
+   ledger, so a node is `completed` in the projection only if a completion-
+   authorizing entry exists. When resuming from a checkpoint that skipped replay,
+   apply that check directly: for every node marked `completed` in `node_states`,
+   confirm a matching active `evidence.ledger` entry has `verdict == pass` and
+   either `assurance == external` or `gate_kind == human_approval`. Any
+   `completed` node lacking such declared completion-authorizing provenance is
+   demoted to `verifying` (its gate must be re-run) — the checkpoint is not
+   trusted over the ledger. This reads the declared fields only; it does not
+   establish that the evidence content is adequate or correct.
 4. **Verify consistency.** Recompute readiness from the graph: for each `pending`
    node, check whether every `requires` id is `completed`
    ([readiness rule](./loop_plan_spec.md#63-topological-readiness-rule)). Rebuild
@@ -338,6 +455,17 @@ Execute these steps in order.
 Every step above reads persistent state only — never memory — which is exactly
 what makes a blank session safe (see
 [`concepts.md` §9](./concepts.md#9-why-it-must-resume-from-a-blank-session)).
+
+### Goal-contract read points
+
+The runner MUST re-read the current plan's goal contract (`success_criteria`,
+`failure_criteria`, `non_goals`, and `constraints`) at exactly four control
+points: **dispatch**, before choosing which ready node to work; **mutation**,
+before any plan edit, including adding or retiring nodes or materializing a
+subgraph; **verification**, before writing a verdict; and **termination**,
+before declaring `termination.done_when` satisfied. These semantic reads keep
+execution aligned with the goal; the R45 reference-validity check does not
+replace them.
 
 ---
 

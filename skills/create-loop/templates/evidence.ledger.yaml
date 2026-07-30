@@ -5,11 +5,14 @@
 #              evaluator_optimizer | step_verifier | human_approval | artifact_exists
 #   verdict:   pass | fail | inconclusive
 #   verifier:  agent | subagent | user | script
+#   assurance: external | blind | self_attested (provenance, orthogonal to gate_kind)
 #   score:     number 0..1 for scored gates, or null for pass/fail gates
+# Only active passing external evidence, or human_approval, may authorize completed.
+# Passing self_attested evidence is provisional and can never satisfy done_when.
 
 schema_version: "1.0.0"           # version of THIS evidence.ledger schema
 
-entries:                          # append-only; newest last. Each entry has all 9 fields.
+entries:                          # append-only; newest last. Each entry has all 10 required fields.
   # Example: a FAILED verdict from an earlier attempt (kept for the audit trail).
   - entry_id: "ev-0001"
     node_id: "build"
@@ -20,6 +23,7 @@ entries:                          # append-only; newest last. Each entry has all
     rationale: "3 of 40 unit tests failed on the first build attempt."
     recorded: "2026-07-02T10:20:00Z"   # ISO-8601 date-time
     verifier: "script"
+    assurance: "external"        # process/test observation; not a claim of adequacy
     status: "superseded"          # lifecycle: replaced by the re-attempt below
     superseded_by: "ev-0002"      # must name an existing entry
 
@@ -33,5 +37,7 @@ entries:                          # append-only; newest last. Each entry has all
     rationale: "All 40 unit tests pass after the local patch."
     recorded: "2026-07-02T10:42:00Z"
     verifier: "script"
+    assurance: "external"
+    success_criteria_id: "sc-1"   # OPTIONAL citation; resolution does not establish satisfaction
     status: "active"              # only 'active' evidence may back a gate (R38)
     superseded_by: null

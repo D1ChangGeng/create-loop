@@ -24,8 +24,9 @@ pending_approvals: []
 next_suggested_action: "Await child loop L001.01 closeout, then re-evaluate build's test gate before dispatching verify."
 open_assumptions:
   - "The child loop's effectiveness fix will satisfy build's postcondition."
-event_log_ref: "state/event_log.jsonl"
-evidence_ledger_ref: "state/evidence.ledger.yaml"
+event_log_ref: "./event_log.jsonl"
+last_event_seq: 1
+evidence_ledger_ref: "./evidence.ledger.yaml"
 cost_units_spent: 96.0
 iteration: 3
 checkpoint_seq: 1

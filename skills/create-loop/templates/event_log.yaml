@@ -1,6 +1,11 @@
-# Append-only event log — the PRIMARY source of truth. Each node advance:
-#   1) append a pre_effect entry  2) execute  3) append a post_effect entry
-# Checkpoint counters are DERIVED and reconciled by replaying this log.
+# Append-only event log — the authority for recorded effects and status
+# transitions. Each node advance: 1) pre_effect  2) execute  3) post_effect.
+# Replay yields node_states only WITH the plan and ledger (state_model.md,
+# "The canonical checkpoint projection"): `completed` needs an authorizing
+# ledger entry. `iteration`/`cost_units_spent` have no field here.
+# Real logs are `event_log.jsonl` — one JSON object per line, no wrapper.
+# This wrapper is what `--kind event_log` validates; that mismatch is an
+# open defect, not a shape to copy.
 schema_version: "1.0"
 entries:
   - seq: 0
@@ -18,6 +23,8 @@ entries:
     node_id: n1_charter
     ts: "2026-07-02T14:03:00Z"
     kind: post_effect
+    from_status: running
+    to_status: verifying        # NEVER `completed` — the ledger decides that
     outcome: ok
     result_hash: "sha256:abc123"
   # A structured plan mutation (kind:mutation): typed + reasoned + evidenced (R39).

@@ -1,0 +1,2 @@
+{"seq":0,"node_id":"reproduce","ts":"2026-07-01T10:45:00Z","kind":"pre_effect","from_status":"ready","to_status":"running","phase":0,"intent":"run the deterministic effectiveness regression repro","idempotency_key":"reproduce#attempt1","outcome":null,"result_hash":null}
+{"seq":1,"node_id":"reproduce","ts":"2026-07-01T11:05:00Z","kind":"post_effect","from_status":"running","to_status":"verifying","outcome":"ok","result_hash":"sha256:effectiveness-repro-pass"}

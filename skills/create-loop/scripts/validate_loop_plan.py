@@ -34,11 +34,13 @@ except ImportError:  # pragma: no cover - environment guard
     sys.exit(2)
 
 from checks import (
+    ASSURANCE_CLASSES,
     CONTRACT_REQUIRED,
     GATE_KINDS,
     HIP_ANSWER_FORMATS,
     HIP_DEFAULT_MODES,
     HIP_REQUIRED_WHEN_TOKENS,
+    LEDGER_ENTRY_REQUIRED,
     LEDGER_REQUIRED,
     NODE_STATUSES,
     ON_FAILURE,
@@ -48,7 +50,11 @@ from checks.gates import check_gate
 from checks.index import validate_loops_index, validate_index_reconciliation
 from checks.meta import validate_loop_meta
 from checks.nodes import validate_nodes_recursive
-from checks.provenance import check_plan_provenance, check_ledger_verifier_independence
+from checks.provenance import (
+    check_goal_citation_resolution,
+    check_ledger_verifier_independence,
+    check_plan_provenance,
+)
 from checks.claim import validate_claim
 from checks.caps import check_caps, check_contract_cost
 from checks.retirement import check_retirement
@@ -56,6 +62,11 @@ from checks.artifact_index import validate_artifact_index
 from checks.event_log import validate_event_log
 from checks.loop_state import validate_loop_state
 from checks.runtime import validate_node_runtime
+from validate_checkpoint import (
+    validate_checkpoint_schema,
+    validate_consistency,
+    validate_transition_closure,
+)
 
 SCHEMA_BY_KIND: dict[str, str] = {
     "loop_plan": "loop.plan.schema.json",
@@ -68,6 +79,7 @@ SCHEMA_BY_KIND: dict[str, str] = {
     "event_log": "event_log.schema.json",
     "loop_state": "loop.state.schema.json",
     "artifact_index": "artifact.index.schema.json",
+    "checkpoint": "checkpoint.schema.json",
 }
 
 
@@ -192,10 +204,24 @@ def validate_evidence_ledger(doc: Any, errors: list[str]) -> None:
         if not isinstance(entry, dict):
             errors.append(f"[R5 MISSING REQUIRED FIELD] {scope}: not a mapping")
             continue
-        for field in ("entry_id", "node_id", "gate_kind", "verdict", "score",
-                      "artifact_path", "rationale", "recorded", "verifier"):
+        for field in LEDGER_ENTRY_REQUIRED:
             if field not in entry:
-                errors.append(f"[R5 MISSING REQUIRED FIELD] {scope}: missing {field!r}")
+                if field == "assurance":
+                    errors.append(
+                        f"[R44 MISSING-ASSURANCE] {scope}: declared assurance field is "
+                        "absent; this establishes field absence only and does not license "
+                        "any conclusion about evidence adequacy or correctness"
+                    )
+                else:
+                    errors.append(f"[R5 MISSING REQUIRED FIELD] {scope}: missing {field!r}")
+        if "assurance" in entry and entry.get("assurance") not in ASSURANCE_CLASSES:
+            errors.append(
+                f"[R44 MISSING-ASSURANCE] {scope}: declared assurance "
+                f"{entry.get('assurance')!r} is not one of "
+                f"{sorted(ASSURANCE_CLASSES)}; this checks the literal enum only "
+                "and does not license any conclusion about evidence adequacy or "
+                "correctness"
+            )
         if entry.get("gate_kind") not in GATE_KINDS and "gate_kind" in entry:
             errors.append(f"[R7 BAD GATE KIND] {scope}: gate_kind {entry.get('gate_kind')!r} invalid")
         if entry.get("verdict") not in valid_verdicts and "verdict" in entry:
@@ -257,7 +283,7 @@ def main() -> int:
         choices=(
             "loop_plan", "node_contract", "evidence_ledger", "loop_meta",
             "loops_index", "node_runtime", "claim", "event_log", "loop_state",
-            "artifact_index",
+            "artifact_index", "checkpoint",
         ),
         default="loop_plan",
         help="Artifact kind (default: loop_plan).",
@@ -278,7 +304,9 @@ def main() -> int:
     elif args.kind == "evidence_ledger":
         validate_evidence_ledger(doc, errors)
         if args.plan:
-            check_ledger_verifier_independence(doc, load_yaml(args.plan), errors)
+            plan = load_yaml(args.plan)
+            check_ledger_verifier_independence(doc, plan, errors)
+            check_goal_citation_resolution(doc, plan, errors)
     elif args.kind == "loop_meta":
         validate_loop_meta(doc, errors)
     elif args.kind == "loops_index":
@@ -293,6 +321,12 @@ def main() -> int:
         validate_event_log(doc, errors)
     elif args.kind == "loop_state":
         validate_loop_state(doc, errors)
+    elif args.kind == "checkpoint":
+        validate_checkpoint_schema(doc, errors)
+        if args.plan:
+            plan = load_yaml(args.plan)
+            validate_consistency(doc, plan, args.plan, errors)
+            validate_transition_closure(doc, plan, errors)
     else:
         validate_artifact_index(doc, errors)
 

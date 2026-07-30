@@ -1,0 +1,2 @@
+{"seq":0,"node_id":"charter","ts":"2026-07-01T09:00:00Z","kind":"pre_effect","from_status":"ready","to_status":"running","phase":0,"intent":"record the approved delivery control profile","idempotency_key":"charter#attempt1","outcome":null,"result_hash":null}
+{"seq":1,"node_id":"charter","ts":"2026-07-01T09:10:00Z","kind":"post_effect","from_status":"running","to_status":"verifying","outcome":"ok","result_hash":"sha256:child-tree-charter-pass"}

@@ -50,8 +50,9 @@ open_assumptions:
   - "Benchmark B is representative of long-context QA workloads; revisit if the length-matched control changes the ranking."
   - "The pre-registered stopping rule (three strategies compared with CIs) still holds after the added control arm."
   - "Cost remaining (about 172 units) is sufficient for one replan cycle of N5; escalate if a second cycle is needed."
-event_log_ref: "state/event_log.jsonl"
-evidence_ledger_ref: "state/evidence.ledger.yaml"
+event_log_ref: "./event_log.jsonl"
+last_event_seq: 11
+evidence_ledger_ref: "./evidence.ledger.yaml"
 cost_units_spent: 428.0                    # of termination.max_cost_units 600
 iteration: 17                              # of termination.max_iterations 30
 checkpoint_seq: 1

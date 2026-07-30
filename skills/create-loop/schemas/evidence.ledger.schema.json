@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://create-loop/schemas/evidence.ledger.schema.json",
   "title": "evidence.ledger",
-  "description": "An append-only record of gate verdicts. Wraps schema_version and an entries array of gate-verdict entries. A node may transition verifying -> completed only when its latest entry has verdict == pass. Field names and enum values are locked byte-for-byte per references/state_model.md (evidence.ledger).",
+  "description": "An append-only record of gate verdicts and their declared provenance. A node may transition verifying -> completed only when its latest active passing entry declares assurance external, or gate_kind human_approval. These fields do not establish that the evidence content is adequate or correct. Field names and enum values are locked byte-for-byte per references/state_model.md (evidence.ledger).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -35,7 +35,8 @@
         "artifact_path",
         "rationale",
         "recorded",
-        "verifier"
+        "verifier",
+        "assurance"
       ],
       "properties": {
         "entry_id": {
@@ -82,6 +83,10 @@
           "type": "string",
           "description": "Path to the evidence artifact this entry attests."
         },
+        "producer_claim_path": {
+          "type": "string",
+          "description": "For assurance blind, path to the producer claim read only after the reviewer verdict is recorded. R47 compares this file's mtime with artifact_path for ordering only; the comparison does not establish blindness or independence."
+        },
         "rationale": {
           "type": "string",
           "description": "Why the verdict was reached."
@@ -100,6 +105,23 @@
             "user",
             "script"
           ]
+        },
+        "assurance": {
+          "type": "string",
+          "description": "Declared verdict provenance only; this does not establish evidence adequacy or correctness.",
+          "enum": [
+            "external",
+            "blind",
+            "self_attested"
+          ]
+        },
+        "success_criteria_id": {
+          "type": "string",
+          "description": "Optional citation to loop.plan.success_criteria[].id. R45 checks only that a present citation resolves; resolution does not establish criterion satisfaction or evidence adequacy."
+        },
+        "overrides_entry_id": {
+          "type": "string",
+          "description": "Optional entry_id of a prior verdict this overriding entry overrides. For a completed node with an active blind failure, R48 also requires a dissent event for the node."
         },
         "supersedes": {
           "type": [

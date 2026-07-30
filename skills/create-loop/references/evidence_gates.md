@@ -18,7 +18,8 @@ an explicit verification with a defined `kind`, an optional numeric
 `threshold`, an optional `rubric`, and a pointer to the evidence
 artifact it writes. The transition
 `verifying → completed` is committed to the checkpoint **only** when
-the latest ledger entry for the node has `verdict == pass`. Any other
+the latest active ledger entry has `verdict == pass` and declares
+`assurance: external`, or its `gate_kind` is `human_approval`. Any other
 verdict (`fail`, `inconclusive`) drives the transition to
 `verification_failed`, which feeds the
 [escalation ladder](./loop_plan_spec.md#62-on_failure--the-escalation-ladder)
@@ -41,9 +42,10 @@ context-isolated evaluators work better. The `verifier` field on the
 ledger entry records who did the grading, drawn from
 `{agent, subagent, user, script}`
 ([`state_model.md` §evidence-ledger](./state_model.md#evidence-ledger)).
-A node whose `risk` is `high` MUST record `verifier` other than the
-producing `agent` when the gate is `llm_judge`,
-`self_consistency`, or `evaluator_optimizer`.
+A node whose `risk` is `high` MUST use a scored gate (`llm_judge`,
+`self_consistency`, `evaluator_optimizer`, or `step_verifier`) with a
+`threshold >= 0.7`, and MUST record a `verifier` other than the
+producing `agent`.
 
 ---
 
@@ -64,7 +66,8 @@ A verdict is recorded in the
 evaluation, with fields including `verdict` (`pass`, `fail`,
 `inconclusive`), `score` (0..1 or `null`), `verifier`
 (`agent`, `subagent`, `user`, `script`), `artifact_path`, `rationale`,
-and `recorded` (ISO-8601). Multiple entries per node are allowed; the
+`assurance` (`external`, `blind`, `self_attested`), optional
+`success_criteria_id`, and `recorded` (ISO-8601). Multiple entries per node are allowed; the
 **latest** entry governs the next transition.
 
 ---
@@ -213,7 +216,104 @@ with its `token` and waits.
 
 ---
 
-## 4. Reinforcing patterns
+## 4. The orthogonal assurance axis
+
+Gate kind and assurance answer different questions. Treat every ledger entry as
+a point in a two-axis model:
+
+- **WHAT was checked — `gate_kind`:** one of the eight kinds in §3.
+- **WHERE THE VERDICT CAME FROM — `assurance`:** one of the three provenance
+  classes below.
+
+| assurance | provenance recorded |
+|-----------|---------------------|
+| `external` | grounded in something outside the model: a process exit code, test result, real tool/API observation, or file-existence observation |
+| `blind` | an independent context produced the verdict without seeing the producer's claim or rationale |
+| `self_attested` | model opinion about its own or a peer's output |
+
+The axes are orthogonal. An `llm_judge` may be `blind` or `self_attested`; a
+`test`, `automated_check`, or `artifact_exists` observation is normally
+`external`. `assurance` is not a ninth gate kind.
+
+### 4.1 Blind verification procedure: verdict first
+
+An entry may declare `assurance: blind` only when the runner uses this
+procedure:
+
+1. Give the verifier the artifact under review and the evaluation criteria
+   only. Do not provide the producer's verdict, claim, or rationale.
+2. The verifier writes its verdict to the entry's `artifact_path` before it is
+   allowed to read the producer's claim.
+3. After the verdict exists, expose the producer claim at
+   `producer_claim_path`. Keep both files so R47 can compare their mtimes.
+
+The verdict file must therefore have an mtime no later than the producer claim
+file. R47 rejects the opposite ordering. **This mtime comparison proves
+ordering only.** It does not prove blindness or independence: a reviewer could
+peek through an unrecorded channel and still satisfy the file ordering. The
+runner remains responsible for context isolation and for deciding whether the
+declared `blind` provenance is credible.
+
+A negative blind verdict cannot be silently discarded. The runner must either
+address it before completion or override it on record: the overriding ledger
+entry names the negative entry in `overrides_entry_id`, and a `dissent` event
+for the node records in `reason` why the runner proceeded. R48 detects only the
+absence of that event when the node is completed; it does not judge whether the
+override was justified or whether either verdict is correct.
+
+Only an active passing entry declaring `assurance: external`, or a passing
+`gate_kind: human_approval` entry, may authorize `completed`. A passing
+`self_attested` entry has **provisional evidence standing** only. `provisional`
+is a property of evidence rather than a 16th node status, because it describes
+the authority of a verdict rather than execution lifecycle. Passing `blind`
+evidence is also non-authorizing under this rule. Provisional evidence can never
+satisfy `done_when`.
+
+**Deterministic/semantic boundary.** The validator inspects only the declared
+`assurance`, `gate_kind`, lifecycle `status`, and `verdict` fields. It may report
+whether those literal fields authorize the declared node status. It does **not**
+license the conclusion that evidence labelled `external` is adequate, correct,
+or sufficient to prove the node genuinely done. Those are semantic judgments
+for the runner.
+
+The same boundary applies to R5's 21-field contract: presence is not
+sufficiency. R5 inspects required-key presence only; whether a field's content is
+adequate is a semantic judgment the runner must make and record.
+
+**`artifact_exists` is the weakest external observation.** It is genuinely
+external — a filesystem observation, not model opinion — so it satisfies the
+authorization rule above. But it proves only that a path exists, never that its
+contents are adequate, relevant, or even non-empty. That makes it the cheapest
+way to close a node dishonestly: write a file, observe the file, mark
+`completed`. Nothing in this vocabulary prevents that, and no validator can,
+because "is this artifact any good" is exactly the semantic question programs
+may not answer.
+
+The runner therefore owes a judgment the validator cannot make: for a node whose
+work is substantive, `artifact_exists` alone is not sufficient authorization —
+pair it with a gate that inspects content (`test`, `automated_check`) or with
+`human_approval`. Reserve `artifact_exists` as sole authorization for nodes whose
+`done_when` genuinely IS "the artifact exists". If you find yourself reaching for
+it to unblock a node you could not otherwise close, that is the signal the node
+is not actually done.
+
+### 4.2 Why judged scores have no threshold validator (R46 tombstone)
+
+No validator enforces `score >= threshold` for a judged gate. An `llm_judge`
+score is model opinion against a rubric; arithmetic does not convert that opinion
+into a measurement or give it deterministic authority over completion. The
+score and threshold remain context for the runner's semantic review, not a
+machine completion rule.
+
+Judged gates gain assurance through the provenance axis in §4: record where the
+verdict came from and apply the authorization rule for that declared provenance.
+This checks who produced a verdict, not whether the verdict is right. `R46` was
+allocated to the rejected threshold check and withdrawn; it is a permanent
+tombstone, has no fixture, and must never be reused.
+
+---
+
+## 5. Reinforcing patterns
 
 Two patterns are not gates themselves but reinforce specific gate
 choices:
@@ -237,7 +337,7 @@ the cost / strength discussion above.
 
 ---
 
-## 5. Choosing a gate kind
+## 6. Choosing a gate kind
 
 The default heuristic, in order of preference:
 
@@ -259,14 +359,12 @@ The default heuristic, in order of preference:
 6. **Use `human_approval` for irreversible or judgemental nodes.**
    Anything that should not auto-proceed without a human eye.
 
-A `risk: high` node MUST use a scored gate (`llm_judge`,
-`self_consistency`, `evaluator_optimizer`, `step_verifier`) with a
-`threshold >= 0.7`, and the `verifier` MUST NOT be the producing
-`agent` (see §1.1).
+For the high-risk scored-gate, threshold, and verifier-independence
+requirements, see [§1.1](#11-generatorverifier-separation).
 
 ---
 
-## 6. The non-trivial-node rule
+## 7. The non-trivial-node rule
 
 Every node in the plan carries a `gate` field
 ([`loop_plan_spec.md` §2](./loop_plan_spec.md#2-node-object)). A `gate`
@@ -308,7 +406,7 @@ node and the subgraph tier; only the recording mechanism is lighter. See
 
 ---
 
-## 7. Verdict recording
+## 8. Verdict recording
 
 When a gate evaluates, the runner appends one entry to the
 [`evidence.ledger`](./state_model.md#evidence-ledger):
@@ -322,6 +420,9 @@ When a gate evaluates, the runner appends one entry to the
 | `artifact_path` | the path the evidence was written to |
 | `rationale` | a string explaining why the verdict was reached |
 | `verifier` | who graded: `agent`, `subagent`, `user`, or `script` |
+| `assurance` | verdict provenance: `external`, `blind`, or `self_attested` |
+| `success_criteria_id` | optional citation to a `loop.plan.success_criteria[].id` |
+| `overrides_entry_id` | optional `entry_id` of a prior verdict this entry overrides |
 | `recorded` | ISO-8601 timestamp |
 | `entry_id` | a unique id for the ledger entry |
 
@@ -331,9 +432,16 @@ a new entry; each evaluator-optimizer iteration writes a new entry;
 cache hits cite the prior entry's `entry_id`. Entries are append-only;
 corrections are new entries that record the supersession.
 
+When `success_criteria_id` is present, R45 deterministically checks whether the
+cited criterion id exists in the plan. This is reference validity only: a
+resolving citation does not license the conclusion that the criterion is
+satisfied, met, or demonstrated by the evidence. The field remains optional;
+the validator neither requires every entry to cite a criterion nor infers
+coverage from citation presence.
+
 ---
 
-## 8. Filesystem realisation
+## 9. Filesystem realisation
 
 | gate kind | artifact path (relative to `runs/<run-id>/`) |
 |-----------|---------------------------------------------|

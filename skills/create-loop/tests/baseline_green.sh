@@ -48,6 +48,16 @@ assert_command "templates/evidence.ledger.yaml failed evidence-ledger validation
   python3 scripts/validate_loop_plan.py --kind evidence_ledger templates/evidence.ledger.yaml
 assert_command "templates/checkpoint.yaml failed checkpoint validation" \
   python3 scripts/validate_checkpoint.py templates/checkpoint.yaml
+# Must list EVERY template that has a --kind: an omitted template can violate an
+# enforced rule and still leave this gate green.
+for pair in "artifact_index:artifact.index.yaml" "claim:claim.yaml" \
+            "event_log:event_log.yaml" "loop_meta:loop.meta.yaml" \
+            "loop_state:loop.state.yaml" "loops_index:loops.index.yaml" \
+            "node_runtime:node.runtime.yaml"; do
+  kind="${pair%%:*}"; file="${pair#*:}"
+  assert_command "templates/$file failed $kind validation" \
+    python3 scripts/validate_loop_plan.py --kind "$kind" "templates/$file"
+done
 echo "BASELINE TEMPLATES OK"
 
 echo "== Worked examples =="

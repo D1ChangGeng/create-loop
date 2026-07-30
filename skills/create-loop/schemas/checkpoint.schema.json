@@ -21,6 +21,7 @@
     "next_suggested_action",
     "open_assumptions",
     "event_log_ref",
+    "last_event_seq",
     "evidence_ledger_ref",
     "cost_units_spent",
     "iteration"
@@ -136,6 +137,11 @@
     "event_log_ref": {
       "type": "string",
       "description": "Path to the append-only event log (deterministic replay)."
+    },
+    "last_event_seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Maximum event_log entry seq incorporated into this snapshot. On resume, compare it with the log maximum to decide whether replay may be skipped or only the tail must be replayed."
     },
     "evidence_ledger_ref": {
       "type": "string",

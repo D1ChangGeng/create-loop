@@ -65,7 +65,7 @@ rejected (R26). To legitimately change the goal, add a new `plan_history` entry
 |-------|------|----------|-------------|
 | `max_iterations` | int | yes | Hard cap on loop iterations (see checkpoint `iteration` in [`state_model.md`](./state_model.md#checkpoint-fields)). |
 | `max_wall_clock_hours` | number \| null | yes | Wall-clock budget in hours, or `null` for unbounded. |
-| `max_cost_units` | number \| null | yes | Budget in abstract cost units, or `null` for unbounded. Tracked against checkpoint `cost_units_spent`, which is reconciled from the event log (so a crash cannot roll the counter back). One cost unit ≈ one activity / LLM call; each node accrues into `node.contract.cost_units`. |
+| `max_cost_units` | number \| null | yes | Budget in abstract cost units, or `null` for unbounded. Tracked against checkpoint `cost_units_spent`, which is **snapshot-carried**: no event field records cost, so a checkpoint lost after a paid effect undercounts spend. One cost unit ≈ one activity / LLM call; each node accrues into `node.contract.cost_units`. |
 | `done_when` | string | yes | The single overriding done condition, typically "all `success_criteria` met and all top-level nodes `completed`". |
 | `max_depth` | int | yes | Maximum child-loop recursion depth (a top-level loop is depth 0). The validator rejects a plan whose declared `child_loops` nest deeper than this (rule R28) — bounds unbounded recursion. |
 | `max_child_loops` | int | yes | Maximum total number of directory-materialized child loops the whole tree may spawn. Enforced statically (R28) and at spawn time against the reconciled counter. |
@@ -108,6 +108,11 @@ edges are modelled implicitly through the `requires` field
 | `assignee` | enum | yes | Who executes the node: `agent`, `user`, or `subagent`. |
 | `notes` | string | yes | Free-form notes. May be `""`. |
 
+**Required-field boundary (R5).** The 21-field contract requires each key to be
+present; presence is not sufficiency. R5 inspects key presence only. Whether a
+field's content is adequate is a semantic judgment the runner must make and
+record.
+
 ---
 
 ## 3. Edges are artifact dependencies
@@ -136,13 +141,23 @@ descriptive labels for how edges/nodes behave, not extra fields.
 | `command` | `Command(update=…, goto=…)` | a node that updates state **and** routes to a successor in one return |
 | `fanout` | `Send` / map-reduce | a `fanout` node dispatching parallel work, merged by a `join` node |
 
+The canonical worked use of a `fanout` (typically inside a `mapper` node's
+runtime subgraph, §6.6) is the **design tournament** — N candidate designs
+produced in isolated contexts with planned casualties, merged by a `join`
+whose blind reviewer selects one. Mechanism:
+[`branching_parallelism.md` §4.4](./branching_parallelism.md#44-the-design-tournament-a-fanout-with-planned-casualties).
+
 ---
 
 ## 4. Evidence gates
 
 Every non-trivial node carries a `gate`. A node **cannot** transition to
-`completed` until its gate passes. A failing gate sends the node to
+`completed` until its gate passes with completion-authorizing provenance, or a
+`human_approval` gate passes. A failing gate sends the node to
 `verification_failed` (see [`state_model.md`](./state_model.md#state-transition-table)).
+Gate kind and evidence assurance are orthogonal: kind records **what was
+checked**, while the ledger entry's `assurance` records **where the verdict came
+from**. See [`state_model.md` §evidence-ledger](./state_model.md#evidence-ledger).
 
 ### 4.1 `gate` object
 
@@ -396,6 +411,13 @@ between tiers are defined in
 ### `verifier` enum (4) — defined in [`state_model.md`](./state_model.md#evidence-ledger)
 
 `agent`, `subagent`, `user`, `script`
+
+### `assurance` enum (3) — defined in [`state_model.md`](./state_model.md#evidence-ledger)
+
+`external`, `blind`, `self_attested`. This is evidence provenance, not a ninth
+gate kind and not a node status. `provisional` is the standing of passing
+`self_attested` evidence; it is not a 16th status and can never satisfy
+`termination.done_when`.
 
 ### Durability primitives
 

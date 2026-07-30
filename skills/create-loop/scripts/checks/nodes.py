@@ -17,7 +17,11 @@ from checks.graph import check_graph
 
 
 def check_node_fields(node: Any, scope: str, errors: list[str]) -> None:
-    """Hand-rolled per-node structural + enum checks (R4, R5, R7, R8)."""
+    """Run per-node structural and enum checks (R4, R5, R7, R8).
+
+    R5 checks required-key presence only. It does not license any conclusion
+    that a present field's content is adequate, correct, or sufficient.
+    """
     if not isinstance(node, dict):
         errors.append(f"[R5 MISSING REQUIRED FIELD] {scope}: node is not a mapping")
         return
@@ -29,7 +33,9 @@ def check_node_fields(node: Any, scope: str, errors: list[str]) -> None:
         if field not in node:
             errors.append(
                 f"[R5 MISSING REQUIRED FIELD] {label}: missing required field "
-                f"{field!r}"
+                f"{field!r}; this checks required-key presence only and does "
+                "not license any conclusion that present field content is "
+                "adequate, correct, or sufficient"
             )
 
     # R4: status enum.

@@ -14,8 +14,9 @@ state machine and status enum, see
 `create-loop` runs across sessions, hosts, and process lifetimes. Any
 fresh agent must be able to continue the work correctly without any
 prior chat memory, the prior agent's intent, or an in-process "cursor".
-The checkpoint on disk is the only source of truth. Every mechanism in
-this document exists to make that statement true.
+Nothing outside the durable files on disk may be trusted, and no single
+file speaks for the whole loop: authority is **per field**, not per file
+(§6.0). Every mechanism in this document exists to make that true.
 
 The durability primitives we rely on come from
 [`./research_durable_loops.md`](./research_durable_loops.md) (Temporal,
@@ -65,12 +66,17 @@ Read, in this order:
 
 ### Step 3. Verify evidence and consistency
 
-For every node marked `completed` in `node_states`, a matching
+For every node marked `completed` in `node_states`, a matching **active**
 [`evidence.ledger`](./state_model.md#evidence-ledger) entry must exist
-at `node.contract.evidence_ref` with `verdict == pass`. If a `completed`
-node lacks passing evidence, demote it to `verifying` so its `gate`
-re-runs. The ledger wins over the checkpoint; the checkpoint is not
-trusted over recorded evidence.
+at `node.contract.evidence_ref` with `verdict == pass` **and** declared
+completion-authorizing provenance — `assurance: external`, or
+`gate_kind: human_approval`. A passing `self_attested` or `blind` entry is
+provisional and does not authorize `completed`
+([`evidence_gates.md` §4](./evidence_gates.md#4-the-orthogonal-assurance-axis)).
+If a `completed` node lacks such an entry, demote it to `verifying` so its
+`gate` re-runs. The ledger wins over the checkpoint; the checkpoint is not
+trusted over recorded evidence. This reads declared fields only — it does
+not establish that the evidence content is adequate or correct.
 
 Then verify internal consistency:
 
@@ -180,9 +186,13 @@ classified as `workflow` are replayed freely. Tool calls classified as
 
 ### 3.2 Canonical write-ahead ordering
 
-The `event_log` is the **PRIMARY source of truth**; the checkpoint and its
-counters are DERIVED. Every node advance writes in this exact order so a crash
-at any point is recoverable:
+The `event_log` is the authority for **what happened** — recorded effects and
+status transitions. The checkpoint's status fields are derived from it plus the
+plan and ledger ([`state_model.md` §The canonical checkpoint
+projection](./state_model.md#the-canonical-checkpoint-projection)); its
+`iteration` and `cost_units_spent` counters are **not** — no event field carries
+them. Every node advance writes in this exact order so a crash at any point is
+recoverable:
 
 1. Append a **`pre_effect`** entry to the `event_log` (`{seq, node_id,
    from_status, to_status, phase, intent, idempotency_key, ts}`). `seq` is
@@ -218,12 +228,24 @@ never contradictory.
 
 ### 3.2.2 Reconciliation on resume
 
-Rebuild the derived state from the log, not the (possibly stale) checkpoint:
-replay the `event_log` in `seq` order and recompute `node_states`,
-`cost_units_spent`, `iteration`, and each node's `attempt`. If the recomputed
-values disagree with the loaded checkpoint, the **log wins** — write the
-reconciled values into the next checkpoint. This is why a lost checkpoint write
-cannot silently roll back the budget counters (Oracle F8).
+Rebuild what is genuinely derivable; carry the rest forward. Replay the
+`event_log` in `seq` order and recompute the projection defined in
+[`state_model.md` §canonical checkpoint projection](./state_model.md#the-canonical-checkpoint-projection).
+Where the recomputed projection disagrees with the loaded checkpoint, the
+**log plus ledger wins** — write the reconciled values into the next checkpoint.
+
+Two counters are **not** derivable and must be carried forward from the previous
+checkpoint: `iteration` and `cost_units_spent` have **no carrier field in the
+event schema**, so nothing in the log records them. A lost checkpoint therefore
+*does* lose budget accounting — and because both counters gate `termination`
+(`max_iterations`, `max_cost_units`, §2 step 5), a loop that loses its checkpoint
+loses its stopping condition and must re-establish those counters before
+dispatching further work. Treat that as a recovery blocker, not a rounding error.
+
+`attempt` is derivable only under a cardinality rule the protocol does not yet
+state (one node attempt writing exactly one `pre_effect`). Until it does, read
+`attempt` from `node.contract`, which the retry guard already treats as
+authoritative.
 
 ### 3.3 Non-determinism is the failure mode
 
@@ -361,8 +383,13 @@ first; any violation means enter recovery instead of advancing):
 
 Recompute `node_states` from the `evidence.ledger`:
 
-- For every ledger entry with `verdict == pass`, set the node's status
-  to `completed`.
+- For every active ledger entry with `verdict == pass` **and**
+  completion-authorizing provenance (`assurance == external`, or
+  `gate_kind == human_approval`), set the node's status to `completed`.
+- For every active passing entry whose declared `assurance` is
+  `self_attested` or `blind`, the evidence is non-authorizing: set the
+  status to `verifying`, not `completed`. Passing evidence alone does not
+  authorize completion (§4 of [`evidence_gates.md`](./evidence_gates.md)).
 - For every entry with `verdict` in `fail` or `inconclusive`, set the
   status to `verification_failed`.
 - For every node in the plan with no ledger entry, set the status to
@@ -370,8 +397,10 @@ Recompute `node_states` from the `evidence.ledger`:
 - Apply the topological readiness rule (§2 step 4) to derive the new
   `ready_set`.
 
-This produces a checkpoint that agrees with the ledger, which is the
-only source of truth.
+This produces a checkpoint whose `completed` set agrees with the ledger,
+which is authoritative for gate verdicts. It is not a claim that the
+verdicts are correct or that the work is adequate — those remain runner
+judgments (`SKILL.md` §17).
 
 ### 6.2 Missing ledger, intact checkpoint
 
