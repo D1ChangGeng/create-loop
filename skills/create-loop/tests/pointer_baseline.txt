@@ -1,0 +1,1 @@
+# Known acceptable dangling Markdown pointers, as source:line:target.
