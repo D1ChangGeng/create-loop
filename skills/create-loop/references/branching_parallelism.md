@@ -167,6 +167,97 @@ low inter-rater agreement is a signal to cancel low-value branches
 early and accept partial coverage. See §6 for the cancellation
 semantics.
 
+### 4.4 The design tournament: a `fanout` with planned casualties
+
+The canonical worked use of `fanout` / `join` is a **design tournament**:
+N competing designs are produced in isolated contexts, and exactly one is
+kept. The tournament is a usage pattern over existing machinery — it adds
+no node kind, no field, and no verdict type. It is typically materialised
+inside a `mapper` node's runtime subgraph
+([`loop_plan_spec.md` §6.6](./loop_plan_spec.md#66-subgraph-recursion-rule)):
+the `mapper` expands into a `fanout` of N candidate branches merged by a
+`join`, all of it `design_invariant: false`.
+
+**N respects the fan-out cap.** N is 3 to 5 candidates — the §4.2 cap
+applies to candidate count exactly as to any other fan-out. If the design
+space genuinely holds more than 5 defensible shapes, batch candidates in
+waves of ≤5 and carry each wave's winner into a final round (the §4.2
+batching rule); never fan out flat.
+
+**Each candidate is produced in isolation.** The three-part rule (§4.1)
+applies unchanged: each candidate subagent gets a self-contained task —
+the design brief and the selection criteria, never a sibling's candidate —
+its own per-branch working directory (§7.1), and a structured return. Two
+candidates that can see each other are not two candidates; they are one
+candidate with split attention (§7.3), and the tournament's premise —
+independent exploration of the design space — is void.
+
+**Planned casualties are the point, not waste.** Producing N designs to
+keep 1 is what the N× spend buys: the expectation that most candidates
+will die is what makes the exploration honest rather than
+first-idea-wins. A tournament whose author already knows which candidate
+will win is not a tournament; it is one design with N−1 expensive alibis.
+The casualties are planned at authoring time, which distinguishes them
+from §6 cancellation: every candidate branch runs to `completed` and
+produces its artifact, because the reviewer needs all N artifacts in
+hand. The N−1 losers die at selection, not by mid-flight cancellation.
+
+**Selection is blind.** The `join` records a selection strategy in its
+`notes` (the §5.1 reducer convention; the strategies listed there are
+common, not a closed enum): selection by a reviewer that sees the N
+candidate artifacts — under neutral labels — plus the selection criteria,
+but NOT which author produced which candidate, and NOT any author's own
+verdict or rationale. The criteria are the `join` gate's `rubric`. This
+is exactly `assurance: blind` from
+[`evidence_gates.md` §4](./evidence_gates.md#4-the-orthogonal-assurance-axis),
+recorded through the existing verdict-first procedure
+([`evidence_gates.md` §4.1](./evidence_gates.md#41-blind-verification-procedure-verdict-first)):
+the reviewer writes its selection verdict before it may read any producer
+claim. The reviewer is a separate context from every author
+(generator/verifier separation,
+[`evidence_gates.md` §1.1](./evidence_gates.md#11-generatorverifier-separation)).
+
+**The verdict's standing: the tournament chooses; it does not certify.**
+The selection verdict is appended to the existing evidence ledger as a
+`blind` entry on the `join` node, and the dispatch and selection are
+recorded in the existing event log — no new field, no new state. Per the
+authorization rule in
+[`evidence_gates.md` §4.1](./evidence_gates.md#41-blind-verification-procedure-verdict-first),
+`blind` evidence is non-authorizing: the selection verdict cannot by
+itself move the owning node to `completed`. Choosing a design and proving
+the design correct are different acts; the chosen design still faces the
+owning node's own gate like any other output.
+
+**Selection is a semantic judgment, never a count.** No count, score, or
+filled field decides which design wins (SKILL.md §17). The reviewer reads
+the candidates and argues the choice against the criteria; the argument
+is recorded in the ledger entry's `rationale`. The only mechanical facts
+available to a check are that the N candidate artifacts landed at the
+paths the `fanout` declared, and the verdict-first file ordering of
+`evidence_gates.md` §4.1 — which proves ordering only, never blindness.
+Neither fact licenses any conclusion about which design is right;
+adequacy of the choice remains the recorded judgment of the reviewer and
+the runner.
+
+**When to use it.** Genuine design forks: more than one defensible shape,
+and enough downstream cost riding on the choice to justify N× spend.
+Interface shapes, architecture commitments, data models, migration
+strategies — decisions whose wrong answer costs more than N−1 discarded
+explorations.
+
+**When NOT to use it.**
+
+- **The candidates would be near-identical.** If the brief admits one
+  obvious shape, N isolated authors return N copies of it and the spend
+  buys no exploration.
+- **The decision is cheaply reversible.** A tournament spends N× to avoid
+  a wrong commitment; if a wrong commitment costs one `local_patch`, take
+  the first reasonable path and keep the retry budget instead.
+- **A single external observation would settle it.** If a test,
+  benchmark, or API probe can answer the question, run the observation
+  and record `assurance: external` evidence; never substitute a vote for
+  a measurement.
+
 ---
 
 ## 5. Join and merge semantics
