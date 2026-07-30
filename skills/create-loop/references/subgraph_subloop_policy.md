@@ -397,7 +397,7 @@ The `node.runtime` validator enforces both (rule R25), so a subgraph cannot reac
 
 These MAY be added when a subgraph warrants richer tracking:
 
-`priority`, `risk_level`, `owner_agent`, `created_at`, `updated_at`,
+`priority`, `risk_level`, `created_at`, `updated_at`,
 `evidence_refs[]`, `decision_refs[]`, `attempt_count`, `max_attempts`.
 
 ### 8.2 `subgraph_id` pattern (LOCKED)
@@ -670,7 +670,7 @@ Terminal subgraph statuses: `completed`, `failed`, `promoted_to_subloop`,
   `nodes` (`{id, title, status, output}`), `edges` (`[from, to]` pairs),
   `completion_gate` (`{required_outputs[], pass_condition}`), `outputs`,
   `promotion_policy` (`{status, promote_to_subloop_if[]}`).
-- Optional enhancement fields: `priority`, `risk_level`, `owner_agent`,
+- Optional enhancement fields: `priority`, `risk_level`,
   `created_at`, `updated_at`, `evidence_refs[]`, `decision_refs[]`,
   `attempt_count`, `max_attempts`.
 
