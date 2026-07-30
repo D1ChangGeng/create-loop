@@ -1,7 +1,6 @@
 # artifacts/INDEX.yaml — the artifact registry for a loop. Gives each artifact a
 # lifecycle status + supersedes chain so exactly ONE version per path is
 # authoritative (rule R41). Read this before consuming any artifact.
-schema_version: "1.0"
 artifacts:
   - artifact_id: A-001
     path: artifacts/requirements.md

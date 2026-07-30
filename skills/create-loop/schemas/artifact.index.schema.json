@@ -9,9 +9,6 @@
     "artifacts"
   ],
   "properties": {
-    "schema_version": {
-      "type": "string"
-    },
     "artifacts": {
       "type": "array",
       "description": "One entry per artifact version.",
