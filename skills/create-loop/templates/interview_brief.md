@@ -57,19 +57,16 @@ short goal input
 
 ---
 
-## 1. Persona
+## 1. Phase-attached judgment prompts
 
-You are three things at once, and you act like all three at the same moment:
+Use these prompts at the stated moments. They allocate attention; they are not
+completion criteria to tick for credit.
 
-- A **control engineer**. You care about how the loop is *controlled*,
-  *constrained*, *recovered*, *verified*, and *evolved*. Not how the
-  solution is built.
-- A **systems architect of governance**. You translate vague intent into a
-  top-level `loop.plan` of design-invariant nodes (Discovery, Risk,
-  Feasibility, Architecture, Verification, and (only if
-  `deliverable_class == production_launch`) Release.
-- A **project lead who owns the schedule and the budget**. You will not
-  let the interview become a fishing expedition for implementation details.
+| When to ask | Judgment prompt |
+|---|---|
+| While capturing each answer | How must the loop be *controlled*, *constrained*, *recovered*, *verified*, and *evolved*, without deciding how the solution is built? |
+| Before emitting `loop.plan v0` | Does the vague intent map to design-invariant top-level nodes for Discovery, Risk, Feasibility, Architecture, Verification, and, only if `deliverable_class == production_launch`, Release? |
+| Before every follow-up question | Will this question materially affect the top-level control structure, schedule, or budget, or is it a fishing expedition for implementation details that belongs in a later subgraph? |
 
 You succeed when `task_profile.yaml` carries enough control information for
 a fresh session to author the top-level `loop.plan` **without** asking
@@ -154,6 +151,23 @@ later subgraphs and routed to an owner node.
 > interrogated. The same rule covers any question whose only honest
 > answer is "it depends"; those go to a `subgraph` that explores and
 > surfaces a defensible recommendation.
+
+> **External-knowledge acquisition is research, not recall.** When the
+> loop needs a fact about an unfamiliar library, API, framework,
+> version-specific behavior, or anything the repo cannot verify from
+> inside itself, the loop MUST acquire the fact against a primary
+> source **in this run** — execute a probe, read the installed source
+> at a cited path, or fetch the upstream doc and capture the
+> response — and record the observation as an artifact. Model recall is
+> never `assurance: external` evidence, no matter how confident the
+> assertion sounds; only an artifact captured this run qualifies. The
+> full procedure (triggers, primary-vs-recall discriminator,
+> mandatory verification action, ledger entry shape) lives in
+> [`references/execution_intelligence_policy.md` §3.9](../references/execution_intelligence_policy.md#39-acquire-external-knowledge-by-executing-against-primary-sources).
+> The interviewer therefore MUST NOT ask "which library should we use?"
+> or "what does API X return in version Y?" — those flow into a
+> `subgraph` that follows §3.9 and emits the external-evidence ledger
+> entry the parent node needs.
 >
 > **What the interview SHOULD ask instead.** The interview is for
 > *boundaries* and *authorization*, not designs. Good probes take the

@@ -12,8 +12,8 @@ inside-one-node immersive execution.*
 > and advances.
 
 *Diataxis type: **explanation + reference**. This document names the execution
-**rhythm** of `create-loop`: how the runner moves between an architect's
-whole-graph view and an engineer's inside-one-node view, when a node spawns a
+**rhythm** of `create-loop`: how the runner moves between the whole-graph
+planning view and the inside-one-node execution view, when a node spawns a
 subgraph or a subloop, and how sub-level results are written back so the parent
 can re-plan. It explains **when** and **how** to switch levels; it does not
 redefine any field, status, gate kind, tier, or ladder rung — those are owned by
@@ -85,13 +85,14 @@ the parent re-evaluates and keeps advancing.
 
 ## 2. Two working views
 
-Different levels of the work call for different roles. The runner deliberately
-adopts the view the current level needs.
+Different levels of the work require different questions. Use each row as a
+judgment prompt at its stated phase, not as a completion criterion to tick for
+credit.
 
-| view | role it plays | it focuses on |
-|------|---------------|---------------|
-| **global / planning view** | architect · project lead · layout designer | Is the top-level goal clear? Which nodes are design-time-invariant, mandatory gates? Are there real produces/requires artifact dependencies between nodes? What can run in parallel; what must be serial? Which nodes need an evidence gate? Which risks, permissions, and human-decision boundaries must be controlled up front? |
-| **local / execution view** | executor · researcher · engineer · verifier | What is this node's real purpose? Are its inputs trustworthy enough? How should the work inside it actually be done? Is there an omission, contradiction, hole, weak assumption, or hidden risk? Does it need a light subgraph? Should it be promoted to an independent subloop? Do the outputs satisfy the parent's evidence gate? Should the result be written back to the parent's plan, state, evidence, or decision log? |
+| view | when to ask | judgment questions |
+|------|-------------|--------------------|
+| **global / planning view** | When building or refreshing the current level's control graph, before selecting the next ready node. | Is the top-level goal clear? Which nodes are design-time-invariant, mandatory gates? Are there real produces/requires artifact dependencies between nodes? What can run in parallel; what must be serial? Which nodes need an evidence gate? Which risks, permissions, and human-decision boundaries must be controlled up front? |
+| **local / execution view** | When entering a ready node, again when local complexity appears, and before returning its result to the parent. | What is this node's real purpose? Are its inputs trustworthy enough? How should the work inside it actually be done? Is there an omission, contradiction, hole, weak assumption, or hidden risk? Does it need a light subgraph? Should it be promoted to an independent subloop? Do the outputs satisfy the parent's evidence gate? Should the result be written back to the parent's plan, state, evidence, or decision log? |
 
 The global view builds and maintains the **control structure**; the local view
 produces **verified work**. The whole method is switching between them at the
@@ -266,10 +267,10 @@ write back (closeout)  = return verified products/evidence/decisions to the pare
 
 This principle introduces no new statuses, kinds, gates, tiers, or ladder rungs.
 It is the disciplined **usage pattern** that lets a stable top-level structure
-complete a complex goal through repeated, evidence-constrained descents — the way
-a strong team establishes a top structure, sends specialists deep into the hard
-parts, spins off workstreams when local work turns complex, and returns results,
-evidence, risks, and decisions to the whole plan so it can move forward.
+complete a complex goal through repeated, evidence-constrained descents: establish
+the top structure, investigate the hard parts deeply, open workstreams when local
+work turns complex, and return results, evidence, risks, and decisions to the
+whole plan so it can move forward.
 
 ---
 
