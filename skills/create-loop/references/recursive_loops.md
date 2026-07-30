@@ -49,7 +49,8 @@ shape holds at every level of recursion ([§5](#5-the-isomorphic-per-loop-direct
 
 The parent references the child by **path + return contract**, never by
 embedding the child graph inline. Child loops may recursively spawn further
-child loops using the same directory convention, to arbitrary depth. A child
+child loops using the same directory convention, bounded by `termination.max_depth`
+([`loop_plan_spec.md`](./loop_plan_spec.md), rule R28). A child
 loop **MUST NOT** mutate parent state directly except through an explicit
 merge / return / gate-update protocol — the `return_contract`
 ([§7](#7-return_contract-and-closeoutmd-the-return-interface)) and the isolation

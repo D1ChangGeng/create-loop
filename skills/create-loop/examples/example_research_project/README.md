@@ -75,12 +75,12 @@ materialise as the isomorphic subgraph inside `N5_experiment_or_analysis`
 | `N6b_route_on_findings` | branch | `self_consistency` 0.8 | route agreement |
 | `N7_synthesis` | milestone | `evaluator_optimizer` 0.85 | generate→critique→revise |
 | `N8_peer_review` | gate | `llm_judge` 0.9 | peer-review rubric (`on_failure: replan`) |
-| `N9_recommendation_approval` | approval | `null` | approval self-gates via its human_approval handoff |
+| `N9_recommendation_approval` | approval | `human_approval` | human sign-off on the recommendation |
 | `S5d_validate_result_C` | join | `step_verifier` 0.85 | merged-result validation |
 
-The **approval gate** is `N9_recommendation_approval` — its `gate` is `null`
-because `approval` nodes are gate-exempt (they self-gate through the human
-handoff surfaced in `checkpoint.pending_approvals`).
+The **approval gate** is `N9_recommendation_approval` — its gate has
+`kind: human_approval`, which suspends for the human handoff surfaced in
+`checkpoint.pending_approvals`.
 
 ## How to resume from the checkpoint
 
