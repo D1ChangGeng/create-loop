@@ -632,13 +632,6 @@
               "type": "string",
               "description": "Human-readable justification."
             },
-            "retired_at": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "description": "ISO-8601 timestamp."
-            },
             "superseded_by": {
               "type": [
                 "string",
