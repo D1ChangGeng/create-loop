@@ -116,7 +116,7 @@ While advancing any node, the runner should actively:
 
 ---
 
-## 3. The eight high-ceiling behaviors
+## 3. The ten high-ceiling behaviors
 
 These are the concrete disciplines the default temperament decomposes into.
 
@@ -259,6 +259,305 @@ assign confidence → promote to self-evolution
 so the system gets *stronger* across runs instead of starting from zero. See
 [`self_evolution_integration.md`](./self_evolution_integration.md) for the
 promotion mechanics and confidence gate.
+
+### 3.9 Acquire external knowledge by executing against primary sources
+
+The skill names research as a behavior but the gap it leaves open is the most
+common failure mode for technical work: a confident claim about an external
+library, API, or framework that is actually model recall dressed up as fact.
+"Research" is not "remembered". Recall is what the model already believed before
+the loop started; primary-source acquisition is what the model *did* in this run
+to ground a claim in something outside the repo. Only the second one is
+`assurance: external` evidence under the rules in
+[`evidence_gates.md` §4](./evidence_gates.md#4-the-orthogonal-assurance-axis). No
+amount of confidence in the model's own memory converts recall into external
+assurance, and no validator can do that conversion because no validator can see
+inside the model's memory.
+
+#### 3.9.1 WHEN external knowledge is required
+
+Acquire against a primary source when **any** of the following holds for a
+claim that materially affects the outcome:
+
+- The subject is an unfamiliar library, API, framework, CLI, or service
+  surface that the runner has not used in this loop before.
+- A version-specific behavior is in play: a flag, default, deprecation, or
+  shape that changed between releases.
+- The claim cannot be verified from inside the repo (no installed copy,
+  no vendored source, no fixture, no test).
+- The claim contradicts something the runner has asserted earlier in the
+  same run — re-grounding it is cheaper than letting the contradiction
+  compound.
+- A high-impact node (`risk: high`, an irreversible action, or anything
+  crossing a §3 boundary) depends on the claim.
+
+Routine work that the repo already covers (its own code, its tests, its
+fixtures, its installed dependencies whose version is pinned) does **not**
+require external acquisition. Recall is acceptable there.
+
+#### 3.9.2 Distinguish a PRIMARY source from a RECALLED one
+
+A claim is **primary-sourced** when the runner fetched or executed it **in this
+run** and recorded the observation. A claim is **recalled** when the runner is
+asserting what it already believed before the run started, regardless of how
+confident the assertion sounds. The discriminator is mechanical, not
+introspective: did the run produce a fresh artifact (a captured command output,
+a fetched doc, a cited file path on disk) that the next agent can re-read
+without trusting the producer? If yes, it is primary. If no, it is recall.
+
+This rule is non-negotiable even when the recall happens to be correct.
+`self_attested` is provisional evidence under
+[`evidence_gates.md` §4](./evidence_gates.md#4-the-orthogonal-assurance-axis);
+it has no authority to authorize `completed`. Do not record a recall claim as
+`assurance: external`. Do not record it as any assurance at all: if there is
+no fresh artifact, there is no ledger entry.
+
+#### 3.9.3 VERIFY by executing against the source
+
+The mandatory verification action is to **run a concrete command against the
+thing being claimed and capture what it returns**, not to assert what one
+expects it to return. At least one of the following concrete actions must be
+executed and its output recorded to disk as the evidence artifact:
+
+- **Run the actual call** in the host's runtime and capture the exit code plus
+  structured stdout/stderr. Example shape (adapt to the runtime in use):
+
+  ```bash
+  python -c "import foo; print(foo.bar('x'))" \
+    > evidence/<node-id>/probe.stdout 2> evidence/<node-id>/probe.stderr
+  echo "exit=$?" >> evidence/<node-id>/probe.stdout
+  ```
+
+  The recorded `exit` code plus captured stdout/stderr is the artifact. The
+  ledger cites the path.
+
+- **Read the installed package's own source or type signature** at a cited
+  path on disk. Locate it first (the path is part of the artifact, not just a
+  hint), then read it:
+
+  ```bash
+  python -c "import foo, inspect; print(inspect.getsourcefile(foo))" \
+    > evidence/<node-id>/src_path.txt
+  cat "$(cat evidence/<node-id>/src_path.txt)" \
+    > evidence/<node-id>/src_excerpt.txt
+  ```
+
+  The cited path plus the excerpt is the artifact. The runner records both
+  the path and the relevant lines (with line numbers) it leaned on.
+
+- **Fetch the upstream documentation** at a stable URL and capture the
+  response, including the URL, the HTTP status, and the rendered text. The
+  URL plus the captured text is the artifact.
+
+In every case the artifact must be **stronger than mere file existence**
+(see [`evidence_gates.md` §4](./evidence_gates.md#4-the-orthogonal-assurance-axis)
+warning that `artifact_exists` is the weakest external observation). A captured
+exit code, a captured stdout payload, or a quoted source excerpt are content
+observations, not path observations. Path-only "the file is there" does not
+satisfy this procedure.
+
+The verification action must be **reproducible by a fresh agent without
+trusting the producer**: the recorded command (or its exact equivalent), the
+recorded runtime version, and the recorded input arguments must be enough to
+re-run it and reach the same observation. If a fresh agent could not reproduce
+the recorded output from what the rationale says, the artifact is not external
+assurance, it is hearsay.
+
+#### 3.9.4 ENTER the finding into the evidence ledger
+
+When the verification action produces an artifact, append **one** ledger entry
+to `evidence.ledger.yaml` with the schema-valid field set from
+[`schemas/evidence.ledger.schema.json`](../schemas/evidence.ledger.schema.json)
+(locked byte-for-byte per
+[`state_model.md` §evidence-ledger](./state_model.md#evidence-ledger)). The
+fields that must be set:
+
+| field | value | why |
+|---|---|---|
+| `node_id` | the node that depends on the external claim | the entry gates that node |
+| `gate_kind` | `automated_check` (for a script probe) or `test` (for a CodeAct test run); never `artifact_exists` alone | the gate kind must match the content the script inspected |
+| `verdict` | `pass` only when the observation matches the claim; `fail` or `inconclusive` otherwise | recall-conformant assertions are not `pass` |
+| `artifact_path` | the on-disk path to the captured output (the probe transcript, the source excerpt, or the fetched doc text) | the artifact is the proof |
+| `verifier` | `script` (when the probe was a script), `user` (when the probe was a human fetch + quote), or `subagent` (when an isolated subagent ran it) — never `agent` for the producing node | generator/verifier separation, per [`evidence_gates.md` §1.1](./evidence_gates.md#11-generatorverifier-separation) |
+| `assurance` | `external` | the only assurance class that authorizes `completed` together with `human_approval` |
+| `rationale` | the exact command run, the runtime/version, the input arguments, the observed output (quoted), **and an explicit statement of what this evidence does NOT establish** (version drift beyond the inspected version, undocumented behaviors, environmental differences, transitive-dependency changes) | the rationale is the only place that records the limitation; the schema cannot enforce it |
+| `recorded` | ISO-8601 timestamp at the moment the observation was captured | append-only ordering |
+| `entry_id` | a unique id for this ledger entry | lookup |
+| `score` | `null` for pass/fail gates; a number for scored gates if used | schema conformance |
+| `status` | `active` | only active evidence may back an active gate (R38) |
+| `success_criteria_id` | (optional) citation to `loop.plan.success_criteria[].id` if the external claim maps to one | reference validity only, per R45 |
+
+The rationale field is load-bearing. Two statements are mandatory in it: (a)
+**what was observed**, with the exact command and the captured output quoted;
+(b) **what this evidence does not establish** — version drift past the
+inspected version, the behavior of related-but-different versions,
+undocumented corner cases, transitive dependencies that changed. Recording the
+boundary of the claim is the only defense against the runner treating a
+single probe as universal knowledge.
+
+The validator inspects only the declared fields; it does not license that the
+evidence is adequate, correct, or sufficient (see
+[`SKILL.md` §17](../SKILL.md) and
+[`evidence_gates.md` §4](./evidence_gates.md#4-the-orthogonal-assurance-axis)).
+Whether the captured output actually proves the claim remains a runner-side
+semantic judgment, and it must be recorded in the rationale and surfaced in
+the node's `run.log.md` or `decision.log.md` entry.
+
+#### 3.9.5 Anti-patterns
+
+- **Model recall dressed as external evidence.** Stating "the docs say X" or
+  "as of version Y, this returns Z" without an artifact from this run is
+  recall, not acquisition. Do not write a ledger entry for it.
+- **`artifact_exists` as the sole authorization** for an external-knowledge
+  node. The path exists; the claim is unverified. Pair with a content gate.
+- **Producer grading its own work.** The node that needed the claim is the
+  wrong verifier. Use `script`, `subagent`, or `user` per §1.1 of
+  `evidence_gates.md`.
+- **Conflating "I fetched the URL" with "I read the relevant section."** A
+  fetch that captures megabytes of HTML does not prove the runner grounded
+  the specific claim. Cite the section, quote the lines, record the offset.
+- **Re-recording the same external claim as a new entry every retry.** Each
+  new entry must be a fresh observation; if the underlying artifact has not
+  changed, the previous entry's `entry_id` is cited via `supersedes` rather
+  than rewritten from scratch.
+- **Skipping the "does not establish" half of the rationale.** A rationale
+  that only states what was observed smuggles recall in through the back
+  door. The boundary is the part that prevents over-claiming.
+
+### 3.10 Produce an executable design before building
+
+The policy names the absence of a design step as a failure mode ("mechanical
+execution ships shallow, formally-passing work", §3.1) but the gap it leaves
+open is the most common failure mode of *implementation* nodes: code that
+"works" but is shaped wrong, with seams drawn through the middle of data
+structures and assumptions no one wrote down. The runner fills this gap by
+**committing an executable technical design to a file before the
+implementation node runs**, against
+[`templates/design_brief.md`](../templates/design_brief.md).
+
+The brief is the *file*; this subsection is the *procedure* that fills it.
+The procedure is what turns "design" from a vague notion into a sequence the
+runner can act on, the next session can read, and the gate can verify the
+*shape* of — even though only the runner can verify the *quality* of the
+contents (see the rationale below).
+
+#### 3.10.1 WHEN a design brief is required
+
+Write a fresh design brief whenever any of the following holds for a node
+about to produce non-trivial code, configuration, schema, or API surface:
+
+- The node is `mapper`, `milestone`, or `gate` with `risk: med|high`.
+- A discovery or architecture subgraph is being collapsed into a concrete
+  plan and the reasoning must be committed before the implementation
+  inherits it.
+- A `replan` is in progress and the new design must be on disk before the
+  old one is retired, so the diff is auditable.
+- A `human_approval` gate is requested and the human needs more than a
+  one-line rationale to sign off.
+- A child subloop is being promoted and the parent needs the child's design
+  before integrating it.
+
+For trivial work (a single-file edit, a one-line bug fix, a comment
+clean-up) skip the brief. The overhead is proportional to the design's
+complexity; for trivial work it is pure waste.
+
+#### 3.10.2 The three required sections (the brief's spine)
+
+The filled-in brief must cover D1, D2, and D3 — see
+[`templates/design_brief.md`](../templates/design_brief.md) for the field
+shapes. They are the brief's spine and they answer three different
+questions:
+
+- **D1 Interfaces at clean seams** — *what crosses each seam?* For every
+  module, the interface the caller sees and the implementation the caller
+  does not see. Use deep-module vocabulary: a deep module has a small
+  interface over a substantial implementation; a shallow module is a
+  pass-through. The seam is where the design draws the line.
+- **D2 Data flow** — *where does state live and who owns it?* For every
+  piece of state, where it is born, where it is transformed, where it ends,
+  and which single module owns it. Two owners of one piece of state is a
+  design smell.
+- **D3 Falsifiable assumptions** — *what could be wrong and how would we
+  know?* For every belief the design depends on, including the implicit
+  ones, the concrete failure mode, the verification method, and the trigger
+  if the verification fails. An assumption with no verification method is
+  not admissible — drop it, rewrite it, or escalate.
+
+Every design element SHOULD cite the `success_criteria_id` it serves
+([`loop_plan_spec.md` §1.1](./loop_plan_spec.md#11-success_criteria-entry)).
+A design element with no traceable citation is either redundant or
+unnecessary; the runner should drop it on review, not bless it.
+
+#### 3.10.3 The validator / runner split (this is the hard part)
+
+A design brief is a *structural* artifact. A validator can read that the
+file exists, that it has three sections, and that each section is filled in
+(presence, not adequacy). **A validator cannot read whether the design is
+clean, the data flow is sound, or the assumptions are actually falsifiable.**
+Those are semantic judgments — see
+[`SKILL.md` §17](../SKILL.md). The runner carries the quality judgement and
+records it (typically in the `decision.log.md` and the brief's own `status`
+field moving from `draft` to `approved`). This is the same division of
+labor as every other gate in the system: programs verify computable
+low-level facts; the runner judges what those facts mean.
+
+Concretely: the brief being *filled in* is not the brief being *good*. A
+brief that lists three interfaces, a data flow, and ten assumptions has
+passed the *floor* — the brief exists. It has not yet passed the *ceiling*
+(§3.6) — the brief is sound. The runner's review of the brief is the
+upkeep of the high-ceiling discipline; the brief's structure is the
+upkeep of the formal discipline.
+
+#### 3.10.4 The five-step procedure
+
+The procedure a runner follows when applying this behavior:
+
+1. **Decide if a brief is required** per §3.10.1. If trivial, skip.
+2. **Draft the brief** filling D1, D2, D3 against the current node's
+   `produces` list. Each interface, data-flow edge, and assumption carries
+   a `success_criteria_id` citation or an explicit escalation explaining
+   why the element does not trace to a contract criterion.
+3. **Self-review against the brief's own completion criteria.** For each
+   marked element, verify: does the interface actually hide what it claims
+   to hide? does the data flow name a single owner? does the assumption
+   have a verification method that can run before ship? Drop or rewrite
+   anything that fails.
+4. **Commit the brief to disk** under the node's `produces` path and
+   record an evidence-ledger entry tying the brief to the node's gate
+   (`gate_kind: artifact_exists` is the *minimum*; pair it with
+   `llm_judge` or `human_approval` when the brief is high-impact).
+5. **Run the runner's quality review** — the brief's `status` moves from
+   `draft` to `reviewed` to `approved` as the runner (and, for
+   high-impact, a human) judges the design. The node may not advance to
+   `completed` on the basis of the brief alone; the gate's verdict is what
+   authorizes completion.
+
+#### 3.10.5 Common failure modes
+
+- **Skipping the brief because the design "is obvious".** It is never
+  obvious to a fresh session. The brief is the bridge between the runner
+  who designed it and the runner who will read it; without it, every
+  re-derivation costs more than the brief would have.
+- **Decorative D1 entries** that list a method signature without naming
+  what is *hidden*. The whole point of the deep-module framing is the
+  hide/show asymmetry; an entry that only documents what is exposed is a
+  stub masquerading as a design.
+- **D2 with no ownership column.** A data flow that names every step but
+  says nothing about who owns the state is a sequence diagram, not a
+  design. Two modules mutating the same state is a design bug that
+  ownership semantics would have caught.
+- **D3 with no verification method.** An assumption that says "we will
+  verify this in production" is not admissible. Verification must be
+  possible *before* the design ships; if it is only possible after, the
+  assumption is a wish, not a design input.
+- **No `success_criteria_id` citation.** A design element that does not
+  trace to a contract criterion is scope creep in uniform. The runner
+  must drop these on review, not bless them — the goal contract is the
+  only thing the design is *for*.
+- **Treating the brief as the design review.** The brief is the artifact
+  that gets reviewed, not the review itself. A filled-in brief is a
+  prerequisite for design review (the runner's quality ceiling), not a
+  substitute.
 
 ---
 
