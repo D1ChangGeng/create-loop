@@ -27,15 +27,34 @@ Run the integrity gate — `python3 skills/create-loop/scripts/check_loop_integr
 - after every node completion;
 - after every state mutation.
 
-Then advance per node:
+Then advance per node through the same three Mode B phases:
 
-1. Read the latest `checkpoint.yaml` (plus node contract and evidence ledger).
-2. Pick a ready node — respect the readiness rule and the per-node claim/lease
-   (skip nodes that are live or delegated).
-3. Execute the node.
-4. Evaluate its evidence gate.
-5. Append evidence to `evidence.ledger.yaml` and the `event_log`.
-6. Write the new `checkpoint.yaml` LAST (durable snapshot, never in-memory).
+**ORIENT (read-only): reconstruct the decision context without changing any
+artifact.** Re-read the goal contract at the mandatory dispatch read point;
+recompute the frontier from `requires` + `node_states` instead of trusting the
+stored `ready_set`; apply parallel dispatch and priority ordering; choose the
+node; read its contract and the ledger. Do not write or acquire a claim here.
+
+**WORK (engineering): perform and verify the real work under the idempotency
+bracket.** Acquire the per-node claim/lease when claims are in use. Append
+`pre_effect` before the side effect with its `idempotency_key`; skip execution
+when that key is already recorded. Execute the node. Before any plan edit,
+re-read the goal contract at the mandatory mutation read point, append its typed
+`mutation` event, then edit. Append `post_effect` after the side effect with
+`outcome` + `result_hash`. Re-read the goal contract at the mandatory
+verification read point, then evaluate the gate by semantic review, never from
+a filled field or validator result alone.
+
+**COMMIT (append-only, then regenerate): record each fact once and derive the
+resume projection.** Append the evidence-ledger entry and commit the status
+transition from it; append a `dissent` event only when R48 requires one. Re-read
+the goal contract at the mandatory termination read point before declaring
+`done_when`, then recompute the frontier. Regenerate the complete
+`checkpoint.yaml` from the plan, event log, and ledger, and write it LAST by
+temporary file plus atomic rename; reconcile counters from the event log. A
+mutation-free, dissent-free advance mandates four control-state writes: the
+`pre_effect`, `post_effect`, and evidence appends, plus atomic checkpoint
+regeneration. COMMIT performs at most three appends before regeneration.
 
 Follow the skill's Mode B loop exactly. Never improvise plan changes — route
 scope/plan changes through the skill's replan path.
