@@ -1,0 +1,20 @@
+node_id: build
+plan_id: plan-example-0001
+cache_key: sha256:REPLACE_WITH_HASH_OF_inputs+prompt+model+config
+attempt: 1
+status: running
+gate:
+  kind: test
+  threshold: null
+  rubric: null
+  evidence_ref: evidence/build_tests.json
+retry_policy:
+  max_attempts: 3
+  backoff_base_seconds: 5.0
+  jitter: true
+on_failure: local_patch
+evidence_ref: evidence/build_tests.json
+started: '2026-07-02T10:15:00Z'
+finished: null
+compensation_of: null
+cost_units: 0

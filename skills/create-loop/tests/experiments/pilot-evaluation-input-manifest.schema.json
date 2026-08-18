@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/pilot-evaluation-input-manifest-v1.json",
+  "title": "create-loop pilot exact evaluation input manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "experiment_id", "pilot_scenarios", "pilot_run_plan",
+    "pilot_evaluator", "authority_freeze", "calibration_authority", "calibration_result",
+    "producer_authority", "reviewer_authority",
+    "producer_episodes", "oracle_results", "blind_manifests",
+    "blind_review_results", "reviewer_receipts", "review_seal",
+    "aggregate_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment_id": {"$ref": "#/$defs/id"},
+    "pilot_scenarios": {"$ref": "#/$defs/file"},
+    "pilot_run_plan": {"$ref": "#/$defs/file"},
+    "pilot_evaluator": {"$ref": "#/$defs/file"},
+    "authority_freeze": {"$ref": "#/$defs/file"},
+    "calibration_authority": {"$ref": "#/$defs/authority"},
+    "calibration_result": {"$ref": "#/$defs/file"},
+    "producer_authority": {"$ref": "#/$defs/authority"},
+    "reviewer_authority": {"$ref": "#/$defs/authority"},
+    "producer_episodes": {
+      "type": "array", "minItems": 18, "maxItems": 18,
+      "items": {"$ref": "#/$defs/episode"}
+    },
+    "oracle_results": {
+      "type": "array", "minItems": 12, "maxItems": 12,
+      "items": {"$ref": "#/$defs/armFile"}
+    },
+    "blind_manifests": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"$ref": "#/$defs/pairFile"}
+    },
+    "blind_review_results": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"$ref": "#/$defs/pairFile"}
+    },
+    "reviewer_receipts": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"$ref": "#/$defs/pairFile"}
+    },
+    "review_seal": {"$ref": "#/$defs/file"},
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "pairId": {"type": "string", "pattern": "^PL-(?:N0|T2|T3|T5|S1|T7)-P01$"},
+    "armId": {"type": "string", "pattern": "^PL-(?:N0|T2|T3|T5|S1|T7)-P01-(?:v1|v2)$"},
+    "runId": {"type": "string", "pattern": "^PL-(?:N0|T2|T3|T5|S1|T7)-P01-(?:v1|v2)-E0[12]$"},
+    "file": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "directory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path"],
+      "properties": {"path": {"$ref": "#/$defs/path"}}
+    },
+    "authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["root", "grant", "ledger_anchor", "spend_summary"],
+      "properties": {
+        "root": {"$ref": "#/$defs/directory"},
+        "grant": {"$ref": "#/$defs/file"},
+        "ledger_anchor": {"$ref": "#/$defs/file"},
+        "spend_summary": {"$ref": "#/$defs/file"}
+      }
+    },
+    "episode": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "run_id", "arm_id", "pair_id", "case_id", "protocol", "episode_id",
+        "outcome", "trace", "usage_receipt", "interruption_manifest",
+        "initial_workspace_manifest", "final_workspace_manifest",
+        "evidence_manifest", "workspace_root"
+      ],
+      "properties": {
+        "run_id": {"$ref": "#/$defs/runId"},
+        "arm_id": {"$ref": "#/$defs/armId"},
+        "pair_id": {"$ref": "#/$defs/pairId"},
+        "case_id": {"enum": ["N0", "T2", "T3", "T5", "S1", "T7"]},
+        "protocol": {"enum": ["v1", "v2"]},
+        "episode_id": {"enum": ["E01", "E02"]},
+        "outcome": {"enum": ["settled", "controller-interrupted"]},
+        "trace": {"$ref": "#/$defs/nullableFile"},
+        "usage_receipt": {"$ref": "#/$defs/nullableFile"},
+        "interruption_manifest": {"$ref": "#/$defs/nullableFile"},
+        "initial_workspace_manifest": {"$ref": "#/$defs/file"},
+        "final_workspace_manifest": {"$ref": "#/$defs/file"},
+        "evidence_manifest": {"$ref": "#/$defs/file"},
+        "workspace_root": {"$ref": "#/$defs/directory"}
+      }
+    },
+    "nullableFile": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "armFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["arm_id", "path", "sha256"],
+      "properties": {
+        "arm_id": {"$ref": "#/$defs/armId"},
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "pairFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pair_id", "path", "sha256"],
+      "properties": {
+        "pair_id": {"$ref": "#/$defs/pairId"},
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

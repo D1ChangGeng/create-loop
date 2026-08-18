@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-deterministic-fixture-catalog-v1.json",
+  "title": "create-loop authoritative deterministic validator fixture catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "algorithm", "cases"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "algorithm": {"const": "create-loop-deterministic-validator-catalog-v1"},
+    "cases": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/case"}
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "expected", "protocols"],
+      "properties": {
+        "case_id": {"$ref": "#/$defs/id"},
+        "expected": {"enum": ["accept", "reject"]},
+        "protocols": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["v1", "v2"],
+          "properties": {
+            "v1": {"$ref": "#/$defs/v1Case"},
+            "v2": {"$ref": "#/$defs/v2Case"}
+          }
+        }
+      }
+    },
+    "v1Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validator", "fixture", "mutation"],
+      "properties": {
+        "validator": {"const": "validate_loop_plan"},
+        "fixture": {"$ref": "#/$defs/path"},
+        "mutation": {"enum": ["none", "empty-object"]}
+      }
+    },
+    "v2Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validator", "fixture", "mutation"],
+      "properties": {
+        "validator": {"const": "validate_loop_dir"},
+        "fixture": {"$ref": "#/$defs/path"},
+        "mutation": {"enum": ["none", "tamper-goal"]}
+      }
+    }
+  }
+}

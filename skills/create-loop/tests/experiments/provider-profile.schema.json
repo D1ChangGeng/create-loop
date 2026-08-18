@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-provider-profile-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "provider_key", "display_name", "wire_api", "base_url", "requires_openai_auth", "auth_source", "model", "reasoning_effort"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "provider_key": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
+    "display_name": {"type": "string", "minLength": 1},
+    "wire_api": {"const": "responses"},
+    "base_url": {"type": "string", "pattern": "^https://[^\\s]+$"},
+    "requires_openai_auth": {"type": "boolean"},
+    "auth_source": {"const": "CODEX_HOME"},
+    "model": {"type": "string", "minLength": 1},
+    "reasoning_effort": {"enum": ["low", "medium", "high", "xhigh", "max", "ultra"]}
+  }
+}

@@ -1,0 +1,9 @@
+# Per-node claim/lease. Lives at contracts/<node-id>.claim inside the loop dir.
+# Created O_CREAT|O_EXCL so only one worker can hold a node at a time.
+node_id: n7_implementation
+owner_id: session-2026-07-02-abc123      # the worker/session/agent holding it
+acquired_at: "2026-07-02T14:00:00Z"
+lease_expires_at: "2026-07-02T14:10:00Z" # renew before this or the node is reclaimable
+phase: 0
+heartbeat_at: "2026-07-02T14:05:00Z"     # last lease renewal
+delegated_to: null                       # or an L-id when delegated to a live child loop

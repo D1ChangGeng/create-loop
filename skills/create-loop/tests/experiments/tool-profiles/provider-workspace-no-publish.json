@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "id": "provider-workspace-no-publish",
+  "network": "provider-api-only",
+  "publish": "denied",
+  "external_effects": "simulated-workspace-only",
+  "writable_roots": ["workspace"],
+  "allowed_capabilities": [
+    "execute-local",
+    "provider-model-call",
+    "read-workspace",
+    "write-declared-workspace-paths"
+  ],
+  "denied_capabilities": [
+    "delete-outside-workspace",
+    "payment",
+    "publish",
+    "unrestricted-network"
+  ],
+  "environment": {
+    "allow": ["PATH", "PYTHONIOENCODING", "PYTHONDONTWRITEBYTECODE", "CODEX_HOME"],
+    "deny_prefixes": ["ANTHROPIC_", "AWS_", "GITHUB_TOKEN", "OPENAI_"],
+    "credential_allow": ["CODEX_HOME"]
+  }
+}

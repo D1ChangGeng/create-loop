@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "commit": "8263f09a0f119af63441e271603c389e88712b89",
+  "recorded_at": "2026-07-31T00:41:00+08:00",
+  "source": "read-only system audit",
+  "skill": {"files": 124, "lines": 25465, "skill_md_lines": 911, "references": 20, "schemas": 11, "templates": 20, "scripts": 23, "example_files": 42},
+  "checks": {"pointer_links": 781, "pointer_dangling": 0, "installer_passed": 14, "installer_failed": 1},
+  "reconstruction": {"reconstructible_checkpoint_fields": ["node_states", "phase", "ready_set", "last_completed"], "checkpoint_fields_without_event_source": 28, "iteration_reconstructible": false, "cost_units_spent_reconstructible": false},
+  "known_defects": ["direct completion transition bypass", "historical pass can authorize completion", "whole-loop gate omits event invariants", "effects pair by node rather than attempt", "checkpoint tail is not reconciled", "projection compares node_states only", "renderer test mutates tracked files on Windows EOL conversion"]
+}

@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-report-v1.json",
+  "title": "create-loop paired experiment report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "experiment_id", "preregistration_sha256", "run_plan_sha256",
+    "generated_at", "run_summary", "metrics", "gate_results", "decision", "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment_id": {"$ref": "#/$defs/id"},
+    "preregistration_sha256": {"$ref": "#/$defs/sha256"},
+    "run_plan_sha256": {"$ref": "#/$defs/sha256"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "run_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planned", "valid", "failed", "missing", "excluded_with_reason"],
+      "properties": {
+        "planned": {"const": 84},
+        "valid": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "missing": {"type": "integer", "minimum": 0},
+        "excluded_with_reason": {"type": "integer", "minimum": 0}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["v1", "v2", "comparison", "unit", "sample_count"],
+        "properties": {
+          "v1": {"type": ["number", "null"]},
+          "v2": {"type": ["number", "null"]},
+          "comparison": {"type": ["number", "null"]},
+          "unit": {"type": "string", "minLength": 1},
+          "sample_count": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "gate_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate", "status", "observed", "threshold", "evidence_refs"],
+        "properties": {
+          "gate": {"$ref": "#/$defs/id"},
+          "status": {"enum": ["pass", "fail", "insufficient-data"]},
+          "observed": {"type": ["number", "boolean", "null"]},
+          "threshold": {"type": ["number", "boolean", "string"]},
+          "evidence_refs": {"$ref": "#/$defs/stringList"}
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recommendation", "rationale", "semantic_reviewer"],
+      "properties": {
+        "recommendation": {"enum": ["keep-v1-default", "extend-experiment", "eligible-for-v2-default-review"]},
+        "rationale": {"type": "string", "minLength": 1},
+        "semantic_reviewer": {"$ref": "#/$defs/id"}
+      }
+    },
+    "limitations": {"$ref": "#/$defs/stringList"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "properties": {
+              "recommendation": {"const": "eligible-for-v2-default-review"}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "run_summary": {
+            "properties": {
+              "valid": {"const": 84},
+              "failed": {"const": 0},
+              "missing": {"const": 0},
+              "excluded_with_reason": {"const": 0}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "stringList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

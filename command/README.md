@@ -31,6 +31,8 @@ npm run render
 
 `render` is deterministic: running it on an unchanged `command/` reproduces the
 committed host files byte-for-byte (the installer test asserts this).
+`render --check` performs the same exact-set comparison in a temporary
+directory and never modifies committed files.
 
 ## Adding a command
 
@@ -49,8 +51,8 @@ The commands are installed separately by:
 - the standalone installer — `npx github:D1ChangGeng/create-loop` (Path A), which
   renders these entries directly into each detected host and tracks them for
   idempotent upgrade; or
-- `../install-commands.sh` (Path B), which copies the already-rendered
-  `.opencode/command/` and `.claude/commands/` files into a host.
+- `../install-commands.sh` (Path B), a compatibility wrapper over the Node
+  installer's tracked `--commands-only` mode.
 
 Both reuse each host's **native** slash-command support (OpenCode reads
 `.opencode/command/*.md`, Claude Code reads `.claude/commands/*.md`). A host

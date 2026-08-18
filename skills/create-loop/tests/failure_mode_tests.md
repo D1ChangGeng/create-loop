@@ -2301,14 +2301,16 @@ python3 scripts/validate_loop_plan.py --kind event_log /tmp/fx_indoubt.yaml
 
 ---
 
-## R24 — non-monotonic event_log seq
+## R24 — invalid event_log seq
 
-**What's wrong:** `entries[].seq` is not strictly increasing (here 5 then 3).
-The log must be strictly monotonic so replay has a total order.
+**What's wrong:** `entries[].seq` is negative, or is not strictly increasing
+(here 5 then 3). The log uses non-negative, strictly monotonic values so replay
+has a total order. Gaps are valid; R24 does not require a contiguous counter.
 
 ```yaml
 schema_version: "1.0"
 entries:
+  - {seq: -1, node_id: n1, ts: "2026-07-02T13:59:00Z", kind: note}
   - {seq: 5, node_id: n1, ts: "2026-07-02T14:00:00Z", kind: note}
   - {seq: 3, node_id: n1, ts: "2026-07-02T14:01:00Z", kind: note}
 ```
@@ -2478,17 +2480,19 @@ directory does not exist under the root).
 
 ---
 
-## R38 — inactive evidence still backing a gate
+## R38 — lifecycle status used to hide evidence
 
-**What's wrong:** a ledger entry is marked `superseded`/`stale`/`invalid`/`retired`
-but still carries `verdict: pass`. Inactive evidence must not justify a completed
-node — evidence has a lifecycle; a re-run supersedes the old verdict.
+**What's wrong:** an append-only ledger entry carries a mutable inactive status
+instead of recording currentness with a newer explicit lifecycle relation. This
+would let a newly appended blind failure declare itself `retired` and leave an
+older pass current. Evidence observations stay immutable; relations change the
+current view.
 
 ```yaml
 schema_version: "1.0"
 entries:
-  - {entry_id: E1, node_id: n1, gate_kind: automated_check, verdict: pass, score: null, artifact_path: a, rationale: old, recorded: "2026-07-02", verifier: script, status: superseded, superseded_by: E2}
-  - {entry_id: E2, node_id: n1, gate_kind: automated_check, verdict: pass, score: null, artifact_path: a2, rationale: redo, recorded: "2026-07-02", verifier: script, status: active}
+  - {entry_id: E1, node_id: n1, gate_kind: automated_check, verdict: pass, score: null, artifact_path: a, rationale: old, recorded: "2026-07-02T10:00:00Z", verifier: script, assurance: external, status: active}
+  - {entry_id: E2, node_id: n1, gate_kind: llm_judge, verdict: fail, score: null, artifact_path: a2, rationale: counterexample, recorded: "2026-07-02T11:00:00Z", verifier: subagent, assurance: blind, status: retired}
 ```
 
 **Command:**
@@ -2497,8 +2501,9 @@ entries:
 python3 scripts/validate_loop_plan.py --kind evidence_ledger /tmp/fx_evidence_lifecycle.yaml
 ```
 
-**Expected:** exit nonzero; message tags `[R38 EVIDENCE-LIFECYCLE]` (the
-`superseded` entry still has verdict `pass`).
+**Expected:** exit nonzero; message tags `[R38 EVIDENCE-LIFECYCLE]`. The control
+removes `status: retired` from E2 and appends an explicit newer `supersedes`
+relation from E2 to E1; then E2 is the current failure.
 
 ---
 
@@ -2620,7 +2625,7 @@ python3 scripts/validate_loop_plan.py --kind artifact_index /tmp/fx_artifact_aut
 | `R44` missing assurance | `/tmp/fx_r44_missing_assurance/` |
 | `R45` unresolved goal citation | `/tmp/fx_r45_goal_citation_unresolved/` |
 | `R46` allocated and withdrawn | tombstone only; no fixture |
-| `R47` blind-order violation | `/tmp/fx_r47_blind_order_violation/` |
+| `R47` blind context not withheld | `/tmp/fx_r47_blind_context/` |
 | `R48` missing dissent | `/tmp/fx_r48_missing_dissent/` |
 | `R49` checkpoint projection mismatch | `/tmp/fx_r49_projection_mismatch/` (+ control `/tmp/fx_r49_projection_control/`) |
 
@@ -2886,28 +2891,26 @@ throughout this document.
 
 ---
 
-## R47 — blind-order violation
+## R47 — blind assurance without withheld producer claim
 
-**What's wrong:** active evidence declares `assurance: blind`, while filesystem
-mtimes place the reviewer verdict after the producer claim. This fixture proves
-ordering only. An mtime comparison cannot prove that the reviewer was blind or
-independent, and neither the fixture nor the future validator may infer either
-semantic conclusion from the timestamps.
+**What's wrong:** evidence declares `assurance: blind`, but its explicit review
+manifest says the producer claim was `available` (or `unknown`). Only
+`producer_claim_access: withheld` establishes the deterministic isolation fact;
+role labels and filesystem mtimes do not prove blindness.
 
 **Materialize and run:**
 
 ```bash
-if [ -e /tmp/fx_r47_blind_order_violation ]; then
-  mv /tmp/fx_r47_blind_order_violation "/tmp/fx_r47_blind_order_violation.previous.$$"
+if [ -e /tmp/fx_r47_blind_context ]; then
+  mv /tmp/fx_r47_blind_context "/tmp/fx_r47_blind_context.previous.$$"
 fi
-mkdir -p /tmp/fx_r47_blind_order_violation/evidence
+mkdir -p /tmp/fx_r47_blind_context/evidence
 python3 - <<'PY'
 from pathlib import Path
 import json
-import os
 import yaml
 
-root = Path("/tmp/fx_r47_blind_order_violation")
+root = Path("/tmp/fx_r47_blind_context")
 plan = yaml.safe_load(Path("templates/loop.plan.yaml").read_text())
 checkpoint = yaml.safe_load(Path("templates/checkpoint.yaml").read_text())
 node_id = plan["nodes"][0]["id"]
@@ -2918,7 +2921,6 @@ checkpoint["ready_set"] = []
 checkpoint["last_completed"] = []
 checkpoint["event_log_ref"] = "event_log.jsonl"
 checkpoint["evidence_ledger_ref"] = "evidence.ledger.yaml"
-claim = root / "evidence/producer-claim.txt"
 verdict = root / "evidence/reviewer-verdict.txt"
 ledger = {
     "schema_version": "1.0.0",
@@ -2926,8 +2928,12 @@ ledger = {
         "entry_id": "ev-r47", "node_id": node_id, "gate_kind": "llm_judge",
         "verdict": "pass", "score": 0.9,
         "artifact_path": str(verdict),
-        "producer_claim_path": str(claim),
-        "rationale": "blind-order fixture", "recorded": "2026-07-30T10:01:00Z",
+        "review_context": {
+            "review_id": "review-r47",
+            "delivered_context_sha256": "a" * 64,
+            "producer_claim_access": "available",
+        },
+        "rationale": "blind-context fixture", "recorded": "2026-07-30T10:01:00Z",
         "verifier": "subagent", "status": "active", "assurance": "blind",
     }],
 }
@@ -2938,29 +2944,26 @@ ledger = {
     "seq": 0, "node_id": node_id, "ts": "2026-07-30T09:59:00Z",
     "kind": "note", "outcome": "fixture state prepared",
 }) + "\n")
-claim.write_text("producer claim\n")
 verdict.write_text("reviewer verdict\n")
-os.utime(claim, (1000, 1000))
-os.utime(verdict, (1001, 1001))
 PY
-python3 scripts/check_loop_integrity.py /tmp/fx_r47_blind_order_violation
+python3 scripts/check_loop_integrity.py /tmp/fx_r47_blind_context
 ```
 
 **Observed GREEN (exit `1`):**
 
 ```text
 [INTEGRITY:evidence] ledger invalid:
-[R47 BLIND-ORDER-VIOLATION] ledger entry[0] for node 'goal_clarification': reviewer verdict file mtime is after producer claim file mtime; this establishes an ordering violation only and does not license the conclusion that the reviewer was not blind or not independent
-error: /tmp/fx_r47_blind_order_violation/evidence.ledger.yaml is invalid (1 problem(s))
+[R47 BLIND-CONTEXT-MISSING] ledger entry[0] for node 'goal_clarification': assurance 'blind' requires explicit review_context {review_id, delivered_context_sha256, producer_claim_access: withheld}; available/unknown access, role labels, and filesystem mtimes are not proof of blindness
+error: /tmp/fx_r47_blind_context/evidence.ledger.yaml is invalid (1 problem(s))
 
-INTEGRITY GATE FAILED (1 violation(s)) for /tmp/fx_r47_blind_order_violation.
+INTEGRITY GATE FAILED (1 violation(s)) for /tmp/fx_r47_blind_context.
 Do NOT advance normal work — enter a recovery subgraph (references/recovery_protocol.md).
 ```
 
 **Required GREEN:** exit nonzero, the failure message contains
-`[R47 BLIND-ORDER-VIOLATION]`, and it reports only that the reviewer verdict
-mtime is after the producer claim mtime. It must not claim the reviewer was not
-blind or not independent.
+`[R47 BLIND-CONTEXT-MISSING]`, and it reports that `available`/`unknown` cannot
+support `assurance: blind`. The control changes the access value to `withheld`
+and passes this invariant.
 
 ---
 

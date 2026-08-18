@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/evidence.ledger.schema.json",
+  "title": "evidence.ledger",
+  "description": "An append-only record of gate verdicts and their declared provenance. A node may transition verifying -> completed only when its latest active passing entry declares assurance external, or gate_kind human_approval. These fields do not establish that the evidence content is adequate or correct. Field names and enum values are locked byte-for-byte per references/state_model.md (evidence.ledger).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of the evidence.ledger schema."
+    },
+    "entries": {
+      "type": "array",
+      "description": "Append-only list of gate-verdict entries.",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_id",
+        "node_id",
+        "gate_kind",
+        "verdict",
+        "score",
+        "artifact_path",
+        "rationale",
+        "recorded",
+        "verifier",
+        "assurance"
+      ],
+      "properties": {
+        "entry_id": {
+          "type": "string",
+          "description": "Unique id of the ledger entry."
+        },
+        "node_id": {
+          "type": "string",
+          "description": "The node the verdict is for."
+        },
+        "gate_kind": {
+          "type": "string",
+          "description": "One of the 8 gate kinds.",
+          "enum": [
+            "automated_check",
+            "test",
+            "llm_judge",
+            "self_consistency",
+            "evaluator_optimizer",
+            "step_verifier",
+            "human_approval",
+            "artifact_exists"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "description": "The gate verdict.",
+          "enum": [
+            "pass",
+            "fail",
+            "inconclusive"
+          ]
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Numeric score for scored gates (0..1), or null for pass/fail gates.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "artifact_path": {
+          "type": "string",
+          "description": "Path to the evidence artifact this entry attests."
+        },
+        "producer_claim_path": {
+          "type": "string",
+          "description": "For assurance blind, path to the producer claim read only after the reviewer verdict is recorded. R47 compares this file's mtime with artifact_path for ordering only; the comparison does not establish blindness or independence."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why the verdict was reached."
+        },
+        "recorded": {
+          "type": "string",
+          "description": "When the entry was recorded (ISO-8601 date-time).",
+          "format": "date-time"
+        },
+        "verifier": {
+          "type": "string",
+          "description": "Who produced the verdict.",
+          "enum": [
+            "agent",
+            "subagent",
+            "user",
+            "script"
+          ]
+        },
+        "assurance": {
+          "type": "string",
+          "description": "Declared verdict provenance only; this does not establish evidence adequacy or correctness.",
+          "enum": [
+            "external",
+            "blind",
+            "self_attested"
+          ]
+        },
+        "success_criteria_id": {
+          "type": "string",
+          "description": "Optional citation to loop.plan.success_criteria[].id. R45 checks only that a present citation resolves; resolution does not establish criterion satisfaction or evidence adequacy."
+        },
+        "overrides_entry_id": {
+          "type": "string",
+          "description": "Optional entry_id of a prior verdict this overriding entry overrides. For a completed node with an active blind failure, R48 also requires a dissent event for the node."
+        },
+        "supersedes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "entry_id of a prior ledger entry this entry corrects/supersedes, or null. Lets 'latest entry governs' pick the correction rather than the stale verdict."
+        },
+        "status": {
+          "type": "string",
+          "description": "Lifecycle state of this evidence entry. Evidence is not a permanent fact; it can be superseded by a re-run, invalidated when its artifact is deleted/disproven, go stale past a freshness window, or be retired with its node. Only 'active' evidence may back an active gate (rule R38). Defaults to 'active' when omitted.",
+          "enum": [
+            "active",
+            "challenged",
+            "superseded",
+            "stale",
+            "invalid",
+            "retired"
+          ]
+        },
+        "superseded_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "entry_id of the newer entry that replaces this one (set when status is 'superseded'). Must reference an existing entry."
+        }
+      }
+    }
+  }
+}

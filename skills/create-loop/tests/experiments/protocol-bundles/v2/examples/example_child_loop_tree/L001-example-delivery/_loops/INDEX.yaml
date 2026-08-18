@@ -1,0 +1,7 @@
+children:
+- loop_id: L001.01
+  slug: fix-effectiveness-bug
+  path: L001.01-fix-effectiveness-bug
+  status: running
+  parent_node_id: build
+  current_active_node: null

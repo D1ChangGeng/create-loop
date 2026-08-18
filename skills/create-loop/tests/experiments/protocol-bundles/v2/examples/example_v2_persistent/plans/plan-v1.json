@@ -1,0 +1,57 @@
+{
+  "schema_version": "2.0",
+  "plan_id": "plan-L102-v1",
+  "plan_version": 1,
+  "goal_sha256": "13acebf30f6a014adc7371310190bcb2ba351076cd1ed643c3e56e5efe6a5f09",
+  "created_at": "2026-07-31T00:00:00Z",
+  "control": {
+    "mode": "persistent",
+    "modules": [],
+    "admission_reason": "Implementation and verification span a recoverable dependency chain."
+  },
+  "nodes": [
+    {
+      "id": "N1",
+      "objective": "Implement the command-line feature.",
+      "depends_on": [],
+      "success_criteria_refs": [
+        "SC1"
+      ],
+      "outputs": [
+        {
+          "path": "artifacts/feature.txt",
+          "purpose": "Feature implementation record"
+        }
+      ],
+      "checks": [
+        {
+          "id": "check-implementation",
+          "method": "test",
+          "instruction": "Run the direct feature test.",
+          "expected": "The feature test passes."
+        }
+      ],
+      "authorization_refs": []
+    },
+    {
+      "id": "N2",
+      "objective": "Verify recovery and prepare the handoff.",
+      "depends_on": [
+        "N1"
+      ],
+      "success_criteria_refs": [
+        "SC2"
+      ],
+      "outputs": [],
+      "checks": [
+        {
+          "id": "check-recovery",
+          "method": "cold_resume",
+          "instruction": "Rebuild resume from immutable sources.",
+          "expected": "The fresh projection identifies state and next work."
+        }
+      ],
+      "authorization_refs": []
+    }
+  ]
+}

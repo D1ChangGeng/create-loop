@@ -7,7 +7,7 @@
 //   session.deleted   → runs session-end.sh (inbox marker for next session)
 //   session.compacted → runs compact-recovery.sh (re-read directive injected into context)
 
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -15,12 +15,14 @@ function runHook(cwd, scriptName) {
   const scriptPath = join(cwd, ".agents", "hooks", scriptName);
   if (!existsSync(scriptPath)) return null;
   try {
-    return execSync(`sh "${scriptPath}"`, {
+    const result = spawnSync("sh", [scriptPath], {
       cwd,
       timeout: 5000,
       encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ["ignore", "pipe", "pipe"],
     });
+    if (result.error || result.status !== 0) return null;
+    return { stdout: result.stdout || "", stderr: result.stderr || "" };
   } catch {
     return null;
   }
@@ -35,9 +37,9 @@ export default async () => {
 
       if (name === "session.idle") {
         // Equivalent to Claude Code "Stop" — check knowledge health
-        const stderr = runHook(cwd, "stop.sh");
-        if (stderr && stderr.trim()) {
-          process.stderr.write(stderr);
+        const result = runHook(cwd, "stop.sh");
+        if (result?.stderr.trim()) {
+          process.stderr.write(result.stderr);
         }
       }
 
@@ -50,9 +52,9 @@ export default async () => {
     "experimental.session.compacting": async (_input, output) => {
       // Equivalent to Claude Code "SessionStart" with compact matcher
       // Inject re-read directive into compacted context
-      const directive = runHook(cwd, "compact-recovery.sh");
-      if (directive && directive.trim() && output.context) {
-        output.context = directive.trim() + "\n\n" + output.context;
+      const result = runHook(cwd, "compact-recovery.sh");
+      if (result?.stdout.trim() && output.context) {
+        output.context = result.stdout.trim() + "\n\n" + output.context;
       }
     },
   };

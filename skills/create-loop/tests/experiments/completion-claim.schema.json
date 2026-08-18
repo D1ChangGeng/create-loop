@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-completion-claim-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["completion_claimed", "summary", "deliverables", "blockers", "risks"],
+  "properties": {
+    "completion_claimed": {"type": "boolean"},
+    "summary": {"type": "string", "minLength": 1},
+    "deliverables": {"$ref": "#/$defs/strings"},
+    "blockers": {"$ref": "#/$defs/strings"},
+    "risks": {"$ref": "#/$defs/strings"}
+  },
+  "$defs": {
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "id": "codex-0.144.1-windows",
+  "product": "codex-cli",
+  "version": "0.144.1",
+  "launcher_sha256": "c54db6755e710c39703f7c37512f9e35ed41042d8080558d2b84b8d2694323c3",
+  "entrypoint_sha256": "134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",
+  "package_sha256": "e9756b0cb1e3a6f678ac9848365b6f3a22f11cede8348b883c2c05cb9c31705b",
+  "native_executable_sha256": "cbacbb9726262ef558b4af0438a1b2a5bba9076132401d947b5b4d2bf92ab0e4"
+}

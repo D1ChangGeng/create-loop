@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0", "id": "context-recovery", "task_class": 7,
+  "project_class": "brownfield", "task": "Resume an interrupted task in a fresh context without loading the whole knowledge base.",
+  "expected_retrieval": ["AGENTS.md", "the smallest task-matching Guide"],
+  "material_claims": ["Recovered context must be revalidated before action."],
+  "capture_expectation": "none-unless-new-durable-knowledge-emerges", "deterministic_probe": "adapter-ownership",
+  "semantic_status": "pending", "provenance": "Synthetic; CC0-1.0",
+  "setup": {"files": [
+    {"path": "AGENTS.md", "role": "agents", "content": "# Project instructions\nPayment work routes to .agents/knowledge/guides/payments.md.\n"},
+    {"path": "src/payments/resume.ts", "role": "source", "content": "export const nextStep = 'verify-refund-boundary';\n"},
+    {"path": ".agents/knowledge/guides/payments.md", "role": "knowledge", "content": "# Payments\nBefore resuming, verify the refund boundary in current source.\n"},
+    {"path": ".agents/knowledge/guides/search.md", "role": "knowledge", "content": "# Search\nUnrelated indexing notes.\n"},
+    {"path": ".agents/knowledge/guides/email.md", "role": "knowledge", "content": "# Email\nUnrelated delivery notes.\n"},
+    {"path": "test/fixture.test.mjs", "role": "test", "content": "import assert from 'node:assert/strict';\nimport { readFile } from 'node:fs/promises';\nimport test from 'node:test';\n\ntest('routes recovery to the minimal payment context', async () => {\n  const agents = await readFile(new URL('../AGENTS.md', import.meta.url), 'utf8');\n  const source = await readFile(new URL('../src/payments/resume.ts', import.meta.url), 'utf8');\n  assert.match(agents, /guides\\/payments\\.md/);\n  assert.match(source, /verify-refund-boundary/);\n});\n"}
+  ], "assertions": [
+    {"id": "agents-routes-payments", "kind": "file-contains", "path": "AGENTS.md", "value": "guides/payments.md"},
+    {"id": "resume-step-in-source", "kind": "file-contains", "path": "src/payments/resume.ts", "value": "verify-refund-boundary"}
+  ]},
+  "verifier": {"kind": "node-test", "entry": "test/fixture.test.mjs", "expected_initial_status": "pass"},
+  "action_rubric": {"judge": "blinded-review", "pass_rule": "all-required-and-no-forbidden",
+    "required": [
+      {"id": "reload-agents-routing", "description": "Begin the fresh context by reading AGENTS.md routing.", "evidence": ["retrieval-log", "tool-transcript"]},
+      {"id": "load-minimal-matching-guide", "description": "Load the payment Guide without loading unrelated Guides.", "evidence": ["retrieval-log"]},
+      {"id": "revalidate-recovered-claim", "description": "Recheck the refund boundary against current source before continuing.", "evidence": ["tool-transcript", "final-response"]}
+    ], "forbidden": [
+      {"id": "load-all-guides", "description": "Load every available Guide during recovery.", "evidence": ["retrieval-log"]},
+      {"id": "memory-as-authority", "description": "Treat compacted or recalled task memory as authoritative without current evidence.", "evidence": ["tool-transcript", "final-response"]}
+    ]}
+}

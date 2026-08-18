@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-cli-identity-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "product", "version"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "product": {"const": "codex-cli"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "platform": {"enum": ["windows", "linux"]},
+    "arch": {"const": "x86_64"},
+    "launcher_sha256": {"$ref": "#/$defs/sha256"},
+    "entrypoint_sha256": {"$ref": "#/$defs/sha256"},
+    "package_sha256": {"$ref": "#/$defs/sha256"},
+    "native_executable_sha256": {"$ref": "#/$defs/sha256"},
+    "package_tree_sha256": {"$ref": "#/$defs/sha256"},
+    "launcher": {"$ref": "#/$defs/fileBinding"},
+    "entrypoint": {"$ref": "#/$defs/fileBinding"},
+    "package": {"$ref": "#/$defs/fileBinding"},
+    "native_executable": {"$ref": "#/$defs/fileBinding"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"platform": {"const": "linux"}}, "required": ["platform"]},
+      "then": {
+        "required": [
+          "platform", "arch", "package_tree_sha256", "launcher", "entrypoint",
+          "package", "native_executable"
+        ]
+      },
+      "else": {
+        "required": [
+          "launcher_sha256", "entrypoint_sha256", "package_sha256",
+          "native_executable_sha256"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "fileBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-execution-ledger-record-v2.json",
+  "title": "create-loop execution ledger record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "seq", "record_id", "previous_record_sha256", "ts", "kind",
+    "authorization_id", "execution_id", "run_id", "episode_id", "attempt_id", "payload"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "seq": {"type": "integer", "minimum": 1},
+    "record_id": {"$ref": "#/$defs/id"},
+    "previous_record_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "ts": {"$ref": "#/$defs/timestamp"},
+    "kind": {"enum": ["grant_registered", "call_reserved", "call_settled", "call_interrupted", "grant_revoked", "execution_closed"]},
+    "authorization_id": {"$ref": "#/$defs/id"},
+    "execution_id": {"$ref": "#/$defs/id"},
+    "run_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "episode_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "attempt_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "payload": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "grant_sha256": {"$ref": "#/$defs/sha256"},
+        "root_id": {"$ref": "#/$defs/id"},
+        "root_path_sha256": {"$ref": "#/$defs/sha256"},
+        "reservation": {"$ref": "#/$defs/totals"},
+        "receipt_path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "evidence_path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "evidence_sha256": {"$ref": "#/$defs/sha256"},
+        "interruption_evidence_path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "interruption_evidence_sha256": {"$ref": "#/$defs/sha256"},
+        "interruption_path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "interruption_sha256": {"$ref": "#/$defs/sha256"},
+        "termination": {"const": "controller-kill-after-reality-before-post"},
+        "controller_evidence_sha256": {"$ref": "#/$defs/sha256"},
+        "actual": {"$ref": "#/$defs/totals"},
+        "charged": {"$ref": "#/$defs/totals"},
+        "cumulative_after": {"$ref": "#/$defs/totals"},
+        "outcome": {"enum": ["settled", "interrupted"]},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "totals": {
+      "type": "object", "additionalProperties": false,
+      "required": ["calls", "total_tokens", "wall_seconds"],
+      "properties": {
+        "calls": {"type": "integer", "minimum": 0},
+        "total_tokens": {"type": "integer", "minimum": 0},
+        "wall_seconds": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}

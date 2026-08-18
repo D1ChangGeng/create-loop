@@ -1,0 +1,5 @@
+CC0 1.0 Universal
+
+The source fixture authors declared the copied synthetic fixtures CC0-1.0.
+The frozen source README and fixture.json bytes retain that declaration. See
+https://creativecommons.org/publicdomain/zero/1.0/legalcode for the legal code.

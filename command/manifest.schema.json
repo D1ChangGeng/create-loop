@@ -5,11 +5,19 @@
   "description": "Declares the canonical create-loop slash commands. Host-specific command files are rendered from these entries by bin/create-loop.js.",
   "type": "object",
   "required": ["version", "commands"],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
-    "$schema": { "type": "string" },
+    "$schema": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
     "version": { "type": "integer", "const": 1 },
-    "description": { "type": "string" },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
     "commands": {
       "type": "array",
       "minItems": 1,
@@ -25,16 +33,26 @@
           },
           "body": {
             "type": "string",
-            "pattern": "\\.md$",
+            "pattern": "^[a-z0-9][a-z0-9-]*\\.md$",
             "description": "Path (relative to command/) to the frontmatter-free command body. Shared verbatim across every host."
           },
           "description": {
             "type": "string",
-            "description": "One-line command description; rendered into each host's frontmatter."
+            "minLength": 1,
+            "allOf": [
+              { "pattern": "\\S" },
+              { "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]+$" }
+            ],
+            "description": "One-line command description without control or YAML line-separator characters; rendered into each host's frontmatter."
           },
           "argumentHint": {
             "type": "string",
-            "description": "Optional argument hint. Rendered as `argument-hint` (Claude Code) where the host supports it."
+            "minLength": 1,
+            "allOf": [
+              { "pattern": "\\S" },
+              { "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]+$" }
+            ],
+            "description": "Optional one-line argument hint without control or YAML line-separator characters. Rendered as `argument-hint` (Claude Code) where the host supports it."
           }
         }
       }

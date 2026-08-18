@@ -1,0 +1,57 @@
+{
+  "schema_version": "2.0",
+  "plan_id": "plan-L101-v1",
+  "plan_version": 1,
+  "goal_sha256": "31bd32091d7cbdafaf9f468d262405970ce82b9a257158d434e6acd80690e6d8",
+  "created_at": "2026-07-31T00:00:00Z",
+  "control": {
+    "mode": "lightweight",
+    "modules": [],
+    "admission_reason": "The inventory has two dependent steps but does not need cross-session recovery."
+  },
+  "nodes": [
+    {
+      "id": "N1",
+      "objective": "Scan repository structure.",
+      "depends_on": [],
+      "success_criteria_refs": [
+        "SC1"
+      ],
+      "outputs": [],
+      "checks": [
+        {
+          "id": "C-N1",
+          "method": "tool",
+          "instruction": "List and classify repository files.",
+          "expected": "The scan covers all top-level subsystems."
+        }
+      ],
+      "authorization_refs": []
+    },
+    {
+      "id": "N2",
+      "objective": "Write and verify the inventory.",
+      "depends_on": [
+        "N1"
+      ],
+      "success_criteria_refs": [
+        "SC1"
+      ],
+      "outputs": [
+        {
+          "path": "artifacts/inventory.md",
+          "purpose": "Verified subsystem inventory"
+        }
+      ],
+      "checks": [
+        {
+          "id": "C-N2",
+          "method": "comparison",
+          "instruction": "Compare the inventory to the repository scan.",
+          "expected": "Every major subsystem is represented."
+        }
+      ],
+      "authorization_refs": []
+    }
+  ]
+}

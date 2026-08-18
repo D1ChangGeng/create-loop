@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-instrument-manifest-v1.json",
+  "title": "create-loop experiment instrument manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "algorithm", "root", "include", "exclude", "files", "source_snapshots", "aggregate_sha256"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "algorithm": {"const": "sha256-instrument-manifest-v1"},
+    "root": {"const": "."},
+    "include": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}
+    },
+    "exclude": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["**/__pycache__/**", "**/*.pyc"]}
+    },
+    "files": {
+      "type": "array",
+      "minItems": 5,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "source_snapshots": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/sha256"}
+    },
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "role", "sha256", "size"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "role": {"enum": ["source", "harness", "adapter", "schema", "scenario", "fixture", "evaluation", "tool-profile", "enforcement"]},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

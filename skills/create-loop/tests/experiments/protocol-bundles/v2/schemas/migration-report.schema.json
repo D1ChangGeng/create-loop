@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/migration-report.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "source", "destination", "dry_run", "source_hashes", "journal_last_seq", "journal_sha256", "mapped_files", "warnings"],
+  "properties": {
+    "schema_version": {"const": "2.0"}, "source": {"type": "string"}, "destination": {"type": "string"},
+    "dry_run": {"type": "boolean"}, "source_hashes": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "journal_last_seq": {"type": "integer", "minimum": 2},
+    "journal_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "mapped_files": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}

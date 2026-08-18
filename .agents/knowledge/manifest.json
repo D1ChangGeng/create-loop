@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "created_at": "2026-07-02T19:36:38Z",
-  "last_evolved_at": null,
-  "last_health_check": null,
+  "last_evolved_at": "2026-08-06T02:12:00+08:00",
+  "last_health_check": "2026-08-18T10:00:00+08:00",
   "project": {
     "name": "create-loop",
     "initialized_from": "existing"
@@ -11,83 +11,202 @@
     {
       "path": "domains/tech-stack.md",
       "type": "domain",
-      "scope": ["package.json", "bin/", "test/", "skills/create-loop/scripts/"],
-      "confidence": "observed",
-      "last_verified": "2026-07-03"
+      "scope": [
+        "package.json",
+        "bin/",
+        "test/",
+        "skills/create-loop/scripts/",
+        "skills/create-loop/tests/",
+        "skills/create-loop/tests_py/"
+      ],
+      "confidence": "verified",
+      "last_verified": "2026-08-06"
     },
     {
       "path": "domains/installer.md",
       "type": "domain",
-      "scope": ["bin/", "install-commands.sh", "test/", "package.json"],
-      "confidence": "observed",
-      "last_verified": "2026-07-03"
+      "scope": [
+        "bin/",
+        "install-commands.sh",
+        "test/",
+        "package.json"
+      ],
+      "confidence": "verified",
+      "last_verified": "2026-07-31"
     },
     {
       "path": "domains/commands.md",
       "type": "domain",
-      "scope": ["command/", ".opencode/command/", ".claude/commands/"],
-      "confidence": "observed",
-      "last_verified": "2026-07-03"
+      "scope": [
+        "command/",
+        ".opencode/command/",
+        ".claude/commands/"
+      ],
+      "confidence": "verified",
+      "last_verified": "2026-07-31"
     },
     {
       "path": "domains/skill-protocol.md",
       "type": "domain",
-      "scope": ["skills/create-loop/SKILL.md", "skills/create-loop/references/", "skills/create-loop/templates/", "skills/create-loop/examples/"],
+      "scope": [
+        "skills/create-loop/SKILL.md",
+        "skills/create-loop/references/",
+        "skills/create-loop/templates/",
+        "skills/create-loop/examples/"
+      ],
       "confidence": "observed",
-      "last_verified": "2026-07-03"
+      "last_verified": "2026-07-31"
     },
     {
       "path": "domains/validator-engine.md",
       "type": "domain",
-      "scope": ["skills/create-loop/scripts/", "skills/create-loop/schemas/", "skills/create-loop/tests/"],
+      "scope": [
+        "skills/create-loop/scripts/",
+        "skills/create-loop/schemas/",
+        "skills/create-loop/tests/",
+        "skills/create-loop/tests_py/"
+      ],
       "confidence": "observed",
-      "last_verified": "2026-07-03"
+      "last_verified": "2026-08-06"
     },
     {
       "path": "reference/code-map.md",
       "type": "reference",
-      "scope": ["bin/", "command/", ".opencode/command/", ".claude/commands/", "install-commands.sh", "test/", "skills/create-loop/"],
+      "scope": [
+        "bin/",
+        "command/",
+        ".opencode/command/",
+        ".claude/commands/",
+        "install-commands.sh",
+        "test/",
+        "skills/create-loop/"
+      ],
+      "confidence": "verified",
+      "last_verified": "2026-08-06"
+    },
+    {
+      "path": "reference/create-loop-restructuring-plan-FINAL.md",
+      "type": "reference",
+      "scope": [
+        "skills/create-loop/"
+      ],
       "confidence": "observed",
-      "last_verified": "2026-07-03"
+      "last_verified": "2026-07-31"
+    },
+    {
+      "path": "reference/mechanism-audit-2026-07.md",
+      "type": "reference",
+      "scope": [
+        "skills/create-loop/"
+      ],
+      "confidence": "observed",
+      "last_verified": "2026-07-31"
+    },
+    {
+      "path": "reference/redesign-evidence-round1-2026-07.md",
+      "type": "reference",
+      "scope": [
+        "skills/create-loop/"
+      ],
+      "confidence": "observed",
+      "last_verified": "2026-07-31"
+    },
+    {
+      "path": "reference/redesign-execution-plan-2026-07.md",
+      "type": "reference",
+      "scope": [
+        "skills/create-loop/"
+      ],
+      "confidence": "observed",
+      "last_verified": "2026-07-31"
+    },
+    {
+      "path": "reference/redesign-synthesis-round2-2026-07.md",
+      "type": "reference",
+      "scope": [
+        "skills/create-loop/"
+      ],
+      "confidence": "observed",
+      "last_verified": "2026-07-31"
+    },
+    {
+      "path": "reference/subtraction-plan-2026-07.md",
+      "type": "reference",
+      "scope": [
+        "skills/create-loop/"
+      ],
+      "confidence": "observed",
+      "last_verified": "2026-07-31"
+    },
+    {
+      "path": "reference/.project-scan.txt",
+      "type": "reference",
+      "scope": [
+        "."
+      ],
+      "confidence": "observed",
+      "last_verified": "2026-07-02"
+    },
+    {
+      "path": "patterns/calibrate-verification-instruments.md",
+      "type": "pattern",
+      "scope": [
+        "skills/create-loop/tests/",
+        "skills/create-loop/tests_py/",
+        "skills/create-loop/scripts/",
+        "test/"
+      ],
+      "confidence": "observed",
+      "last_verified": "2026-07-31"
     },
     {
       "path": "inbox/2026-07.md",
       "type": "inbox",
       "scope": [],
       "confidence": "observed",
-      "last_verified": "2026-07-03"
+      "last_verified": "2026-07-31"
+    },
+    {
+      "path": "inbox/2026-08.md",
+      "type": "inbox",
+      "scope": [],
+      "confidence": "observed",
+      "last_verified": "2026-08-18"
     }
   ],
   "health": {
-    "total_files": 7,
+    "total_files": 16,
     "by_type": {
       "domain": 5,
-      "reference": 1,
+      "reference": 8,
       "decision": 0,
-      "pattern": 0,
+      "pattern": 1,
       "crystallized": 0,
-      "inbox": 1,
+      "inbox": 2,
       "archived": 0
     },
     "by_confidence": {
-      "observed": 7,
-      "verified": 0,
+      "observed": 12,
+      "verified": 4,
       "canonical": 0
     },
-    "inbox_count": 3,
+    "inbox_count": 60,
+    "inbox_absorbed_count": 49,
+    "inbox_superseded_count": 1,
+    "inbox_unprocessed_count": 10,
     "inbox_oldest_unprocessed": "2026-07-03",
     "stale_candidates": [],
     "conflicts": [],
-    "days_since_evolution": null
+    "days_since_evolution": 12
   },
   "skills": {
     "installed": [],
     "pending_review": []
   },
   "hooks": {
-    "integration": "opencode",
+    "integration": "deferred",
     "decided_at": "2026-07-03T12:20:00Z",
-    "adapter_path": ".opencode/opencode.json",
-    "note": "Native ESM plugin at .agents/hooks/opencode-plugin.mjs; .opencode/opencode.json plugin array references it by absolute file:// URL (providers/plugins preserved). Adapter file is gitignored (.gitignore:24) so it is local-only. Fixed a stale /root/alpha path the installer copied from global config."
+    "adapter_path": null,
+    "note": "Previously recorded as opencode, but the project adapter .opencode/opencode.json is absent. Hook scripts and opencode-plugin.mjs are on disk only; wiring is deferred until the user chooses repair or another integration."
   }
 }

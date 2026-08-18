@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/pilot-campaign-evidence-manifest-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "algorithm", "experiment_id", "campaign_status",
+    "stop_after_report", "formal_execution_enabled", "next_action", "files",
+    "aggregate_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "algorithm": {"const": "sha256-pilot-campaign-evidence-v1"},
+    "experiment_id": {"const": "create-loop-v1-v2-real-task-pilot-2026"},
+    "campaign_status": {"const": "pilot-complete-stopped"},
+    "stop_after_report": {"const": true},
+    "formal_execution_enabled": {"const": false},
+    "next_action": {"const": "await-user-decision"},
+    "files": {
+      "type": "array", "minItems": 40, "maxItems": 40,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "file": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "id", "path", "sha256"],
+      "properties": {
+        "role": {"enum": [
+          "final_freeze", "decoded_reviews", "evaluation_input", "report",
+          "oracle_observation", "maintainer_attestation", "oracle_result"
+        ]},
+        "id": {"$ref": "#/$defs/id"},
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

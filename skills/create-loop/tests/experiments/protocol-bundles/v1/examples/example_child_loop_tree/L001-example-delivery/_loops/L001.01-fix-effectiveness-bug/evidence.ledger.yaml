@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+entries:
+  - entry_id: "ev-0001"
+    node_id: "reproduce"
+    gate_kind: "test"
+    verdict: "pass"
+    score: null
+    artifact_path: "evidence/reproduce.txt"
+    rationale: "The regression harness reproduced the incorrect final effect on every pre-fix run."
+    recorded: "2026-07-01T11:05:00Z"
+    verifier: "script"
+    assurance: "external"
+    status: "active"
+    superseded_by: null

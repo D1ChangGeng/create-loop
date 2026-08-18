@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/pilot-evaluator-manifest-v1.json",
+  "title": "create-loop evaluator-only real-task pilot contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "campaign_id", "classification", "scenario_manifest", "cases", "injections", "blind_assignments"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "campaign_id": {"const": "create-loop-v1-v2-real-task-pilot-2026"},
+    "classification": {"const": "evaluator-only-do-not-deliver-to-producer-or-reviewer"},
+    "scenario_manifest": {"$ref": "#/$defs/binding"},
+    "cases": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/$defs/case"}},
+    "injections": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/injection"}},
+    "blind_assignments": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/assignment"}}
+  },
+  "$defs": {
+    "nonEmptyString": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "caseId": {"enum": ["N0", "T2", "T3", "T5", "S1", "T7"]},
+    "binding": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "case": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_id", "quality_scored", "review_required", "criteria", "hidden_checks"],
+      "properties": {
+        "case_id": {"$ref": "#/$defs/caseId"},
+        "quality_scored": {"type": "boolean"},
+        "review_required": {"type": "boolean"},
+        "criteria": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/criterion"}},
+        "hidden_checks": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/hiddenCheck"}}
+      }
+    },
+    "criterion": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind", "statement", "measurement"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^(?:N0|T2|T3|T5|S1|T7)-[A-Z0-9-]+$"},
+        "kind": {"enum": ["required", "forbidden"]},
+        "statement": {"$ref": "#/$defs/nonEmptyString"},
+        "measurement": {"enum": ["hidden-test", "workspace-diff", "control-artifact-audit", "trace-review", "effect-reality", "blind-review"]}
+      }
+    },
+    "hiddenCheck": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind", "path", "sha256", "criterion_refs"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^(?:N0|T2|T3|T5|S1|T7)-HC[0-9]+$"},
+        "kind": {"enum": ["python", "node", "manifest-audit"]},
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "criterion_refs": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^(?:N0|T2|T3|T5|S1|T7)-[A-Z0-9-]+$"}
+        }
+      }
+    },
+    "injection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["injection_id", "case_id", "after_episode", "before_episode", "barrier", "operation", "files"],
+      "properties": {
+        "injection_id": {"enum": ["T3-E02", "T5-E02", "S1-E02"]},
+        "case_id": {"enum": ["T3", "T5", "S1"]},
+        "after_episode": {"const": "E01"},
+        "before_episode": {"const": "E02"},
+        "barrier": {"$ref": "#/$defs/nonEmptyString"},
+        "operation": {"enum": ["write-files", "replace-files", "increment-reality-and-kill"]},
+        "files": {"type": "array", "items": {"$ref": "#/$defs/binding"}}
+      }
+    },
+    "assignment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pair_id", "A", "B"],
+      "properties": {
+        "pair_id": {"type": "string", "pattern": "^PL-(?:T2|T3|T5|T7)-P01$"},
+        "A": {"type": "string", "pattern": "^PL-(?:T2|T3|T5|T7)-P01-(?:v1|v2)$"},
+        "B": {"type": "string", "pattern": "^PL-(?:T2|T3|T5|T7)-P01-(?:v1|v2)$"}
+      }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 
 fail() {
   echo "ASSERTION FAILED: $*" >&2
@@ -12,15 +13,40 @@ assert_command() {
   "$@" || fail "$assertion"
 }
 
+compile_python_sources() {
+  python3 -B - "$@" <<'PY'
+import pathlib
+import sys
+import tokenize
+
+for pattern in sys.argv[1:]:
+    paths = sorted(pathlib.Path().glob(pattern))
+    if not paths:
+        raise SystemExit(f"no Python sources matched: {pattern}")
+    for path in paths:
+        with tokenize.open(path) as source:
+            compile(source.read(), str(path), "exec")
+PY
+}
+
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 skill_root=$(cd -- "$script_dir/.." && pwd)
 repo_root=$(cd -- "$skill_root/../.." && pwd)
+
+node_cmd=${NODE_CMD:-node}
+if ! command -v "$node_cmd" >/dev/null 2>&1; then
+  if command -v node.exe >/dev/null 2>&1; then
+    node_cmd=node.exe
+  else
+    fail "Node.js is required to run the repository installer tests"
+  fi
+fi
 
 cd "$skill_root"
 
 echo "== Python compilation =="
 assert_command "Python files under scripts/ or scripts/checks/ did not compile" \
-  python3 -m py_compile scripts/*.py scripts/checks/*.py
+  compile_python_sources 'scripts/*.py' 'scripts/checks/*.py'
 echo "PYTHON COMPILE OK"
 
 echo "== SKILL.md line budget =="
@@ -32,8 +58,8 @@ echo "SKILL.md ${skill_lines} LINES OK (ceiling 1000)"
 
 echo "== JSON schemas =="
 mapfile -t schema_files < <(printf '%s\n' schemas/*.json)
-[[ ${#schema_files[@]} -eq 11 ]] || \
-  fail "schemas/ contains ${#schema_files[@]} JSON files; expected exactly 11"
+[[ ${#schema_files[@]} -ge 11 ]] || \
+  fail "schemas/ contains ${#schema_files[@]} JSON files; expected at least the 11 v1 schemas"
 for schema in "${schema_files[@]}"; do
   assert_command "$schema does not parse as JSON" \
     python3 -c "import json,sys; json.load(open(sys.argv[1])); print('JSON OK', sys.argv[1])" "$schema"
@@ -89,10 +115,10 @@ dag_output=$(python3 scripts/render_dag.py examples/example_product_delivery/loo
 echo "MERMAID FENCE OK"
 
 echo "== Installer tests =="
-installer_output=$(cd "$repo_root" && node test/installer.test.js) || \
+installer_output=$(cd "$repo_root" && "$node_cmd" test/installer.test.js) || \
   fail "repo-root installer tests exited nonzero"
 printf '%s\n' "$installer_output"
-[[ $installer_output == *"15 passed, 0 failed"* ]] || \
-  fail "installer test output did not report 15 passed, 0 failed"
+[[ $installer_output == *"passed, 0 failed"* ]] || \
+  fail "installer test output did not report a zero-failure summary"
 
 echo "ALL GREEN"

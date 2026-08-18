@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-spend-summary-v2.json",
+  "title": "create-loop generated execution budget summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "authorization_id", "execution_id", "root_id", "root_path_sha256",
+    "grant_sha256", "ledger_last_seq", "ledger_tail_sha256", "status", "settled",
+    "reserved", "charged", "remaining", "in_doubt_attempt_ids", "settled_call_ids",
+    "settled_run_ids", "interrupted_call_ids", "interrupted_attempt_ids", "breaches",
+    "declared_attempt_ids", "generated_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "authorization_id": {"$ref": "#/$defs/id"},
+    "execution_id": {"$ref": "#/$defs/id"},
+    "root_id": {"$ref": "#/$defs/id"},
+    "root_path_sha256": {"$ref": "#/$defs/sha256"},
+    "grant_sha256": {"$ref": "#/$defs/sha256"},
+    "ledger_last_seq": {"type": "integer", "minimum": 1},
+    "ledger_tail_sha256": {"$ref": "#/$defs/sha256"},
+    "status": {"enum": ["active", "revoked", "closed", "breached"]},
+    "settled": {"$ref": "#/$defs/totals"},
+    "reserved": {"$ref": "#/$defs/totals"},
+    "charged": {"$ref": "#/$defs/totals"},
+    "remaining": {"$ref": "#/$defs/totals"},
+    "in_doubt_attempt_ids": {"$ref": "#/$defs/idList"},
+    "settled_call_ids": {"$ref": "#/$defs/idList"},
+    "settled_run_ids": {"$ref": "#/$defs/idList"},
+    "interrupted_call_ids": {"$ref": "#/$defs/idList"},
+    "interrupted_attempt_ids": {"$ref": "#/$defs/idList"},
+    "breaches": {"$ref": "#/$defs/idList"},
+    "declared_attempt_ids": {"$ref": "#/$defs/idList"},
+    "generated_at": {"$ref": "#/$defs/timestamp"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "idList": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "totals": {
+      "type": "object", "additionalProperties": false,
+      "required": ["calls", "total_tokens", "wall_seconds"],
+      "properties": {
+        "calls": {"type": "integer", "minimum": 0},
+        "total_tokens": {"type": "integer", "minimum": 0},
+        "wall_seconds": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}

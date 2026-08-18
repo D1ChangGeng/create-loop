@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-evaluation-input-manifest-v1.json",
+  "title": "create-loop exact evaluation input manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "experiment_id", "preregistration_sha256", "run_plan_sha256",
+    "evaluation_spec_sha256", "traces", "oracle_results", "blind_manifests", "blind_review_results",
+    "deterministic_suite_results", "evaluator_contexts", "reviewer_contexts", "deterministic_inputs",
+    "trace_adapter", "execution_authority", "usage_receipts", "materialized_workspaces",
+    "reviewer_execution_receipts", "aggregate_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment_id": {"$ref": "#/$defs/id"},
+    "preregistration_sha256": {"$ref": "#/$defs/sha256"},
+    "run_plan_sha256": {"$ref": "#/$defs/sha256"},
+    "evaluation_spec_sha256": {"$ref": "#/$defs/sha256"},
+    "traces": {"type": "array", "minItems": 84, "maxItems": 84, "items": {"$ref": "#/$defs/runFile"}},
+    "oracle_results": {"type": "array", "minItems": 84, "maxItems": 84, "items": {"$ref": "#/$defs/runFile"}},
+    "blind_manifests": {"type": "array", "minItems": 42, "maxItems": 42, "items": {"$ref": "#/$defs/pairFile"}},
+    "blind_review_results": {"type": "array", "minItems": 42, "maxItems": 42, "items": {"$ref": "#/$defs/pairFile"}},
+    "deterministic_suite_results": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/protocolFile"}},
+    "evaluator_contexts": {"type": "array", "minItems": 84, "maxItems": 84, "items": {"$ref": "#/$defs/runFile"}},
+    "reviewer_contexts": {"type": "array", "minItems": 42, "maxItems": 42, "items": {"$ref": "#/$defs/pairFile"}},
+    "deterministic_inputs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fixture_catalog", "runner", "tool_profile"],
+      "properties": {
+        "fixture_catalog": {"$ref": "#/$defs/file"},
+        "runner": {"$ref": "#/$defs/file"},
+        "tool_profile": {"$ref": "#/$defs/file"}
+      }
+    },
+    "trace_adapter": {"$ref": "#/$defs/file"},
+    "execution_authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["root", "grant", "ledger_anchor", "spend_summary"],
+      "properties": {
+        "root": {"$ref": "#/$defs/directory"},
+        "grant": {"$ref": "#/$defs/file"},
+        "ledger_anchor": {"$ref": "#/$defs/file"},
+        "spend_summary": {"$ref": "#/$defs/file"}
+      }
+    },
+    "usage_receipts": {"type": "array", "minItems": 84, "maxItems": 84, "items": {"$ref": "#/$defs/runFile"}},
+    "materialized_workspaces": {"type": "array", "minItems": 84, "maxItems": 84, "items": {"$ref": "#/$defs/runDirectory"}},
+    "reviewer_execution_receipts": {"type": "array", "minItems": 42, "maxItems": 42, "items": {"$ref": "#/$defs/pairFile"}},
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "file": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "directory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path"],
+      "properties": {"path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}}
+    },
+    "runFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["run_id", "path", "sha256"],
+      "properties": {"run_id": {"type": "string", "pattern": "^S(?:0[1-9]|1[0-4])-P0[1-3]-(?:v1|v2)$"}, "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "pairFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pair_id", "path", "sha256"],
+      "properties": {"pair_id": {"type": "string", "pattern": "^S(?:0[1-9]|1[0-4])-P0[1-3]$"}, "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "runDirectory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["run_id", "path", "manifest_sha256"],
+      "properties": {
+        "run_id": {"type": "string", "pattern": "^S(?:0[1-9]|1[0-4])-P0[1-3]-(?:v1|v2)$"},
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "protocolFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["protocol", "path", "sha256"],
+      "properties": {"protocol": {"enum": ["v1", "v2"]}, "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    }
+  }
+}

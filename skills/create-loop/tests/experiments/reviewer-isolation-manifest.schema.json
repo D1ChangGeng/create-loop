@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/reviewer-isolation-manifest-v1.json",
+  "title": "create-loop pilot reviewer OS isolation manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "isolation_id", "backend", "distribution", "network_namespace",
+    "namespace_flags", "workspace", "cli_identity", "codex_package", "codex_home", "runtime_roots",
+    "hidden_host_roots", "delivered_files", "access_probes", "mount_observations", "environment",
+    "command_sha256", "created_at", "aggregate_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "isolation_id": {"$ref": "#/$defs/id"},
+    "backend": {"const": "wsl2-bubblewrap"},
+    "distribution": {"$ref": "#/$defs/id"},
+    "network_namespace": {"const": "authenticated-provider-only-launcher"},
+    "namespace_flags": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {"enum": ["user", "ipc", "pid", "uts", "cgroup"]}
+    },
+    "workspace": {"$ref": "#/$defs/mount"},
+    "cli_identity": {"$ref": "#/$defs/cliIdentity"},
+    "codex_package": {"$ref": "#/$defs/mount"},
+    "codex_home": {"$ref": "#/$defs/mount"},
+    "runtime_roots": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/runtimeMount"}
+    },
+    "hidden_host_roots": {
+      "type": "array", "minItems": 4, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^/[A-Za-z0-9._/-]+$"}
+    },
+    "delivered_files": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "access_probes": {
+      "type": "array", "minItems": 4,
+      "items": {"$ref": "#/$defs/probe"}
+    },
+    "mount_observations": {
+      "type": "array", "minItems": 4, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/mountObservation"}
+    },
+    "environment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["home", "codex_home", "path", "cleared"],
+      "properties": {
+        "home": {"const": "/home/reviewer"},
+        "codex_home": {"const": "/home/reviewer/.codex"},
+        "path": {"type": "string", "minLength": 1},
+        "cleared": {"const": true}
+      }
+    },
+    "command_sha256": {"$ref": "#/$defs/sha256"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sandboxPath": {"type": "string", "pattern": "^/[A-Za-z0-9._/-]+$"},
+    "mount": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sandbox_path", "mode", "source_sha256"],
+      "properties": {
+        "sandbox_path": {"$ref": "#/$defs/sandboxPath"},
+        "mode": {"enum": ["read-only", "read-write"]},
+        "source_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "cliIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "id", "version", "platform", "arch", "identity_sha256",
+        "package_tree_sha256", "launcher", "entrypoint", "package", "native_executable"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "platform": {"const": "linux"},
+        "arch": {"const": "x86_64"},
+        "identity_sha256": {"$ref": "#/$defs/sha256"},
+        "package_tree_sha256": {"$ref": "#/$defs/sha256"},
+        "launcher": {"$ref": "#/$defs/component"},
+        "entrypoint": {"$ref": "#/$defs/component"},
+        "package": {"$ref": "#/$defs/component"},
+        "native_executable": {"$ref": "#/$defs/component"}
+      }
+    },
+    "component": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "runtimeMount": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sandbox_path", "mode", "source_path_sha256"],
+      "properties": {
+        "sandbox_path": {"$ref": "#/$defs/sandboxPath"},
+        "mode": {"const": "read-only"},
+        "source_path_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "file": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "size"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size": {"type": "integer", "minimum": 0}
+      }
+    },
+    "probe": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "expected", "observed"],
+      "properties": {
+        "path": {"$ref": "#/$defs/sandboxPath"},
+        "expected": {"enum": ["readable", "hidden"]},
+        "observed": {"enum": ["readable", "hidden"]}
+      }
+    },
+    "mountObservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "mode"],
+      "properties": {
+        "path": {"$ref": "#/$defs/sandboxPath"},
+        "mode": {"enum": ["read-only", "read-write"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/pilot-report-v1.json",
+  "title": "create-loop v1/v2 real-task pilot report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "experiment_id", "evaluation_input_manifest_sha256",
+    "run_summary", "pair_results", "metrics", "review_summary", "budget_summary",
+    "decision", "formal_execution_enabled", "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment_id": {"$ref": "#/$defs/id"},
+    "evaluation_input_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "run_summary": {"$ref": "#/$defs/runSummary"},
+    "pair_results": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/$defs/pairResult"}},
+    "metrics": {"type": "object", "additionalProperties": {"$ref": "#/$defs/metric"}},
+    "review_summary": {"$ref": "#/$defs/reviewSummary"},
+    "budget_summary": {"$ref": "#/$defs/budgetSummary"},
+    "decision": {"$ref": "#/$defs/decision"},
+    "formal_execution_enabled": {"const": false},
+    "limitations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nullableNumber": {"type": ["number", "null"]},
+    "stringList": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "runSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["calibration_calls", "producer_episodes", "producer_arms", "pairs", "blind_reviews"],
+      "properties": {
+        "calibration_calls": {"const": 1},
+        "producer_episodes": {"const": 18},
+        "producer_arms": {"const": 12},
+        "pairs": {"const": 6},
+        "blind_reviews": {"const": 4}
+      }
+    },
+    "pairResult": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "pair_id", "case_id", "quality_scored", "v1_criterion_score", "v2_criterion_score",
+        "criterion_delta", "v1_false_completion", "v2_false_completion",
+        "v1_control_writes", "v2_control_writes", "v1_total_tokens", "v2_total_tokens",
+        "v1_total_tokens_upper_bound", "v2_total_tokens_upper_bound",
+        "v1_wall_seconds", "v2_wall_seconds", "v1_wall_seconds_upper_bound",
+        "v2_wall_seconds_upper_bound", "usage_complete", "review_outcome", "evidence_refs"
+      ],
+      "properties": {
+        "pair_id": {"type": "string", "pattern": "^PL-(?:N0|T2|T3|T5|S1|T7)-P01$"},
+        "case_id": {"enum": ["N0", "T2", "T3", "T5", "S1", "T7"]},
+        "quality_scored": {"type": "boolean"},
+        "v1_criterion_score": {"$ref": "#/$defs/nullableNumber"},
+        "v2_criterion_score": {"$ref": "#/$defs/nullableNumber"},
+        "criterion_delta": {"$ref": "#/$defs/nullableNumber"},
+        "v1_false_completion": {"type": "boolean"},
+        "v2_false_completion": {"type": "boolean"},
+        "v1_control_writes": {"type": "integer", "minimum": 0},
+        "v2_control_writes": {"type": "integer", "minimum": 0},
+        "v1_total_tokens": {"type": "integer", "minimum": 0},
+        "v2_total_tokens": {"type": "integer", "minimum": 0},
+        "v1_total_tokens_upper_bound": {"type": "integer", "minimum": 0},
+        "v2_total_tokens_upper_bound": {"type": "integer", "minimum": 0},
+        "v1_wall_seconds": {"type": "number", "minimum": 0},
+        "v2_wall_seconds": {"type": "number", "minimum": 0},
+        "v1_wall_seconds_upper_bound": {"type": "number", "minimum": 0},
+        "v2_wall_seconds_upper_bound": {"type": "number", "minimum": 0},
+        "usage_complete": {"type": "boolean"},
+        "review_outcome": {"type": ["string", "null"]},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "metric": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "v1", "v2", "comparison", "unit", "sample_count", "reason", "evidence_refs"],
+      "properties": {
+        "status": {"enum": ["measured", "not-measured"]},
+        "v1": {"$ref": "#/$defs/nullableNumber"},
+        "v2": {"$ref": "#/$defs/nullableNumber"},
+        "comparison": {"$ref": "#/$defs/nullableNumber"},
+        "unit": {"type": "string", "minLength": 1},
+        "sample_count": {"type": "integer", "minimum": 0},
+        "reason": {"type": ["string", "null"]},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "reviewSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["complete", "count", "v2_wins", "v1_wins", "ties", "both_unacceptable", "v2_severe_regressions", "signed_score"],
+      "properties": {
+        "complete": {"const": true},
+        "count": {"const": 4},
+        "v2_wins": {"type": "integer", "minimum": 0},
+        "v1_wins": {"type": "integer", "minimum": 0},
+        "ties": {"type": "integer", "minimum": 0},
+        "both_unacceptable": {"type": "integer", "minimum": 0},
+        "v2_severe_regressions": {"type": "integer", "minimum": 0},
+        "signed_score": {"type": "number"}
+      }
+    },
+    "budgetSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "calibration_calls", "producer_calls", "reviewer_calls", "total_calls",
+        "measured_total_tokens", "charged_total_tokens_upper_bound",
+        "measured_wall_seconds", "charged_wall_seconds_upper_bound",
+        "usage_complete", "cost_usd"
+      ],
+      "properties": {
+        "calibration_calls": {"const": 1},
+        "producer_calls": {"const": 18},
+        "reviewer_calls": {"const": 4},
+        "total_calls": {"const": 23},
+        "measured_total_tokens": {"type": "integer", "minimum": 0},
+        "charged_total_tokens_upper_bound": {"type": "integer", "minimum": 0},
+        "measured_wall_seconds": {"type": "number", "minimum": 0},
+        "charged_wall_seconds_upper_bound": {"type": "number", "minimum": 0},
+        "usage_complete": {"type": "boolean"},
+        "cost_usd": {"const": "not-measured"}
+      }
+    },
+    "decision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["recommendation", "pilot_tendency", "safety_stop", "rationale"],
+      "properties": {
+        "recommendation": {"enum": ["stop-keep-v1-default", "pilot-complete-await-user-decision"]},
+        "pilot_tendency": {"enum": ["v1", "v2", "mixed", "tie"]},
+        "safety_stop": {"type": "boolean"},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

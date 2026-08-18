@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-source-snapshot-v1.json",
+  "title": "create-loop experiment source snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "algorithm", "snapshot_id", "protocol", "root", "include",
+    "exclude", "origin", "files", "aggregate_sha256", "archive"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "algorithm": {"const": "sha256-source-snapshot-v1"},
+    "snapshot_id": {"$ref": "#/$defs/id"},
+    "protocol": {"enum": ["v1", "v2"]},
+    "root": {"const": "."},
+    "include": {"$ref": "#/$defs/include"},
+    "exclude": {"$ref": "#/$defs/exclude"},
+    "origin": {"$ref": "#/$defs/origin"},
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"},
+    "archive": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["format", "sha256", "size"],
+      "properties": {
+        "format": {"const": "ustar-v1"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "include": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["AGENTS.md", "README.md", "SKILL.md", "examples", "references", "schemas", "scripts", "templates"]
+      }
+    },
+    "exclude": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"enum": ["**/__pycache__/**", "**/*.pyc"]}
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"enum": ["git-commit", "dirty-worktree"]},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "base_git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      },
+      "allOf": [
+        {
+          "if": {"required": ["kind"], "properties": {"kind": {"const": "git-commit"}}},
+          "then": {"required": ["commit"]}
+        },
+        {
+          "if": {"required": ["kind"], "properties": {"kind": {"const": "dirty-worktree"}}},
+          "then": {"required": ["base_git_commit"]}
+        }
+      ]
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size", "mode"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?:AGENTS\\.md|README\\.md|SKILL\\.md|(?:examples|references|schemas|scripts|templates)/[A-Za-z0-9._/-]+)$"
+        },
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size": {"type": "integer", "minimum": 0},
+        "mode": {"enum": ["0644", "0755"]}
+      }
+    }
+  }
+}

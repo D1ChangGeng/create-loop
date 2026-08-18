@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-trace-v2.json",
+  "type": "object", "additionalProperties": false,
+  "required": [
+    "schema_version", "experiment_id", "preregistration_sha256", "run_plan_sha256",
+    "pair_id", "run_id", "episode_id", "scenario_id", "scenario_slug", "protocol",
+    "repetition", "pair_position", "pair_seed", "role", "model", "reasoning_effort",
+    "tool_profile", "provider_profile", "cli_identity", "workspace_seed", "input_sha256",
+    "baseline_source_sha256", "candidate_source_sha256", "instrument_manifest_sha256",
+    "semantic_case_sha256", "workspace_manifest", "final_workspace_manifest",
+    "initial_workspace_manifest_sha256", "final_workspace_manifest_sha256",
+    "evidence_manifest", "evidence_manifest_sha256", "usage_receipt", "execution_authority",
+    "adapter", "trace_source", "started_at", "ended_at", "budget", "events", "outcome",
+    "goal_satisfied"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "experiment_id": {"$ref": "#/$defs/id"},
+    "preregistration_sha256": {"$ref": "#/$defs/sha256"},
+    "run_plan_sha256": {"$ref": "#/$defs/sha256"},
+    "pair_id": {"$ref": "#/$defs/id"}, "run_id": {"$ref": "#/$defs/id"},
+    "episode_id": {"$ref": "#/$defs/id"},
+    "scenario_id": {"type": ["integer", "string"]},
+    "scenario_slug": {"type": "string", "minLength": 1},
+    "protocol": {"enum": ["v1", "v2"]},
+    "repetition": {"type": "integer", "minimum": 1},
+    "pair_position": {"type": "integer", "minimum": 1},
+    "pair_seed": {"type": "integer", "minimum": 0},
+    "role": {"enum": ["producer", "reviewer", "calibration"]},
+    "model": {"$ref": "#/$defs/id"},
+    "reasoning_effort": {"enum": ["low", "medium", "high", "xhigh", "max", "ultra"]},
+    "tool_profile": {"$ref": "#/$defs/fileBindingWithId"},
+    "provider_profile": {"$ref": "#/$defs/fileBindingWithId"},
+    "cli_identity": {"$ref": "#/$defs/fileBindingWithId"},
+    "workspace_seed": {"type": "integer", "minimum": 0},
+    "input_sha256": {"$ref": "#/$defs/sha256"},
+    "baseline_source_sha256": {"$ref": "#/$defs/sha256"},
+    "candidate_source_sha256": {"$ref": "#/$defs/sha256"},
+    "instrument_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "semantic_case_sha256": {"$ref": "#/$defs/sha256"},
+    "workspace_manifest": {"$ref": "#/$defs/fileBinding"},
+    "final_workspace_manifest": {"$ref": "#/$defs/fileBinding"},
+    "initial_workspace_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "final_workspace_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "evidence_manifest": {"$ref": "#/$defs/fileBinding"},
+    "evidence_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "usage_receipt": {"$ref": "#/$defs/fileBinding"},
+    "execution_authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["grant_sha256", "ledger_last_seq", "ledger_tail_sha256"],
+      "properties": {
+        "grant_sha256": {"$ref": "#/$defs/sha256"},
+        "ledger_last_seq": {"type": "integer", "minimum": 1},
+        "ledger_tail_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "adapter": {"$ref": "#/$defs/adapter"},
+    "trace_source": {"$ref": "#/$defs/fileBinding"},
+    "started_at": {"$ref": "#/$defs/timestamp"}, "ended_at": {"$ref": "#/$defs/timestamp"},
+    "budget": {"$ref": "#/$defs/budget"},
+    "events": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/event"}},
+    "outcome": {"$ref": "#/$defs/outcome"},
+    "goal_satisfied": {"type": "null"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "adapter": {
+      "type": "object", "additionalProperties": false, "required": ["id", "version", "sha256"],
+      "properties": {"id": {"$ref": "#/$defs/id"}, "version": {"$ref": "#/$defs/id"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "fileBinding": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "fileBindingWithId": {
+      "type": "object", "additionalProperties": false, "required": ["id", "path", "sha256"],
+      "properties": {"id": {"$ref": "#/$defs/id"}, "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total_tokens_limit", "seconds_limit", "total_tokens_used", "elapsed_seconds"],
+      "properties": {
+        "total_tokens_limit": {"type": "integer", "minimum": 1},
+        "seconds_limit": {"type": "integer", "minimum": 1},
+        "total_tokens_used": {"type": "integer", "minimum": 0},
+        "elapsed_seconds": {"type": "number", "minimum": 0}
+      }
+    },
+    "event": {
+      "type": "object", "additionalProperties": false,
+      "required": ["seq", "ts", "kind", "summary", "payload_sha256"],
+      "properties": {
+        "seq": {"type": "integer", "minimum": 1}, "ts": {"$ref": "#/$defs/timestamp"},
+        "kind": {"enum": ["adapter_started", "model_request", "model_response", "completion_claim", "deliverable", "evidence_frozen", "usage_settled", "adapter_finished"]},
+        "summary": {"type": "string", "minLength": 1},
+        "payload_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "outcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "completion_claimed", "goal_satisfied", "evidence_refs", "violations", "deliverables", "blockers", "risks", "metric_observations"],
+      "properties": {
+        "status": {"enum": ["completed", "incomplete", "waiting", "error"]},
+        "completion_claimed": {"type": "boolean"}, "goal_satisfied": {"type": "null"},
+        "evidence_refs": {"$ref": "#/$defs/strings"}, "violations": {"$ref": "#/$defs/strings"},
+        "deliverables": {"$ref": "#/$defs/strings"}, "blockers": {"$ref": "#/$defs/strings"},
+        "risks": {"$ref": "#/$defs/strings"},
+        "metric_observations": {"type": "object", "additionalProperties": {"enum": ["not-measured"]}}
+      }
+    }
+  }
+}

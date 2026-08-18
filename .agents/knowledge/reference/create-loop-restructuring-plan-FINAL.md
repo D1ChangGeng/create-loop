@@ -1,8 +1,19 @@
+---
+type: reference
+confidence: observed
+scope: ["skills/create-loop/"]
+sources: ["skills/create-loop/references/protocol_v2.md", ".agents/knowledge/reference/redesign-execution-plan-2026-07.md"]
+last_verified: 2026-07-31
+created: 2026-07-30
+---
+
 # `create-loop` — Final System-Level Restructuring Plan
 
-**Status:** authoritative. Supersedes `subtraction-plan-2026-07.md` entirely, and supersedes
-`redesign-execution-plan-2026-07.md` where they conflict (that document's Amendment A1 is folded in
-here).
+**Status:** historical design input, partially implemented and superseded as current-state
+authority on 2026-07-31. The live contract is the repository source, executable tests, and
+`skills/create-loop/references/protocol_v2.md`; this plan remains the rationale and rollout record.
+It superseded `subtraction-plan-2026-07.md` and conflicting parts of
+`redesign-execution-plan-2026-07.md` at the time it was written.
 **Baseline verified 2026-07-30:** SKILL.md 803 lines · references/ 20 files 9,704 lines ·
 templates/ 19 files 2,344 lines · schemas/ 11 · scripts/checks/ 14 modules · tests/ 2,954 lines ·
 examples/ 4 loop dirs · **total 22,849 lines** · rules R1–R41 (next free: **R42**) ·

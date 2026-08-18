@@ -1,0 +1,228 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/event_log.schema.json",
+  "title": "event_log",
+  "description": "The append-only event log: the record of what happened in a loop, and the authority for recorded effects and status transitions. Each node advance writes a pre_effect entry, executes the side effect, then writes a post_effect entry with the outcome; a dangling pre_effect with no post_effect is an in-doubt transaction. Replaying it in seq order rebuilds status transitions and each node's attempt count. It is NOT sufficient on its own to derive node_states: a node reaches 'completed' only on a completion-authorizing evidence-ledger entry, so the canonical projection is plan + log + ledger. No entry field carries iteration or cost_units_spent; those two checkpoint fields are snapshot-carried, not reconstructible from this log.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "node_id",
+        "ts",
+        "kind"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "pre_effect",
+                  "post_effect"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "from_status",
+              "to_status"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "from_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "to_status"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "to_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "from_status"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Strictly monotonic sequence number across the whole log."
+        },
+        "node_id": {
+          "type": "string",
+          "description": "The node this event concerns."
+        },
+        "ts": {
+          "type": "string",
+          "description": "ISO-8601 timestamp."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "pre_effect",
+            "post_effect",
+            "note",
+            "mutation",
+            "dissent"
+          ],
+          "description": "pre_effect/post_effect bracket a side effect; note = annotation; mutation = a structured plan change (carries mutation_type + reason); dissent = the runner proceeded despite a negative blind verdict (reason carries why)."
+        },
+        "from_status": {
+          "type": "string",
+          "enum": [
+            "undiscovered",
+            "discovered",
+            "needs_clarification",
+            "pending",
+            "ready",
+            "running",
+            "waiting_external",
+            "waiting_user",
+            "blocked",
+            "verifying",
+            "verification_failed",
+            "retry_pending",
+            "completed",
+            "cancelled",
+            "deprecated"
+          ],
+          "description": "Node status before the transition. Required with to_status, and required on every pre_effect/post_effect entry."
+        },
+        "to_status": {
+          "type": "string",
+          "enum": [
+            "undiscovered",
+            "discovered",
+            "needs_clarification",
+            "pending",
+            "ready",
+            "running",
+            "waiting_external",
+            "waiting_user",
+            "blocked",
+            "verifying",
+            "verification_failed",
+            "retry_pending",
+            "completed",
+            "cancelled",
+            "deprecated"
+          ],
+          "description": "Node status after the transition. Required with from_status, and required on every pre_effect/post_effect entry."
+        },
+        "phase": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "continue_as_new phase at event time."
+        },
+        "intent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "What the effect intends to do (pre_effect)."
+        },
+        "idempotency_key": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A stable key that makes re-running this effect safe. Required in practice for any non-idempotent effect so an in-doubt entry can be safely replayed."
+        },
+        "outcome": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "ok",
+            "fail",
+            null
+          ],
+          "description": "post_effect outcome."
+        },
+        "result_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Hash of the effect's result (post_effect), for deterministic replay checks."
+        },
+        "mutation_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "add_action",
+            "add_subgraph",
+            "promote_subgraph_to_subloop",
+            "add_child_loop",
+            "update_dependency",
+            "split_node",
+            "merge_nodes",
+            "cancel_node",
+            "deprecate_node",
+            "update_gate",
+            "update_artifact_contract",
+            "update_assumption",
+            "update_risk",
+            null
+          ],
+          "description": "For kind:mutation — the class of change. A plan mutation must be typed + reasoned + evidenced, never an untracked edit (rule R39)."
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "For kind:mutation, why the change was made; for kind:dissent, why the runner proceeded despite the negative blind verdict."
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "For kind:mutation — evidence entry_ids that justify the change."
+        }
+      }
+    }
+  }
+}

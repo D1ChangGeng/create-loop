@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "id": "renderer-historical-defect",
+  "task": "Repair the renderer so output is exact-set deterministic and render --check never modifies tracked output across LF and CRLF worktrees, while keeping Node 18 compatibility and zero runtime dependencies.",
+  "provenance": "Derived from create-loop commit 8263f09a0f119af63441e271603c389e88712b89 and the observed Windows EOL defect; governed by the repository LICENSE.",
+  "source_commit": "8263f09a0f119af63441e271603c389e88712b89",
+  "setup": {"archive_paths": ["bin/create-loop.js", "command", ".opencode/command", ".claude/commands", "package.json"]}
+}

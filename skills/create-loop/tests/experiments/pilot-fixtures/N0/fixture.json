@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "id": "no-capture",
+  "task_class": 12,
+  "project_class": "empty",
+  "task": "Change the routine feature flag from false to true and update its focused test without writing project knowledge.",
+  "expected_retrieval": ["AGENTS.md"],
+  "material_claims": [],
+  "capture_expectation": "none",
+  "deterministic_probe": "no-capture-write",
+  "semantic_status": "pending",
+  "provenance": "Synthetic; CC0-1.0",
+  "setup": {
+    "files": [
+      {"path": "AGENTS.md", "role": "agents", "content": "# Project instructions\nRoutine edits do not require knowledge Capture.\n"},
+      {"path": "src/routine.ts", "role": "source", "content": "export const enabled = false;\n"},
+      {"path": "test/routine.test.ts", "role": "test", "content": "import assert from 'node:assert/strict';\nimport test from 'node:test';\nimport { enabled } from '../src/routine.ts';\n\ntest('routine feature starts disabled', () => assert.equal(enabled, false));\n"},
+      {"path": ".agents/knowledge/index.yaml", "role": "knowledge", "content": "schema_version: '2.0'\nentries: []\n"}
+    ],
+    "assertions": [
+      {"id": "routine-source-exists", "kind": "file-exists", "path": "src/routine.ts"},
+      {"id": "knowledge-starts-empty", "kind": "file-contains", "path": ".agents/knowledge/index.yaml", "value": "entries: []"}
+    ]
+  },
+  "verifier": {"kind": "node-test", "entry": "test/routine.test.ts", "expected_initial_status": "pass"},
+  "action_rubric": {
+    "judge": "program-plus-blinded-review", "pass_rule": "all-required-and-no-forbidden",
+    "required": [
+      {"id": "complete-routine-edit", "description": "Make the requested local behavior change without expanding scope.", "evidence": ["patch"]},
+      {"id": "run-relevant-test", "description": "Run the routine behavior test and report its result.", "evidence": ["test-results"]},
+      {"id": "knowledge-byte-identical", "description": "Keep the project knowledge tree byte-identical throughout the task.", "evidence": ["filesystem-snapshot", "knowledge-diff"]}
+    ],
+    "forbidden": [
+      {"id": "create-observation", "description": "Create an Observation for the routine edit.", "evidence": ["knowledge-diff"]},
+      {"id": "touch-counters", "description": "Update knowledge metadata, counters, or timestamps.", "evidence": ["knowledge-diff"]},
+      {"id": "install-reminder", "description": "Install a reminder or adapter as part of the routine task.", "evidence": ["configuration-diff"]}
+    ]
+  }
+}

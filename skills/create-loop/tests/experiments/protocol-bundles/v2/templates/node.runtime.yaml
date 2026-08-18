@@ -1,0 +1,67 @@
+# node.runtime — the per-node runtime state file
+# (nodes/<node_id>/node.runtime.yaml). Holds the runtime_subgraphs[] list: the
+# lightweight SUBGRAPHS a single node hosts (see references/subgraph_subloop_policy.md
+# §6, §8). Keeps loop.state.yaml lean by localizing subgraph writes to the owning
+# node.
+#
+# A subgraph carries its OWN 8-value status enum — DISTINCT from the 15 node
+# statuses. NEVER apply a node status to a subgraph or a subgraph status to a node.
+#   subgraph statuses (8): proposed | admitted | running | blocked |
+#                          completed | failed | promoted_to_subloop | cancelled
+#   subgraph_id pattern:   SG-<parent-node-id-short>-<seq>  (e.g. SG-N4-001)
+
+node_id: N4_design_loop_spec        # the parent node (in loop.plan.yaml) hosting these
+
+# runtime_subgraphs — the subgraphs this node hosts. May be empty ([]).
+runtime_subgraphs:
+  - subgraph_id: SG-N4-001          # LOCKED pattern SG-<short-node-id>-<3-digit seq>
+    title: Compare three state-persistence approaches
+    status: running                 # one of the 8 subgraph statuses (NOT a node status)
+    spawn_reason: >-
+      Local decision fan-out: the design node must choose among three
+      state-persistence approaches before it can produce design-spec.md.
+      Light-governance, node-bounded — a subgraph, not a subloop.
+    # scope — the subgraph's boundary. Each list may be empty ([]).
+    scope:
+      in:
+        - compare checkpoint-only vs event-sourced vs hybrid persistence
+        - pick the approach that satisfies the resume-from-blank requirement
+      out:
+        - implementing the chosen approach (belongs to a later node)
+        - the state-model status enum (owned by state_model.md)
+    # nodes — the subgraph's local task nodes; each {id, title, status, output}.
+    nodes:
+      - id: sg-collect-options
+        title: Enumerate the three candidate approaches
+        status: completed           # subgraph status
+        output: artifacts/persistence-options.md
+      - id: sg-score-options
+        title: Score each option against resume-from-blank + cost
+        status: running
+        output: null                # null until this local node produces an artifact
+      - id: sg-pick
+        title: Record the chosen approach + rationale
+        status: proposed            # subgraph status: not yet admitted/started
+        output: null
+    # edges — dependency edges as [from, to] pairs of local node ids. May be [].
+    edges:
+      - [sg-collect-options, sg-score-options]
+      - [sg-score-options, sg-pick]
+    # completion_gate — the subgraph's local done condition.
+    completion_gate:
+      required_outputs:
+        - artifacts/persistence-options.md
+        - artifacts/persistence-decision.md
+      pass_condition: >-
+        one approach chosen with a recorded rationale that satisfies the
+        resume-from-blank requirement
+    # outputs — artifact paths the subgraph produced so far. May be empty ([]).
+    outputs:
+      - artifacts/persistence-options.md
+    # promotion_policy — the local Promotion Gate policy (subgraph -> subloop, §5).
+    promotion_policy:
+      status: not_promoted          # e.g. not_promoted | promoted_to_subloop
+      promote_to_subloop_if:
+        - the comparison expands into a full multi-phase design effort
+        - the decision needs an independent approval + audit trail
+        - the work must persist across sessions on its own checkpoint

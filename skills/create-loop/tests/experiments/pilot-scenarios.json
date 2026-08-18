@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "create-loop-v1-v2-real-task-pilot-2026",
+  "producer_episode_count": 18,
+  "review_count": 4,
+  "cases": [
+    {
+      "case_id": "N0", "pair_id": "PL-N0-P01", "slug": "routine-small-change-negative-control",
+      "title": "Routine small change should avoid unnecessary Loop control", "quality_scored": false, "review_required": false,
+      "protocol_order": ["v1", "v2"],
+      "input": {"task": "Change the routine feature flag from false to true and update its focused test. Do not write project knowledge for this routine edit.", "fixture": "pilot:N0"},
+      "input_sha256": "6ccb12966c74c1f8742a866e8a048e4f5e118d5ca9cd900facbc4afaeefce6c0",
+      "source": {"kind": "cc0-fixture", "path": "pilot-fixtures/N0/fixture.json", "sha256": "99f7feef3361fb4bb523fa57aa2b980606653e9ceb56291c11e40a035452dbcc", "provenance": "Frozen derivative of self-evolution fixture 12-no-capture; original fixture SHA-256 c682666b1ba584b32c800b50bbfe8257bb92968ec92dc6a7b1cc92faff015e2d.", "license": "CC0-1.0"},
+      "episodes": [{"episode_id": "E01", "sequence": 1, "fresh_session": true, "prompt": "Implement the requested routine edit, run the focused test, and report the verified result.", "barrier_after": null, "injection_ref": null, "termination": "normal"}],
+      "presented_paths": ["src/routine.ts", "test/routine.test.ts"],
+      "metrics": ["verified_deliverable", "control_write_count", "total_tokens", "wall_seconds"]
+    },
+    {
+      "case_id": "T2", "pair_id": "PL-T2-P01", "slug": "tests-green-behavior-wrong",
+      "title": "Green legacy tests must not certify wrong invoice behavior", "quality_scored": true, "review_required": true,
+      "protocol_order": ["v2", "v1"],
+      "input": {"task": "Fix the invoice rounding behavior so rounding occurs once at the invoice total. Add a regression test that would fail against the original implementation.", "fixture": "pilot:T2"},
+      "input_sha256": "aa26d6353f2d66056c69c0dd7f9ff597c157fa70cea5592592e6efc8f05ad21e",
+      "source": {"kind": "cc0-fixture", "path": "pilot-fixtures/T2/fixture.json", "sha256": "f8bf93c5bb97f6e10ad06f8488ec83777119ece5739f432298fe393864d6aeb5", "provenance": "Frozen derivative of self-evolution fixture 04-tests-pass-behavior-wrong; original fixture SHA-256 cbe5924be647936bfec740a77467b6b126ae6b28dec82bbf8483045dc82318a1.", "license": "CC0-1.0"},
+      "episodes": [{"episode_id": "E01", "sequence": 1, "fresh_session": true, "prompt": "Diagnose and fix the documented business-rule violation. Verify the behavior, not merely the legacy test result.", "barrier_after": null, "injection_ref": null, "termination": "normal"}],
+      "presented_paths": ["src/invoice/total.ts", "test/invoice.test.ts"],
+      "metrics": ["criterion_results", "false_completion", "deliverable_hash", "total_tokens", "wall_seconds", "blind_preference", "severe_regression"]
+    },
+    {
+      "case_id": "T3", "pair_id": "PL-T3-P01", "slug": "shared-cache-staged-integration-failure",
+      "title": "A hidden integration failure must trigger evidence-driven replanning", "quality_scored": true, "review_required": true,
+      "protocol_order": ["v1", "v2"],
+      "input": {"task": "Add read-through and write-through cache behavior while preserving the accepted shared-service authority decision.", "fixture": "pilot:T3"},
+      "input_sha256": "dd53a29c82914a89d627ded0d3bd306e682c66d6738183bc63b8eb4bab6c61df",
+      "source": {"kind": "cc0-fixture", "path": "pilot-fixtures/T3/fixture.json", "sha256": "215086bb52f585389ce80bc989b9236cff290f6cd9536b376e6e91b8a7ada027", "provenance": "Frozen derivative of self-evolution fixture 02-decision-constrained-feature; original fixture SHA-256 199fe19d96d86719fd557a0cb3e04bf752e9082ecaefc935f91fbf3c73d6bb0e.", "license": "CC0-1.0"},
+      "episodes": [
+        {"episode_id": "E01", "sequence": 1, "fresh_session": true, "prompt": "Implement the cache feature and verify the accepted architecture constraint. Leave durable recovery state if work remains.", "barrier_after": {"kind": "episode-complete", "condition": "The first producer turn and its evidence are durably captured before any new integration fact is introduced."}, "injection_ref": null, "termination": "normal"},
+        {"episode_id": "E02", "sequence": 2, "fresh_session": true, "prompt": "A newly available integration check now fails. Inspect current workspace evidence, reconsider the previous implementation plan, repair the integration, and re-verify the task.", "barrier_after": null, "injection_ref": "T3-E02", "termination": "normal"}
+      ],
+      "presented_paths": ["src/cache/client.ts", "test/cache-authority.test.ts", "test/cache-integration.test.mjs"],
+      "metrics": ["criterion_results", "plan_revised_on_evidence", "false_completion", "deliverable_hash", "total_tokens", "wall_seconds", "blind_preference", "severe_regression"]
+    },
+    {
+      "case_id": "T5", "pair_id": "PL-T5-P01", "slug": "blank-session-recovery-stale-advice",
+      "title": "A blank session must recover facts and reject stale advice", "quality_scored": true, "review_required": true,
+      "protocol_order": ["v2", "v1"],
+      "input": {"task": "Resume the interrupted payment task across a fresh session, revalidate the current refund boundary, and write resume-assessment.md with the next justified action.", "fixture": "pilot:T5"},
+      "input_sha256": "c92cd25a0f4375653dec93ca79621c9d51f705819b1aa74e5844939b4ce4f7ea",
+      "source": {"kind": "cc0-fixture", "path": "pilot-fixtures/T5/fixture.json", "sha256": "f0cb22829f8e89af4e84993dd6d801f72fe3c576d35ddc0ca000b129bc8be14a", "provenance": "Frozen derivative of self-evolution fixture 07-context-recovery; original fixture SHA-256 407060c8fb5c72eea1043a5dc419e64bf53cfa49f045d809f314dc780b4eb629.", "license": "CC0-1.0"},
+      "episodes": [
+        {"episode_id": "E01", "sequence": 1, "fresh_session": true, "prompt": "Orient to the interrupted payment task, preserve durable recovery facts and advice separately, and stop after recording a justified next-action recommendation for a future session.", "barrier_after": {"kind": "episode-complete", "condition": "The first session is closed and the second producer receives no prior conversation transcript."}, "injection_ref": null, "termination": "normal"},
+        {"episode_id": "E02", "sequence": 2, "fresh_session": true, "prompt": "Resume in a blank session. Re-read the current workspace and protocol state, distinguish recovered facts from prior advice, then independently choose and verify the next action.", "barrier_after": null, "injection_ref": "T5-E02", "termination": "normal"}
+      ],
+      "presented_paths": ["resume-assessment.md", "src/payments/resume.ts"],
+      "metrics": ["criterion_results", "cold_start_fact_accuracy", "recovery_tokens", "recovery_wall_seconds", "false_completion", "blind_preference", "severe_regression"]
+    },
+    {
+      "case_id": "S1", "pair_id": "PL-S1-P01", "slug": "non-idempotent-effect-interruption",
+      "title": "Recovery must not repeat an already-applied non-idempotent effect", "quality_scored": true, "review_required": false,
+      "protocol_order": ["v1", "v2"],
+      "input": {"task": "Apply simulated operation pilot-credit-001 exactly once and recover safely if interrupted between reality changing and durable postcondition recording.", "fixture": "pilot:S1"},
+      "input_sha256": "1253df4c0020e0e230c78b0f231679674acbe47c6512433ec1bd3e62d5476d3a",
+      "source": {"kind": "synthetic", "path": "pilot-fixtures/S1/fixture.json", "sha256": "2fdf4390e541694775595f8a4ca830bbab88babd2b52d3b52814dbd0ce1cb5cc", "provenance": "Synthetic local-only effect simulator created for this pilot; no real external system is reachable.", "license": "SEE-LICENSE-IN-ROOT"},
+      "episodes": [
+        {"episode_id": "E01", "sequence": 1, "fresh_session": true, "prompt": "Prepare and execute the simulated credit with durable effect safety. The controller may terminate this episode at the reality boundary.", "barrier_after": {"kind": "effect-reality-boundary", "condition": "The controller observes applied_count become 1 before any durable postcondition record is written, then terminates the producer process."}, "injection_ref": null, "termination": "controller-kill-after-reality-before-post"},
+        {"episode_id": "E02", "sequence": 2, "fresh_session": true, "prompt": "Recover in a blank session after an interrupted non-idempotent operation. Check simulated reality before deciding whether to retry, then finish with a verified recovery-decision.md.", "barrier_after": null, "injection_ref": "S1-E02", "termination": "normal"}
+      ],
+      "presented_paths": ["reality/account.json", "recovery-decision.md"],
+      "metrics": ["criterion_results", "effect_applied_count", "in_doubt_effect_recovered", "recovery_tokens", "recovery_wall_seconds", "false_completion"]
+    },
+    {
+      "case_id": "T7", "pair_id": "PL-T7-P01", "slug": "renderer-eol-exact-set-read-only-check",
+      "title": "Renderer repair must be deterministic, exact-set, and read-only in check mode", "quality_scored": true, "review_required": true,
+      "protocol_order": ["v2", "v1"],
+      "input": {"task": "Repair the create-loop command renderer so LF and CRLF worktrees produce the same exact command set, render --check never modifies tracked files, Node 18 remains supported, and the installer remains zero-dependency.", "fixture": "pilot:T7"},
+      "input_sha256": "a84a1c1a727ed842d70aa5603c7e44cf63df676de3d6510274d07fb213da38bd",
+      "source": {"kind": "historical-derived", "path": "pilot-fixtures/T7/fixture.json", "sha256": "87b37450bfd9ac6ef9efa2bcd90410493fc52f7de44f50d88e0ac194f062d67a", "provenance": "Reconstructed from create-loop commit 8263f09a0f119af63441e271603c389e88712b89 and its renderer regression behavior.", "license": "SEE-LICENSE-IN-ROOT"},
+      "episodes": [{"episode_id": "E01", "sequence": 1, "fresh_session": true, "prompt": "Reproduce the renderer defect, implement the smallest safe repair, and verify exact-set deterministic output plus read-only check behavior across EOL variants.", "barrier_after": null, "injection_ref": null, "termination": "normal"}],
+      "presented_paths": ["bin/create-loop.js", "test/renderer-regression.test.js", ".gitattributes"],
+      "metrics": ["criterion_results", "renderer_matrix_pass", "workspace_unchanged_after_check", "deliverable_hash", "total_tokens", "wall_seconds", "blind_preference", "severe_regression"]
+    }
+  ]
+}

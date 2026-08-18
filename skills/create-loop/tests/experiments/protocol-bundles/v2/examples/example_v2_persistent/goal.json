@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.0",
+  "loop_id": "L102",
+  "goal": "Deliver and verify a resumable command-line feature.",
+  "intent": "Implement the feature with direct tests and preserve enough evidence for a fresh agent to resume safely.",
+  "scope": {"in": ["Implementation, tests, and handoff"], "out": ["Production deployment"]},
+  "success_criteria": [
+    {"id": "SC1", "statement": "The feature behavior is implemented and its direct test passes.", "expected_evidence": "Passing command output tied to the declared feature check."},
+    {"id": "SC2", "statement": "A fresh agent can identify the next action and open risk.", "expected_evidence": "Canonical resume projection from the journal."}
+  ],
+  "constraints": [{"id": "C1", "statement": "Do not deploy or contact external systems."}],
+  "authorization_boundaries": [],
+  "stop_conditions": ["Stop if direct tests cannot run in the available environment."],
+  "created_at": "2026-07-31T00:00:00Z"
+}

@@ -1,6 +1,16 @@
+---
+type: reference
+confidence: observed
+scope: ["skills/create-loop/"]
+sources: ["skills/create-loop/SKILL.md", "skills/create-loop/scripts/", "skills/create-loop/tests/"]
+last_verified: 2026-07-31
+created: 2026-07-30
+---
+
 # Mechanism Audit — `skills/create-loop/` — 2026-07-30
 
-**Status:** Phase 1 complete (audit only; zero files modified).
+**Status:** historical baseline audit. Its 2026-07-30 inventory and defect claims are retained as
+evidence but are not current-state authority after the 2026-07-31 implementation.
 **Confidence:** `observed` — every claim carries a `file:line` or captured-output citation; no claim is corroborated by a second independent audit pass except where noted as CORROBORATED.
 **Method:** 16 sub-agents. 13 read-only auditors partitioned the tree so every file was claimed by exactly one auditor; 2 hostile critics argued *against* the proposed cuts; 1 Oracle ruled on resume-contract boundaries.
 **Purpose:** evidence base for a systemic subtraction refactor. Governing principle: *complexity is not capability; a mechanism must prove its value to earn existence.*

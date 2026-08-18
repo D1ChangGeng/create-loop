@@ -1,4 +1,17 @@
+---
+type: reference
+confidence: observed
+scope: ["skills/create-loop/"]
+sources: [".agents/knowledge/reference/redesign-evidence-round1-2026-07.md"]
+last_verified: 2026-07-31
+created: 2026-07-30
+---
+
 # Round 2 Synthesis — 4 independent axes over the Round 1 evidence
+
+> **Historical design evidence (superseded as current-state authority 2026-07-31).**
+> Retained for rationale; use current source, executable tests, and
+> `skills/create-loop/references/protocol_v2.md` for implemented behavior.
 Inputs: Oracle A (answer the 5 questions), Oracle B (clean-slate design), Oracle C (steelman/defend), Artistry D (AI-native role+attention design).
 Read with `/tmp/round1-evidence-digest.md`.
 

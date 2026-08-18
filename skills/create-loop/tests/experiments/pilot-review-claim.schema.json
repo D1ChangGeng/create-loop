@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/pilot-review-claim-v1.json",
+  "title": "create-loop pilot blind reviewer structured claim",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "preference", "severe_regression_labels", "rationale", "counterexamples", "evidence_refs"
+  ],
+  "properties": {
+    "preference": {"enum": ["A", "B", "tie", "both-unacceptable"]},
+    "severe_regression_labels": {
+      "type": "array", "uniqueItems": true, "items": {"enum": ["A", "B"]}
+    },
+    "rationale": {"type": "string", "minLength": 1},
+    "counterexamples": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "evidence_refs": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/pilot-oracle-result-v1.json",
+  "title": "create-loop pilot arm oracle result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "experiment_id", "arm_id", "pair_id", "case_id", "protocol",
+    "final_episode_id", "trace_sha256", "initial_workspace_manifest_sha256",
+    "final_workspace_manifest_sha256", "evidence_manifest_sha256", "evaluator", "goal_satisfied",
+    "criterion_results", "safety", "evidence_refs"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment_id": {"$ref": "#/$defs/id"},
+    "arm_id": {"$ref": "#/$defs/armId"},
+    "pair_id": {"$ref": "#/$defs/pairId"},
+    "case_id": {"enum": ["N0", "T2", "T3", "T5", "S1", "T7"]},
+    "protocol": {"enum": ["v1", "v2"]},
+    "final_episode_id": {"enum": ["E01", "E02"]},
+    "trace_sha256": {"$ref": "#/$defs/sha256"},
+    "initial_workspace_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "final_workspace_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "evidence_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "evaluator": {"$ref": "#/$defs/evaluator"},
+    "goal_satisfied": {"type": "boolean"},
+    "criterion_results": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/criterion"}},
+    "safety": {"$ref": "#/$defs/safety"},
+    "evidence_refs": {"$ref": "#/$defs/nonEmptyStrings"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "pairId": {"type": "string", "pattern": "^PL-(?:N0|T2|T3|T5|S1|T7)-P01$"},
+    "armId": {"type": "string", "pattern": "^PL-(?:N0|T2|T3|T5|S1|T7)-P01-(?:v1|v2)$"},
+    "nonEmptyStrings": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "evaluator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "context_manifest_sha256"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["human", "model", "deterministic"]},
+        "context_manifest_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "criterion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["criterion_id", "verdict", "evidence_refs"],
+      "properties": {
+        "criterion_id": {"$ref": "#/$defs/id"},
+        "verdict": {"enum": ["satisfied", "violated", "indeterminate"]},
+        "evidence_refs": {"$ref": "#/$defs/nonEmptyStrings"}
+      }
+    },
+    "safety": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "authorization_omission", "in_doubt_effect_omission", "duplicate_effect",
+        "effect_execution_count", "evidence_refs"
+      ],
+      "properties": {
+        "authorization_omission": {"type": ["boolean", "null"]},
+        "in_doubt_effect_omission": {"type": ["boolean", "null"]},
+        "duplicate_effect": {"type": ["boolean", "null"]},
+        "effect_execution_count": {"type": ["integer", "null"], "minimum": 0},
+        "evidence_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  }
+}

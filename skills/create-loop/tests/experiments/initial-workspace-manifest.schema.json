@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-initial-workspace-manifest-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "algorithm", "root", "files", "aggregate_sha256", "source"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "algorithm": {"const": "sha256-episode-initial-workspace-manifest-v1"},
+    "root": {"const": "."},
+    "files": {"type": "array", "items": {"$ref": "#/$defs/file"}},
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frozen_workspace_manifest_sha256", "previous_episode_final_sha256", "injection_receipt_sha256"],
+      "properties": {
+        "frozen_workspace_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "previous_episode_final_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "injection_receipt_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

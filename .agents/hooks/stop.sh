@@ -15,15 +15,21 @@ if [ ! -f "$manifest" ]; then
   exit 0
 fi
 
-inbox_count=$(grep -E '"inbox_count"[[:space:]]*:' "$manifest" 2>/dev/null \
-  | sed -n 's/.*"inbox_count"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
+inbox_unprocessed_count=$(grep -E '"inbox_unprocessed_count"[[:space:]]*:' "$manifest" 2>/dev/null \
+  | sed -n 's/.*"inbox_unprocessed_count"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
   | sed -n '1p')
+
+if [ -z "$inbox_unprocessed_count" ]; then
+  inbox_unprocessed_count=$(grep -E '"inbox_count"[[:space:]]*:' "$manifest" 2>/dev/null \
+    | sed -n 's/.*"inbox_count"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
+    | sed -n '1p')
+fi
 
 days_since_evolution=$(grep -E '"days_since_evolution"[[:space:]]*:' "$manifest" 2>/dev/null \
   | sed -n 's/.*"days_since_evolution"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
   | sed -n '1p')
 
-case "$inbox_count" in
+case "$inbox_unprocessed_count" in
   ''|*[!0-9]*) exit 0 ;;
 esac
 
@@ -31,8 +37,8 @@ case "$days_since_evolution" in
   ''|*[!0-9]*) exit 0 ;;
 esac
 
-if [ "$inbox_count" -gt 10 ] || [ "$days_since_evolution" -gt 14 ]; then
-  printf "%s\n" "[knowledge] inbox_count=$inbox_count, days_since_evolution=$days_since_evolution. Consider running 'evolve'." \
+if [ "$inbox_unprocessed_count" -gt 10 ] || [ "$days_since_evolution" -gt 14 ]; then
+  printf "%s\n" "[knowledge] inbox_unprocessed_count=$inbox_unprocessed_count, days_since_evolution=$days_since_evolution. Consider running 'evolve'." \
     >&2
 fi
 

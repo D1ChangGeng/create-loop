@@ -1,0 +1,3 @@
+PASS sc-auth -> auth_integration
+PASS sc-persistence -> restart_persistence
+PASS sc-deploy -> post_deploy_smoke; sc-rollback -> rollback_rehearsal

@@ -1,0 +1,479 @@
+# Branching and Parallelism: How a Plan Routes and What Runs at Once
+
+*Diataxis type: **reference + explanation**. This document defines the
+four control-flow vocabularies, the rules for serial versus parallel
+dispatch, and how merge / cancellation / context isolation work. For
+the field shapes, see
+[`loop_plan_spec.md` §3.1](./loop_plan_spec.md#31-control-flow-vocabularies-mapped-from-langgraph).
+For readiness, see
+[`loop_plan_spec.md` §6.3 to 6.5](./loop_plan_spec.md#63-topological-readiness-rule).*
+
+---
+
+## 1. The four control-flow vocabularies
+
+`create-loop` borrows its edge vocabulary from LangGraph's four edge
+types
+([`./research_dags_multiagent.md` §2.1](./research_dags_multiagent.md)).
+Each vocabulary is a label for how an edge or node behaves, not an
+extra field. They compose: a single plan can mix all four freely.
+
+| vocabulary | LangGraph primitive | expressed in `loop.plan` as |
+|------------|---------------------|------------------------------|
+| `fixed` | `add_edge(src, dst)` | a static entry in a node's `requires` list (an unconditional dependency edge) |
+| `conditional` | conditional edge / router | a `branch` node that selects among successors based on state |
+| `command` | `Command(update=..., goto=...)` | a node whose single return value both updates state and routes to the next node |
+| `fanout` | `Send` / map-reduce | a `fanout` node dispatching parallel work, merged by a `join` node |
+
+These four names are locked tokens. They appear in `loop.plan`
+narrative and in the cross-cutting vocabulary tables
+([`loop_plan_spec.md` §3.1](./loop_plan_spec.md#31-control-flow-vocabularies-mapped-from-langgraph));
+the Glossary at the bottom of that document is the canonical list.
+
+---
+
+## 2. Map each vocabulary to a node kind
+
+The vocabulary names describe **how edges behave**. The node kinds
+describe **what nodes do**. The mapping is fixed and exhaustive:
+
+- **`fixed`** edges appear as ordinary `requires` entries. They can be
+  satisfied by any node kind. A `milestone` node with `requires: [a, b]`
+  is the canonical fixed-edge consumer.
+- **`conditional`** routing lives inside a `branch` node. The
+  `branch` reads the relevant state and emits exactly one successor;
+  the others are skipped. The successor is a fixed edge from the
+  `branch`'s output.
+- **`command`** routing — a step that both updates state and chooses
+  its successor in one move — is modelled with the existing node
+  **kinds**, not a separate field: a `branch` node performs the
+  update-and-route decision, and a `mapper` node updates state as it
+  materialises its successor subgraph. `create-loop` does not add a
+  `command` node field; the routing lives in the node's `kind` and its
+  `requires`/subgraph edges.
+- **`fanout`** is realised by a `fanout` node dispatching work and a
+  `join` node collecting it. The fanout produces multiple successors;
+  the join waits for all of them.
+
+`approval`, `compensation`, and `gate` nodes do not change which
+vocabulary they participate in; they constrain what is allowed to
+transition through them.
+
+---
+
+## 3. Serial versus parallel: the decision rule
+
+The default rule from
+[`loop_plan_spec.md` §6.4](./loop_plan_spec.md#64-parallel-dispatch-rule)
+is: every node that is `ready` and has `parallelizable: true` MAY be
+dispatched concurrently. The scheduler picks `priority` among competing
+ready nodes. Whether two specific nodes should actually run in
+parallel is a separate question, and the answer is governed by three
+checks.
+
+### 3.1 The three checks
+
+Two nodes MAY run in parallel iff **all three** checks pass:
+
+1. **No shared `requires` ancestor that is still `running`.** If node
+   B and node C both `requires` node A, and A is still `running`, they
+   serialize behind A. If A is `completed`, they may parallelise.
+2. **No shared produced artifact.** If B and C both declare the same
+   path in their `produces` lists, they share a write target. Two
+   writers on the same artifact is forbidden; serialise.
+3. **No shared mutable state.** If B and C both read-modify-write a
+   piece of state recorded in `node.contract`, they cannot both run.
+   The state is whatever the `event_log` records between their two
+   `requires` entries; if no such entry exists between them, they may
+   parallelise.
+
+The checks are mechanical, not judgemental. The runner applies them
+without consulting the LLM. The intent: parallelism is a property of
+the dependency graph plus the produced-artifact set, not of how the
+plan was authored.
+
+### 3.2 When parallelism is forbidden
+
+Some node kinds and some risk profiles must serialise regardless of
+the three checks above:
+
+- A node whose `risk` is `high` and whose `gate` is `human_approval`
+  or any side-effecting `activity` (paid API call, file system mutation
+  outside the run directory, network call) MUST NOT run in parallel
+  with any other node that has overlapping side effects.
+- A `compensation` node paired with a side-effecting node MUST run
+  serially against that node. No other compensating work runs in
+  parallel with it.
+- A `branch` node whose decision depends on the `cost_units_spent` or
+  `iteration` field MUST serialise behind any node whose completion
+  could change those counters.
+
+These are hard constraints. The runner enforces them; the LLM does not
+override them.
+
+### 3.3 When parallelism is meaningless
+
+Two nodes may both be `ready` and `parallelizable: true` but still
+truly serial in practice: when their combined resource cost exceeds
+the host's available concurrency or `termination.max_cost_units`. The
+runner honours the budget first, then concurrency. The dispatch order
+within the budget is `priority` descending.
+
+---
+
+## 4. Parallelise only if truly independent
+
+The single most important discipline rule for parallelism in
+`create-loop` is this: parallel subagents must be **truly independent**.
+If they must coordinate mid-task, the parallelism collapses into
+expensive serial work. The
+[Anthropic multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system)
+documents the rule explicitly and reports a 90.2% improvement over
+single-agent and ~15× token cost when followed.
+
+### 4.1 The three-part rule
+
+A `fanout` may dispatch parallel subagents only when:
+
+1. **Each subagent's task is self-contained.** The subagent prompt
+   must include the inputs it needs; it must not depend on intermediate
+   state another subagent will produce.
+2. **Each subagent has isolated context.** No shared message history,
+   no shared scratchpad, no shared memory store. Two subagents that
+   share context are not parallel; they are one subagent with split
+   attention.
+3. **Each subagent has a structured return.** The orchestrator must
+   not have to parse free-form prose from subagents; it must validate
+   against a fixed schema. The Anthropic four-field schema
+   (`summary`, `key findings`, `confidence`, `items to verify`) is the
+   production reference.
+
+### 4.2 The fan-out cap
+
+Empirical practice caps parallel subagents at 3 to 5. Beyond that the
+synthesis cost dominates the speedup. The
+[Anthropic multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system)
+explicitly uses 3 to 5. `create-loop` inherits the cap. A `fanout`
+node whose dispatcher produces more than 5 active subagents must
+either batch (run in waves of ≤5) or escalate, not fan out flat.
+
+### 4.3 The collapse signal
+
+If a `join` node receives N branches whose subagent returns contradict
+each other and require reconciliation, the cost of reconciliation may
+exceed the savings from parallelism. The `join` node's `gate` (if
+scored) is the right place to detect this: a low aggregate score or a
+low inter-rater agreement is a signal to cancel low-value branches
+early and accept partial coverage. See §6 for the cancellation
+semantics.
+
+### 4.4 The design tournament: a `fanout` with planned casualties
+
+The canonical worked use of `fanout` / `join` is a **design tournament**:
+N competing designs are produced in isolated contexts, and exactly one is
+kept. The tournament is a usage pattern over existing machinery — it adds
+no node kind, no field, and no verdict type. It is typically materialised
+inside a `mapper` node's runtime subgraph
+([`loop_plan_spec.md` §6.6](./loop_plan_spec.md#66-subgraph-recursion-rule)):
+the `mapper` expands into a `fanout` of N candidate branches merged by a
+`join`, all of it `design_invariant: false`.
+
+**N respects the fan-out cap.** N is 3 to 5 candidates — the §4.2 cap
+applies to candidate count exactly as to any other fan-out. If the design
+space genuinely holds more than 5 defensible shapes, batch candidates in
+waves of ≤5 and carry each wave's winner into a final round (the §4.2
+batching rule); never fan out flat.
+
+**Each candidate is produced in isolation.** The three-part rule (§4.1)
+applies unchanged: each candidate subagent gets a self-contained task —
+the design brief and the selection criteria, never a sibling's candidate —
+its own per-branch working directory (§7.1), and a structured return. Two
+candidates that can see each other are not two candidates; they are one
+candidate with split attention (§7.3), and the tournament's premise —
+independent exploration of the design space — is void.
+
+**Planned casualties are the point, not waste.** Producing N designs to
+keep 1 is what the N× spend buys: the expectation that most candidates
+will die is what makes the exploration honest rather than
+first-idea-wins. A tournament whose author already knows which candidate
+will win is not a tournament; it is one design with N−1 expensive alibis.
+The casualties are planned at authoring time, which distinguishes them
+from §6 cancellation: every candidate branch runs to `completed` and
+produces its artifact, because the reviewer needs all N artifacts in
+hand. The N−1 losers die at selection, not by mid-flight cancellation.
+
+**Selection is blind.** The `join` records a selection strategy in its
+`notes` (the §5.1 reducer convention; the strategies listed there are
+common, not a closed enum): selection by a reviewer that sees the N
+candidate artifacts — under neutral labels — plus the selection criteria,
+but NOT which author produced which candidate, and NOT any author's own
+verdict or rationale. The criteria are the `join` gate's `rubric`. This
+is exactly `assurance: blind` from
+[`evidence_gates.md` §4](./evidence_gates.md#4-the-orthogonal-assurance-axis),
+recorded through the existing verdict-first procedure
+([`evidence_gates.md` §4.1](./evidence_gates.md#41-blind-verification-procedure-verdict-first)):
+the reviewer writes its selection verdict before it may read any producer
+claim. The reviewer is a separate context from every author
+(generator/verifier separation,
+[`evidence_gates.md` §1.1](./evidence_gates.md#11-generatorverifier-separation)).
+
+**The verdict's standing: the tournament chooses; it does not certify.**
+The selection verdict is appended to the existing evidence ledger as a
+`blind` entry on the `join` node, and the dispatch and selection are
+recorded in the existing event log — no new field, no new state. Per the
+authorization rule in
+[`evidence_gates.md` §4.1](./evidence_gates.md#41-blind-verification-procedure-verdict-first),
+`blind` evidence is non-authorizing: the selection verdict cannot by
+itself move the owning node to `completed`. Choosing a design and proving
+the design correct are different acts; the chosen design still faces the
+owning node's own gate like any other output.
+
+**Selection is a semantic judgment, never a count.** No count, score, or
+filled field decides which design wins (SKILL.md §17). The reviewer reads
+the candidates and argues the choice against the criteria; the argument
+is recorded in the ledger entry's `rationale`. The only mechanical facts
+available to a check are that the N candidate artifacts landed at the
+paths the `fanout` declared, and the verdict-first file ordering of
+`evidence_gates.md` §4.1 — which proves ordering only, never blindness.
+Neither fact licenses any conclusion about which design is right;
+adequacy of the choice remains the recorded judgment of the reviewer and
+the runner.
+
+**When to use it.** Genuine design forks: more than one defensible shape,
+and enough downstream cost riding on the choice to justify N× spend.
+Interface shapes, architecture commitments, data models, migration
+strategies — decisions whose wrong answer costs more than N−1 discarded
+explorations.
+
+**When NOT to use it.**
+
+- **The candidates would be near-identical.** If the brief admits one
+  obvious shape, N isolated authors return N copies of it and the spend
+  buys no exploration.
+- **The decision is cheaply reversible.** A tournament spends N× to avoid
+  a wrong commitment; if a wrong commitment costs one `local_patch`, take
+  the first reasonable path and keep the retry budget instead.
+- **A single external observation would settle it.** If a test,
+  benchmark, or API probe can answer the question, run the observation
+  and record `assurance: external` evidence; never substitute a vote for
+  a measurement.
+
+---
+
+## 5. Join and merge semantics
+
+A `join` node is the fan-in: it has multiple entries in `requires`,
+one per branch. It becomes `ready` only when **all** of them are
+`completed` ([`loop_plan_spec.md` §6.5](./loop_plan_spec.md#65-join-semantics)).
+A `join` following a `fanout` collects the fanned-out results before
+its successors may proceed.
+
+### 5.1 The reducer
+
+How a `join` combines its branch outputs is a **convention**, not a
+schema field. `create-loop` does not add a `reducer` node field; the
+join records the strategy it used in its `notes` and enforces it
+through its `gate`. Three reduction strategies are common:
+
+- **`concat`**: ordered concatenation, deterministic, in the order the
+  `fanout` declared the branches.
+- **`merge`**: structured merge keyed by branch id, useful when each
+  branch contributes a different field of a result object.
+- **`vote`**: majority vote or weighted aggregation, used when branches
+  sample the same question and the `join`'s gate is a
+  `self_consistency` aggregator.
+
+The strategy is fixed in the plan (recorded in the join node), not
+negotiated at runtime.
+
+### 5.2 Conflicting branch outputs
+
+Two branches that disagree are the join's main failure mode. Three
+responses are available:
+
+1. **Reconcile deterministically** (when the branches are structured
+   and the conflict is local). The reducer does this automatically
+   for `merge`; for `concat` it concatenates with explicit conflict
+   markers.
+2. **Reconcile via gate.** The `join` carries its own `gate`, typically
+   `evaluator_optimizer` or `step_verifier`, that resolves the conflict
+   in a structured way. The reconciled output is recorded as a new
+   ledger entry.
+3. **Escalate.** When reconciliation fails after the gate budget is
+   exhausted, the `join` transitions to `verification_failed` and the
+   node's `on_failure` ladder runs. If `on_failure` is `escalate`, the
+   loop surfaces a `pending_approvals` entry to the user with the
+   conflicting outputs side by side.
+
+### 5.3 Partial coverage
+
+A `join` whose branches include `cancelled` nodes does not necessarily
+fail. Whether partial coverage is acceptable is a **convention** the
+plan author records in the join node's `preconditions`/`notes` and
+enforces through the join's `gate` — not a schema field. If partial
+coverage is accepted, the `join` proceeds with the surviving branches;
+otherwise the `join`'s gate fails and the node transitions to
+`verification_failed`, running the ladder.
+
+---
+
+## 6. Cancelling a low-value branch
+
+A `fanout` followed by a long-running branch is sometimes overtaken
+by another branch's `completed` result. The remaining branches may
+then be cancelled to save cost. The mechanism is the
+[`cancelled`](./state_model.md#node-status-enum) terminal status plus
+a recorded rationale.
+
+Cancellation rules:
+
+- A branch can only be cancelled after at least one sibling branch is
+  `completed` AND the `join` accepts partial coverage (per §5.3), OR the
+  `join`'s `gate` would never pass given the surviving output.
+- The cancellation is recorded in the `event_log` with
+  `reason: overtaken_by_sibling` or `reason: gate_will_fail`, plus
+  the `node_id` that triggered the cancellation.
+- The cancelled branch's `node.contract.attempt` is not refunded, but
+  any `activity` it was running that has a partial result can have
+  its side effect rolled back by the branch's paired `compensation`
+  node, if any.
+
+The runner cancels proactively, not the LLM. The LLM does not get to
+silently drop branches.
+
+---
+
+## 7. Context isolation between parallel subagents
+
+Parallel subagents share the filesystem but nothing else. The
+isolation rule: each subagent has its own working directory under the
+run-id directory, and the subagent's prompt context is built only
+from that working directory plus its inputs. Two subagents never see
+each other's scratch state.
+
+### 7.1 Where each subagent writes
+
+Each subagent under a `fanout` gets a per-branch working directory:
+
+- `runs/<run-id>/branches/<fanout-id>/<branch-id>/input.json` , the
+  subagent's task input, immutable for the subagent's lifetime.
+- `runs/<run-id>/branches/<fanout-id>/<branch-id>/output.json` , the
+  subagent's structured return, written by the subagent at
+  completion.
+- `runs/<run-id>/branches/<fanout-id>/<branch-id>/notes.md` , the
+  subagent's free-form notes, not consumed by anyone but the
+  subagent.
+
+The parent orchestrator reads only `output.json` from each branch.
+The branch's working directory is invisible to sibling branches and
+to the rest of the plan until the `join` collects them.
+
+### 7.2 Avoiding two writers on the same artifact
+
+The "no shared produced artifact" rule (§3.1 check 2) is enforced by
+the runner. Two subagents under the same `fanout` cannot declare the
+same `produces` path. If a plan author wrote such a plan, the runner
+refuses to dispatch the second subagent until the first is `completed`
+and the artifact is sealed (its evidence ledger entry is finalised).
+
+A `compensation` of a side-effecting node is serial with that node,
+never parallel. See §3.2.
+
+### 7.3 The cost of losing isolation
+
+If two subagents share context, the parallelism they offer is
+illusory. The synthesis step has to merge their narratives, which
+takes more tokens than the speedup saved and risks coherence loss
+([`concepts.md` §4](./concepts.md#4-why-recursion-isomorphic-subgraphs)).
+This is the failure mode the Anthropic multi-agent research system
+warns against. `create-loop` enforces isolation structurally through
+the per-branch working directory, not by trusting the LLM to
+self-isolate.
+
+### 7.4 Scratch-dir isolation vs. git-worktree isolation
+
+The per-branch working directory above isolates a subagent's **notes and
+scratch state** — it is enough for read-mostly *exploration* subagents that
+compare options and return a structured `output.json`. It is **not** enough for
+subagents that develop code in parallel: two units editing files against one
+git working tree share a single `index`, `HEAD`, and `MERGE_HEAD`, and git's
+`index.lock` will fail-fast one of them rather than serialise it — so their edits
+collide and corrupt.
+
+Concurrent **code development** therefore uses a stronger primitive: **one `git
+worktree` per unit** over the shared object store, so each unit has its own
+working tree, index, and branch. That layer — split, isolate, merge, converge,
+with an owner-gate on `push`/`merge` and a defined rollback ladder — is specified
+in [`parallel_development_protocol.md`](./parallel_development_protocol.md). Use
+scratch-dir isolation (§7.1–§7.3) for exploration; use worktree isolation (that
+protocol) for code that ships.
+
+---
+
+## 8. Concurrency limits and cost bounds
+
+The plan declares its budget in the `termination` object
+([`loop_plan_spec.md` §1.2](./loop_plan_spec.md#12-termination-object)):
+`max_iterations`, `max_wall_clock_hours`, `max_cost_units`, plus the
+`done_when` statement. The first three are hard caps; the runner
+stops dispatching when any cap is reached and surfaces an `escalate`
+rather than continuing.
+
+The `termination.max_cost_units` cap is the primary budget for
+parallelism. Each dispatched node records its cost against
+`checkpoint.cost_units_spent`. A `fanout` whose estimated cost would
+push the run over the cap is refused; the runner falls back to
+serialising the branches, then to dispatching only the highest-priority
+branches, then to cancelling the plan and escalating.
+
+Concurrency has a separate cap, which is host-dependent: the runner
+honours whatever the host can deliver. The plan does not declare a
+parallelism limit of its own; the host's limit plus the cost cap
+(`termination.max_cost_units`) is the de facto limit. If the plan needs
+an explicit ceiling (for example to prevent an API rate-limit
+collision), it lowers `termination.max_cost_units` or narrows the
+`fanout`'s declared branches — there is no separate `parallelism` node
+field.
+
+---
+
+## 9. Summary: when each vocabulary fits
+
+- **`fixed`** for ordinary dependency edges. The default.
+- **`conditional`** for routing on state. Use a `branch` node when
+  the choice depends on a previous node's output, the ledger, or
+  `cost_units_spent`.
+- **`command`** for nodes that need to update state and choose the
+  next step in one return. Use when the routing decision and the
+  state update are tightly coupled.
+- **`fanout`** for independent parallel work. Use when the subagents
+  are truly independent (§4.1) and the count is ≤ 5.
+
+Mix freely. A plan that uses only `fixed` is a checklist, not a DAG
+([`concepts.md` §2](./concepts.md#2-why-a-dag-and-not-a-checklist));
+a plan that uses `command` everywhere loses the structural clarity
+the DAG gives; a plan that uses `fanout` where `fixed` would do wastes
+the cost cap.
+
+---
+
+## See also
+
+- [`concepts.md` §2`](./concepts.md#2-why-a-dag-and-not-a-checklist) explains
+  why a DAG with produces/requires edges, not a checklist.
+- [`loop_plan_spec.md` §3.1](./loop_plan_spec.md#31-control-flow-vocabularies-mapped-from-langgraph)
+  gives the locked control-flow vocabulary table.
+- [`loop_plan_spec.md` §6.4 to 6.5`](./loop_plan_spec.md#64-parallel-dispatch-rule)
+  define the parallel-dispatch and join rules.
+- [`loop_plan_spec.md` §6.6`](./loop_plan_spec.md#66-subgraph-recursion-rule)
+  shows how subgraphs participate in the same dispatch rules.
+- [`recovery_protocol.md` §2](./recovery_protocol.md#2-the-resume-from-blank-session-algorithm)
+  shows how the resume algorithm rebuilds the `ready_set` from the
+  dependency graph.
+- [`./research_dags_multiagent.md`](./research_dags_multiagent.md) covers
+  LangGraph edge vocabulary, LangGraph Supervisor, LangGraph Swarm,
+  OpenAI Agents SDK handoffs, Anthropic multi-agent research system.
+- [`parallel_development_protocol.md`](./parallel_development_protocol.md)
+  is the git-worktree layer for concurrent *code* development — split,
+  isolate, merge, converge, with owner-gated publish and a rollback ladder —
+  built on top of the parallelism rules in this document.

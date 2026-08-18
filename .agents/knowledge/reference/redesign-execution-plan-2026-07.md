@@ -1,3 +1,12 @@
+---
+type: reference
+confidence: observed
+scope: ["skills/create-loop/"]
+sources: [".agents/knowledge/reference/redesign-evidence-round1-2026-07.md", ".agents/knowledge/reference/redesign-synthesis-round2-2026-07.md"]
+last_verified: 2026-07-31
+created: 2026-07-30
+---
+
 Task completed in 16m 23s.
 
 Agent: plan
@@ -6,6 +15,10 @@ Model: zeo-claude/claude-opus-5-max
 ---
 
 # Systemic Redesign of `skills/create-loop/` — Wave-Ordered Execution Plan
+
+> **Historical plan (superseded as current-state authority 2026-07-31).** The
+> implemented contract now lives in source, executable tests, and
+> `skills/create-loop/references/protocol_v2.md`.
 
 ## Context
 

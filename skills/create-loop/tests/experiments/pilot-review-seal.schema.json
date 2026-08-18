@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/pilot-review-seal-v1.json",
+  "title": "create-loop complete blind review set seal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "experiment_id", "reviewer_authority", "pairs",
+    "assignments_decoded", "aggregate_sha256", "sealed_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment_id": {"$ref": "#/$defs/id"},
+    "reviewer_authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["grant_sha256", "ledger_anchor_sha256", "spend_summary_sha256"],
+      "properties": {
+        "grant_sha256": {"$ref": "#/$defs/sha256"},
+        "ledger_anchor_sha256": {"$ref": "#/$defs/sha256"},
+        "spend_summary_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "pairs": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["pair_id", "blind_manifest", "review_result", "usage_receipt"],
+        "properties": {
+          "pair_id": {"$ref": "#/$defs/pairId"},
+          "blind_manifest": {"$ref": "#/$defs/file"},
+          "review_result": {"$ref": "#/$defs/file"},
+          "usage_receipt": {"$ref": "#/$defs/file"}
+        }
+      }
+    },
+    "assignments_decoded": {"const": false},
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"},
+    "sealed_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "pairId": {"type": "string", "pattern": "^PL-(?:T2|T3|T5|T7)-P01$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "file": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    }
+  }
+}

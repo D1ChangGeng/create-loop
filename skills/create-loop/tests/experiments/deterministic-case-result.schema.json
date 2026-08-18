@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-deterministic-case-result-v1.json",
+  "title": "create-loop authoritative deterministic case result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "algorithm", "case_id", "protocol", "expected", "actual",
+    "validator", "source_fixture_sha256", "executed_fixture_sha256", "returncode"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "algorithm": {"const": "create-loop-deterministic-case-result-v1"},
+    "case_id": {"$ref": "#/$defs/id"},
+    "protocol": {"enum": ["v1", "v2"]},
+    "expected": {"enum": ["accept", "reject"]},
+    "actual": {"enum": ["accept", "reject", "error"]},
+    "validator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": {"enum": ["validate_loop_plan", "validate_loop_dir"]},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "source_fixture_sha256": {"$ref": "#/$defs/sha256"},
+    "executed_fixture_sha256": {"$ref": "#/$defs/sha256"},
+    "returncode": {"type": "integer"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

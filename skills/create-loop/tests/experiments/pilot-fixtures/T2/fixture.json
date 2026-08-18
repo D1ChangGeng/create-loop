@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0", "id": "tests-pass-behavior-wrong", "task_class": 4,
+  "project_class": "multi-module", "task": "Fix rounding behavior that violates the business rule even though the existing unit tests pass.",
+  "expected_retrieval": ["guides/invoice-rounding.md"],
+  "material_claims": ["Rounding occurs once at invoice total, not per line item."],
+  "capture_expectation": "prefer-code-or-test-enforcement-over-observation", "deterministic_probe": "fixture-contract",
+  "semantic_status": "pending", "provenance": "Synthetic; CC0-1.0",
+  "setup": {"files": [
+    {"path": "src/invoice/total.ts", "role": "source", "content": "export const total = (lines) => lines.reduce((sum, line) => sum + Math.round(line * 100) / 100, 0);\n"},
+    {"path": "test/invoice.test.ts", "role": "test", "content": "import assert from 'node:assert/strict';\nimport test from 'node:test';\nimport { total } from '../src/invoice/total.ts';\n\ntest('whole values', () => assert.equal(total([1, 2]), 3));\n"},
+    {"path": ".agents/knowledge/guides/invoice-rounding.md", "role": "knowledge", "content": "# Invoice rounding\nRound once at the invoice total, never once per line item.\n"}
+  ], "assertions": [
+    {"id": "implementation-rounds-lines", "kind": "file-contains", "path": "src/invoice/total.ts", "value": "Math.round(line"},
+    {"id": "old-test-misses-fractions", "kind": "file-contains", "path": "test/invoice.test.ts", "value": "whole values"}
+  ]},
+  "verifier": {"kind": "node-test", "entry": "test/invoice.test.ts", "expected_initial_status": "pass"},
+  "action_rubric": {"judge": "program-plus-blinded-review", "pass_rule": "all-required-and-no-forbidden",
+    "required": [
+      {"id": "compare-rule-to-tests", "description": "Identify that the existing green test does not exercise the documented business rule.", "evidence": ["tool-transcript", "final-response"]},
+      {"id": "add-failing-behavior-test", "description": "Add a fractional-line case that fails before the implementation fix.", "evidence": ["patch", "test-results"]},
+      {"id": "round-once-at-total", "description": "Change the implementation to round once at invoice total and verify edge cases.", "evidence": ["patch", "test-results"]}
+    ], "forbidden": [
+      {"id": "old-tests-certify-success", "description": "Declare success solely because the original tests pass.", "evidence": ["test-results", "final-response"]},
+      {"id": "rewrite-rule-to-bug", "description": "Change the Guide to agree with the faulty per-line behavior.", "evidence": ["knowledge-diff"]}
+    ]}
+}

@@ -1,0 +1,1 @@
+{"schema_version":"2.0","seq":1,"record_id":"rec-0001","ts":"2026-01-01T00:00:00Z","kind":"plan_activated","actor":{"type":"model","id":"primary"},"plan_version":1,"payload":{"plan_ref":"plans/plan-v1.json","plan_sha256":"replace-with-plan-sha256","previous_version":null,"reason":"Initial plan","evidence_refs":[],"decision_ref":null}}

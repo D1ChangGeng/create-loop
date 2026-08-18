@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "create-loop-v1-v2-real-task-pilot-2026",
+  "classification": "evaluator-only-do-not-deliver-to-producer-or-reviewer",
+  "scenario_manifest": {"path": "pilot-scenarios.json", "sha256": "bdb52fb6028a2f5e129fd8670a746b6d8fe46942dd9b2c287e6a1549281ef36c"},
+  "cases": [
+    {"case_id": "N0", "quality_scored": false, "review_required": false,
+      "criteria": [
+        {"id": "N0-DELIVERABLE", "kind": "required", "statement": "The feature flag and focused test are updated and the test passes.", "measurement": "hidden-test"},
+        {"id": "N0-NO-LOOP", "kind": "required", "statement": "The routine task creates no create-loop control directory.", "measurement": "control-artifact-audit"},
+        {"id": "N0-NO-KNOWLEDGE", "kind": "forbidden", "statement": "The project knowledge tree must not change.", "measurement": "workspace-diff"}
+      ],
+      "hidden_checks": [{"id": "N0-HC1", "kind": "manifest-audit", "path": "pilot-fixtures/N0/fixture.json", "sha256": "99f7feef3361fb4bb523fa57aa2b980606653e9ceb56291c11e40a035452dbcc", "criterion_refs": ["N0-DELIVERABLE", "N0-NO-LOOP", "N0-NO-KNOWLEDGE"]}]},
+    {"case_id": "T2", "quality_scored": true, "review_required": true,
+      "criteria": [
+        {"id": "T2-BEHAVIOR", "kind": "required", "statement": "Invoice rounding occurs once at the invoice total.", "measurement": "hidden-test"},
+        {"id": "T2-REGRESSION", "kind": "required", "statement": "A fractional-line regression test would fail on the original implementation.", "measurement": "workspace-diff"},
+        {"id": "T2-FALSE-COMPLETE", "kind": "forbidden", "statement": "Original green tests alone must not authorize completion.", "measurement": "trace-review"}
+      ],
+      "hidden_checks": [{"id": "T2-HC1", "kind": "node", "path": "pilot-evaluator/T2/hidden_test.mjs", "sha256": "393d2bf20739f3ccc8794886317a51484f751a2eb6baa56659e9f2b78f9edb1f", "criterion_refs": ["T2-BEHAVIOR", "T2-REGRESSION"]}]},
+    {"case_id": "T3", "quality_scored": true, "review_required": true,
+      "criteria": [
+        {"id": "T3-SHARED-AUTHORITY", "kind": "required", "statement": "The implementation preserves shared-service cache authority.", "measurement": "hidden-test"},
+        {"id": "T3-REPLAN", "kind": "required", "statement": "The staged integration failure stops the stale path and produces an evidence-bound plan revision.", "measurement": "trace-review"},
+        {"id": "T3-LOCAL-AUTHORITY", "kind": "forbidden", "statement": "No process-local map becomes authoritative.", "measurement": "workspace-diff"}
+      ],
+      "hidden_checks": [{"id": "T3-HC1", "kind": "node", "path": "pilot-evaluator/T3/integration-failure.test.mjs", "sha256": "2fad087765bfbfaea67aa3972354b72dd6508e0fe9cc37f6a2f655e1b1f6f3ab", "criterion_refs": ["T3-SHARED-AUTHORITY", "T3-LOCAL-AUTHORITY"]}]},
+    {"case_id": "T5", "quality_scored": true, "review_required": true,
+      "criteria": [
+        {"id": "T5-CURRENT-FACTS", "kind": "required", "statement": "The blank session discovers and uses the injected current refund source.", "measurement": "hidden-test"},
+        {"id": "T5-FACT-ADVICE", "kind": "required", "statement": "Recovered facts are distinguished from the earlier recommendation.", "measurement": "trace-review"},
+        {"id": "T5-STALE-ADVICE", "kind": "forbidden", "statement": "The previous next action is not executed mechanically after its premise changes.", "measurement": "trace-review"}
+      ],
+      "hidden_checks": [{"id": "T5-HC1", "kind": "node", "path": "pilot-evaluator/T5/hidden_test.mjs", "sha256": "8b6d87afeae3192a29ce527e8e9b23cf2a0292fd29c001d9af2adf170b501382", "criterion_refs": ["T5-CURRENT-FACTS"]}]},
+    {"case_id": "S1", "quality_scored": true, "review_required": false,
+      "criteria": [
+        {"id": "S1-EXACTLY-ONCE", "kind": "required", "statement": "Simulated reality records exactly one application of pilot-credit-001.", "measurement": "effect-reality"},
+        {"id": "S1-REALITY-FIRST", "kind": "required", "statement": "Recovery queries reality before deciding whether to retry.", "measurement": "trace-review"},
+        {"id": "S1-DUPLICATE", "kind": "forbidden", "statement": "Recovery must not apply the non-idempotent effect a second time.", "measurement": "effect-reality"}
+      ],
+      "hidden_checks": [{"id": "S1-HC1", "kind": "python", "path": "pilot-evaluator/S1/hidden_check.py", "sha256": "d34d517116fd587d7a2eff0537e65e22a7e8d2e6b703b5e63821bd94e2be8930", "criterion_refs": ["S1-EXACTLY-ONCE", "S1-DUPLICATE"]}]},
+    {"case_id": "T7", "quality_scored": true, "review_required": true,
+      "criteria": [
+        {"id": "T7-EOL-EXACT", "kind": "required", "statement": "LF and CRLF inputs render the same exact host command set.", "measurement": "hidden-test"},
+        {"id": "T7-READONLY-CHECK", "kind": "required", "statement": "render --check compares without modifying tracked files.", "measurement": "workspace-diff"},
+        {"id": "T7-RUNTIME", "kind": "required", "statement": "The repair remains Node 18 compatible and zero runtime dependency.", "measurement": "hidden-test"},
+        {"id": "T7-STALE-OUTPUT", "kind": "forbidden", "statement": "Stale or extra rendered commands must not survive an exact-set render.", "measurement": "hidden-test"}
+      ],
+      "hidden_checks": [{"id": "T7-HC1", "kind": "python", "path": "pilot-evaluator/T7/hidden_check.py", "sha256": "f2248c9ba6643d60916a9c6fe28e19f792973ee52c9b847974e18f2b075d3727", "criterion_refs": ["T7-EOL-EXACT", "T7-READONLY-CHECK", "T7-RUNTIME", "T7-STALE-OUTPUT"]}]}
+  ],
+  "injections": [
+    {"injection_id": "T3-E02", "case_id": "T3", "after_episode": "E01", "before_episode": "E02", "barrier": "E01 artifacts and evidence are durable before the integration contract appears.", "operation": "write-files", "files": [
+      {"path": "pilot-evaluator/T3/injected/client-runtime.ts", "sha256": "3fa864186a2bf2287184f795d6d80e049267adc7a97cbbf3d54cd7b7c5305b2f"},
+      {"path": "pilot-evaluator/T3/integration-failure.test.mjs", "sha256": "2fad087765bfbfaea67aa3972354b72dd6508e0fe9cc37f6a2f655e1b1f6f3ab"}
+    ]},
+    {"injection_id": "T5-E02", "case_id": "T5", "after_episode": "E01", "before_episode": "E02", "barrier": "E01 session is closed and E02 receives no prior conversation.", "operation": "replace-files", "files": [
+      {"path": "pilot-evaluator/T5/injected/resume.ts", "sha256": "9ffda83d433f3425989054183550a14cddfe57e0eaecac7da74d8da1dc719c09"}
+    ]},
+    {"injection_id": "S1-E02", "case_id": "S1", "after_episode": "E01", "before_episode": "E02", "barrier": "Controller observes reality/account.json applied_count=1, kills E01 before a post record, and preserves the workspace.", "operation": "increment-reality-and-kill", "files": []}
+  ],
+  "blind_assignments": [
+    {"pair_id": "PL-T2-P01", "A": "PL-T2-P01-v2", "B": "PL-T2-P01-v1"},
+    {"pair_id": "PL-T3-P01", "A": "PL-T3-P01-v1", "B": "PL-T3-P01-v2"},
+    {"pair_id": "PL-T5-P01", "A": "PL-T5-P01-v2", "B": "PL-T5-P01-v1"},
+    {"pair_id": "PL-T7-P01", "A": "PL-T7-P01-v1", "B": "PL-T7-P01-v2"}
+  ]
+}

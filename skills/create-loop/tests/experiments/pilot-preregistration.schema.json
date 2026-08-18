@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/pilot-preregistration-v1.json",
+  "title": "create-loop v1/v2 real-task pilot preregistration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "campaign_id", "status", "formal_execution_enabled",
+    "registered_at", "baseline", "candidate", "instrument_manifest",
+    "scenario_manifest", "evaluator_manifest", "provider", "cli_identities",
+    "execution", "budgets", "pilot", "formal_experiment", "measurement_policy",
+    "stop_rules"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "campaign_id": {"const": "create-loop-v1-v2-real-task-pilot-2026"},
+    "status": {"enum": ["prospective", "frozen", "completed", "invalidated"]},
+    "formal_execution_enabled": {"const": false},
+    "registered_at": {"$ref": "#/$defs/timestamp"},
+    "baseline": {"$ref": "#/$defs/source"},
+    "candidate": {"$ref": "#/$defs/source"},
+    "instrument_manifest": {
+      "type": "object", "additionalProperties": false, "required": ["path"],
+      "properties": {"path": {"const": "instrument-manifest.json"}}
+    },
+    "scenario_manifest": {"$ref": "#/$defs/binding"},
+    "evaluator_manifest": {"$ref": "#/$defs/binding"},
+    "provider": {"$ref": "#/$defs/idBinding"},
+    "cli_identities": {
+      "type": "object", "additionalProperties": false,
+      "required": ["calibration_reuses", "producer", "reviewer"],
+      "properties": {
+        "calibration_reuses": {"const": "producer"},
+        "producer": {"$ref": "#/$defs/cliSlot"},
+        "reviewer": {"$ref": "#/$defs/cliSlot"}
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "reasoning_effort", "tool_profile", "adapter", "network_boundary", "workspace_seed", "scored_call_limit"],
+      "properties": {
+        "model": {"const": "gpt-5.6-sol"},
+        "reasoning_effort": {"const": "ultra"},
+        "tool_profile": {"$ref": "#/$defs/idBinding"},
+        "adapter": {"$ref": "#/$defs/binding"},
+        "network_boundary": {"$ref": "#/$defs/networkBoundarySlot"},
+        "workspace_seed": {"const": 20260805},
+        "scored_call_limit": {
+          "type": "object", "additionalProperties": false,
+          "required": ["max_total_tokens", "max_wall_seconds"],
+          "properties": {
+            "max_total_tokens": {"const": 60000},
+            "max_wall_seconds": {"const": 900}
+          }
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hard", "pilot"],
+      "properties": {
+        "hard": {"$ref": "#/$defs/hardBudget"},
+        "pilot": {"$ref": "#/$defs/pilotBudget"}
+      }
+    },
+    "pilot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["calibration_calls", "producer_episode_calls", "review_calls", "total_calls", "pair_count", "arm_count", "stop_after_report"],
+      "properties": {
+        "calibration_calls": {"const": 1},
+        "producer_episode_calls": {"const": 18},
+        "review_calls": {"const": 4},
+        "total_calls": {"const": 23},
+        "pair_count": {"const": 6},
+        "arm_count": {"const": 12},
+        "stop_after_report": {"const": true}
+      }
+    },
+    "formal_experiment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacy_plan_path", "planned_pairs", "planned_runs", "independent_real_task_claim", "execution_enabled"],
+      "properties": {
+        "legacy_plan_path": {"const": "experiment_harness.py"},
+        "planned_pairs": {"const": 42},
+        "planned_runs": {"const": 84},
+        "independent_real_task_claim": {"const": false},
+        "execution_enabled": {"const": false}
+      }
+    },
+    "measurement_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["usd_cost", "authoritative", "not_measured"],
+      "properties": {
+        "usd_cost": {"const": "not-measured"},
+        "authoritative": {"$ref": "#/$defs/nonEmptyStrings"},
+        "not_measured": {"$ref": "#/$defs/nonEmptyStrings"}
+      }
+    },
+    "stop_rules": {"$ref": "#/$defs/nonEmptyStrings"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "binding": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "idBinding": {
+      "type": "object", "additionalProperties": false, "required": ["id", "path", "sha256"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "nullableIdBinding": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "required": ["id", "path", "sha256"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "cliSlot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "platform", "arch", "version", "binding", "reason"],
+      "properties": {
+        "status": {"enum": ["frozen", "unresolved"]},
+        "platform": {"enum": ["windows", "linux"]},
+        "arch": {"const": "x86_64"},
+        "version": {"const": "0.144.1"},
+        "binding": {"$ref": "#/$defs/nullableIdBinding"},
+        "reason": {"type": ["string", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "frozen"}}, "required": ["status"]},
+          "then": {"properties": {"binding": {"type": "object"}, "reason": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"status": {"const": "unresolved"}}, "required": ["status"]},
+          "then": {"properties": {"binding": {"type": "null"}, "reason": {"type": "string", "minLength": 1}}}
+        }
+      ]
+    },
+    "networkBoundarySlot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "binding", "reason"],
+      "properties": {
+        "status": {"enum": ["frozen", "unresolved"]},
+        "binding": {"$ref": "#/$defs/nullableIdBinding"},
+        "reason": {"type": ["string", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "frozen"}}, "required": ["status"]},
+          "then": {"properties": {"binding": {"type": "object"}, "reason": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"status": {"const": "unresolved"}}, "required": ["status"]},
+          "then": {"properties": {"binding": {"type": "null"}, "reason": {"type": "string", "minLength": 1}}}
+        }
+      ]
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["protocol", "origin_commit", "manifest", "aggregate_sha256"],
+      "properties": {
+        "protocol": {"enum": ["v1", "v2"]},
+        "origin_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "manifest": {"$ref": "#/$defs/binding"},
+        "aggregate_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "hardBudget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_calls", "max_total_tokens", "max_wall_seconds"],
+      "properties": {
+        "max_calls": {"const": 126},
+        "max_total_tokens": {"const": 7560000},
+        "max_wall_seconds": {"const": 113400}
+      }
+    },
+    "pilotBudget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_calls", "max_total_tokens", "max_wall_seconds", "calibration_max_total_tokens", "calibration_max_wall_seconds"],
+      "properties": {
+        "max_calls": {"const": 23},
+        "max_total_tokens": {"const": 1330000},
+        "max_wall_seconds": {"const": 20100},
+        "calibration_max_total_tokens": {"const": 10000},
+        "calibration_max_wall_seconds": {"const": 300}
+      }
+    },
+    "nonEmptyStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+entries:
+  - entry_id: "ev-0001"
+    node_id: "charter"
+    gate_kind: "human_approval"
+    verdict: "pass"
+    score: null
+    artifact_path: "evidence/charter.md"
+    rationale: "The user approved the control profile, including the requirement to prove the final effect rather than only a successful build."
+    recorded: "2026-07-01T09:10:00Z"
+    verifier: "user"
+    assurance: "external"
+    status: "active"
+    superseded_by: null

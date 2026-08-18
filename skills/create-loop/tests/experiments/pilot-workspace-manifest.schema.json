@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/pilot-workspace-manifest-v1.json",
+  "title": "create-loop real-task pilot initial workspace manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "algorithm", "campaign_id", "pair_id", "case_id", "scenario_slug",
+    "protocol", "workspace_seed", "input_sha256", "fixture_id", "fixture_sha256",
+    "semantic_case_sha256", "variant_sha256", "protocol_source", "protocol_bundle",
+    "builder_sha256", "tool_profile", "evaluator_content_excluded", "root", "files", "aggregate_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "algorithm": {"const": "sha256-pilot-workspace-manifest-v1"},
+    "campaign_id": {"const": "create-loop-v1-v2-real-task-pilot-2026"},
+    "pair_id": {"type": "string", "pattern": "^PL-(?:N0|T2|T3|T5|S1|T7)-P01$"},
+    "case_id": {"enum": ["N0", "T2", "T3", "T5", "S1", "T7"]},
+    "scenario_slug": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "protocol": {"enum": ["v1", "v2"]},
+    "workspace_seed": {"type": "integer", "minimum": 0},
+    "input_sha256": {"$ref": "#/$defs/sha256"},
+    "fixture_id": {"type": "string", "pattern": "^pilot:(?:N0|T2|T3|T5|S1|T7)$"},
+    "fixture_sha256": {"$ref": "#/$defs/sha256"},
+    "semantic_case_sha256": {"$ref": "#/$defs/sha256"},
+    "variant_sha256": {"$ref": "#/$defs/sha256"},
+    "protocol_source": {"$ref": "#/$defs/protocolSource"},
+    "protocol_bundle": {"$ref": "#/$defs/protocolBundle"},
+    "builder_sha256": {"$ref": "#/$defs/sha256"},
+    "tool_profile": {"$ref": "#/$defs/fileBindingWithId"},
+    "evaluator_content_excluded": {"const": true},
+    "root": {"const": "."},
+    "files": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/file"}},
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "fileBinding": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "fileBindingWithId": {
+      "type": "object", "additionalProperties": false, "required": ["id", "path", "sha256"],
+      "properties": {"id": {"$ref": "#/$defs/id"}, "path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "protocolSource": {
+      "type": "object", "additionalProperties": false, "required": ["protocol", "aggregate_sha256", "manifest"],
+      "properties": {
+        "protocol": {"enum": ["v1", "v2"]},
+        "aggregate_sha256": {"$ref": "#/$defs/sha256"},
+        "manifest": {"$ref": "#/$defs/fileBinding"}
+      }
+    },
+    "protocolBundle": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relative_path", "entrypoint", "source_aggregate_sha256"],
+      "properties": {
+        "relative_path": {"const": "../protocol-bundle"},
+        "entrypoint": {"const": "../protocol-bundle/SKILL.md"},
+        "source_aggregate_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "file": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256", "size", "mode"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"},
+        "size": {"type": "integer", "minimum": 0}, "mode": {"enum": ["0644", "0755"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/workspace-population-seal-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "algorithm", "run_id", "episode_id", "role",
+    "prompt_sha256", "output_schema_sha256", "workspace_snapshot_sha256",
+    "workspace_aggregate_sha256", "file_count"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "algorithm": {"const": "sha256-workspace-population-seal-v1"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "episode_id": {"$ref": "#/$defs/id"},
+    "role": {"enum": ["producer", "calibration", "reviewer"]},
+    "prompt_sha256": {"$ref": "#/$defs/sha256"},
+    "output_schema_sha256": {"$ref": "#/$defs/sha256"},
+    "workspace_snapshot_sha256": {"$ref": "#/$defs/sha256"},
+    "workspace_aggregate_sha256": {"$ref": "#/$defs/sha256"},
+    "file_count": {"type": "integer", "minimum": 0},
+    "protocol_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "protocol_entrypoint_sha256": {"$ref": "#/$defs/sha256"},
+    "protocol_access": {
+      "type": "object", "additionalProperties": false,
+      "required": ["entrypoint", "access_available", "understanding_claimed"],
+      "properties": {
+        "entrypoint": {"const": "../protocol-bundle/SKILL.md"},
+        "access_available": {"const": true},
+        "understanding_claimed": {"const": false}
+      }
+    },
+    "injection_receipt_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"role": {"const": "producer"}}, "required": ["role"]},
+      "then": {
+        "required": [
+          "protocol_bundle_sha256", "protocol_entrypoint_sha256",
+          "protocol_access", "injection_receipt_sha256"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

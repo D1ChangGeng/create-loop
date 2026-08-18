@@ -1,0 +1,9 @@
+loops:
+- loop_id: L001
+  slug: example-delivery
+  path: L001-example-delivery
+  status: running
+  title: Example delivery loop with one materialized child loop
+  checkpoint: L001-example-delivery/checkpoint.yaml
+  updated_at: '2026-07-01T13:15:00Z'
+  current_active_node: null

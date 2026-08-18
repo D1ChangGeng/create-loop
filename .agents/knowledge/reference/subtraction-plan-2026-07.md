@@ -1,10 +1,21 @@
+---
+type: reference
+confidence: observed
+scope: ["skills/create-loop/"]
+sources: [".agents/knowledge/reference/redesign-evidence-round1-2026-07.md", ".agents/knowledge/reference/redesign-execution-plan-2026-07.md"]
+last_verified: 2026-07-31
+created: 2026-07-30
+---
+
 # Subtraction Refactor — Wave-Ordered Plan — `skills/create-loop/`
 
 > **SUPERSEDED (2026-07-30).** This plan was built on a subtraction frame the user
 > subsequently reframed, and 6 of its premises were overturned (see
-> `redesign-evidence-round1-2026-07.md` §CORRECTIONS). The live plan is
-> `redesign-execution-plan-2026-07.md`. Kept for its Wave-0 pointer-checker
-> insight and its tombstone rule, both of which the new plan adopts.
+> `redesign-evidence-round1-2026-07.md` §CORRECTIONS). Its implementation-era
+> successor, `redesign-execution-plan-2026-07.md`, is now historical too;
+> current authority lives in source, executable tests, and
+> `skills/create-loop/references/protocol_v2.md`. Kept for its Wave-0
+> pointer-checker insight and tombstone rule.
 
 
 **Status:** planned, NOT executed. Blocked on decision gates DG1–DG4.

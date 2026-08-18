@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "id": "custom-zeo-responses-ultra",
+  "provider_key": "custom",
+  "display_name": "Zeo",
+  "wire_api": "responses",
+  "base_url": "https://api.payapionline.top/v1",
+  "requires_openai_auth": true,
+  "auth_source": "CODEX_HOME",
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "ultra"
+}

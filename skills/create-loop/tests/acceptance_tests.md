@@ -1,13 +1,12 @@
-# Acceptance Tests — the green-path gate
+# Acceptance Tests — historical v1 green-path specification
 
 *Diataxis type: **how-to / reference test doc**. This document is the
-authoritative green-path acceptance gate for the `create-loop` Agent Skill. It is
-written **test-first**: the validator scripts (`scripts/validate_loop_plan.py`,
-`scripts/validate_checkpoint.py`, `scripts/render_dag.py`), the JSON schemas, the
-YAML templates, and the two worked examples are all authored **afterwards** to
-satisfy exactly the commands below. If every command in the
-[full green sequence](#full-green-sequence) exits `0`, the package passes the
-acceptance gate.*
+historical v1 compatibility green-path specification. It preserves the original
+test-first commands for the v1 YAML validators, schemas, templates, and worked
+examples; it is not the current executable release gate. Current v1 safety and
+v2 invariant coverage lives in `tests_py/`, with delivery behavior covered by
+the repository installer suite. The sequence below remains useful when changing
+v1 compatibility behavior, but a green result does not cover v2.*
 
 Every canonical field name and enum value used here is copied verbatim from
 [`references/loop_plan_spec.md`](../references/loop_plan_spec.md) and
@@ -17,6 +16,8 @@ Every canonical field name and enum value used here is copied verbatim from
 
 - **All paths are relative to the skill root (the directory containing `SKILL.md`).** Run every
   command from that directory.
+- Run `python -m unittest discover -s tests_py` for the current executable v1/v2
+  gate; run `node test/installer.test.js` from the repository root for delivery.
 - Each numbered capability below maps to an **exact runnable command** and its
   **expected result** (exit code + a characteristic of stdout).
 - The green path asserts only *acceptance*: valid inputs are accepted, artifacts
@@ -211,27 +212,40 @@ each `requires` edge as an edge.
 
 ---
 
-## 5. `SKILL.md` respects the line budget (< 1000 lines)
+## 5. `SKILL.md` respects the line budget (<= 1000 lines)
 
 The skill entrypoint must stay lean; depth lives in `references/`.
 
 ```bash
-# 5. SKILL.md must be strictly fewer than 1000 lines.
-test "$(wc -l < SKILL.md)" -lt 1000 && echo "SKILL-line-budget-OK"
+# 5. SKILL.md must not exceed 1000 lines.
+test "$(wc -l < SKILL.md)" -le 1000 && echo "SKILL-line-budget-OK"
 ```
 
-Expected: exit `0` and `SKILL-line-budget-OK` on stdout. A `SKILL.md` of 1000 or
-more lines fails the gate.
+Expected: exit `0` and `SKILL-line-budget-OK` on stdout. A `SKILL.md` above
+1000 lines fails the gate.
 
 ---
 
 ## 6. All scripts compile
 
-Every Python script must byte-compile without a `SyntaxError`.
+Every Python script must compile without a `SyntaxError`, without writing
+`__pycache__` into the source tree.
 
 ```bash
-# 6. Byte-compile all scripts.
-python3 -m py_compile scripts/*.py && echo "PY-COMPILE-OK"
+# 6. Compile all scripts in memory and fail if either source glob is empty.
+PYTHONDONTWRITEBYTECODE=1 python3 -B - <<'PY'
+import pathlib
+import tokenize
+
+for pattern in ("scripts/*.py", "scripts/checks/*.py"):
+    paths = sorted(pathlib.Path().glob(pattern))
+    if not paths:
+        raise SystemExit(f"no Python sources matched: {pattern}")
+    for path in paths:
+        with tokenize.open(path) as source:
+            compile(source.read(), str(path), "exec")
+PY
+echo "PY-COMPILE-OK"
 ```
 
 Expected: exit `0` and `PY-COMPILE-OK` on stdout.
@@ -241,21 +255,34 @@ Expected: exit `0` and `PY-COMPILE-OK` on stdout.
 ## Full green sequence
 
 Copy-paste this entire block. Run it from the skill root (the directory containing `SKILL.md`). It
-runs every acceptance check in order under `set -e`, so the **first** failure
+runs every historical v1 compatibility check in this document under `set -e`, so the **first** failure
 aborts with a nonzero exit; reaching `ALL GREEN (incl. child-loops)` means the
-package passes the acceptance gate.
+package passes this historical v1 compatibility sequence. Run `tests_py/` and
+the repository installer suite for the current cross-protocol delivery gate.
 
 ```bash
 set -euo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 # Run from the skill root (the directory containing SKILL.md).
 cd "$(dirname "$0")" 2>/dev/null || true   # or: cd /path/to/skills/create-loop
 
 echo "== 6. scripts compile =="
-python3 -m py_compile scripts/*.py
+python3 -B - <<'PY'
+import pathlib
+import tokenize
+
+for pattern in ("scripts/*.py", "scripts/checks/*.py"):
+    paths = sorted(pathlib.Path().glob(pattern))
+    if not paths:
+        raise SystemExit(f"no Python sources matched: {pattern}")
+    for path in paths:
+        with tokenize.open(path) as source:
+            compile(source.read(), str(path), "exec")
+PY
 echo "   PY-COMPILE-OK"
 
-echo "== 5. SKILL.md line budget < 1000 =="
-test "$(wc -l < SKILL.md)" -lt 1000
+echo "== 5. SKILL.md line budget <= 1000 =="
+test "$(wc -l < SKILL.md)" -le 1000
 echo "   SKILL-line-budget-OK"
 
 echo "== 1a. schemas parse as JSON =="

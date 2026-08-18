@@ -1,0 +1,12 @@
+{
+  "schema_version": "2.0",
+  "loop_id": "L001",
+  "goal": "Replace with the user's goal.",
+  "intent": "Describe what successful delivery means in practice.",
+  "scope": {"in": ["Required outcome"], "out": []},
+  "success_criteria": [{"id": "SC1", "statement": "Define an observable success condition.", "expected_evidence": "Name the direct evidence."}],
+  "constraints": [],
+  "authorization_boundaries": [],
+  "stop_conditions": [],
+  "created_at": "2026-01-01T00:00:00Z"
+}

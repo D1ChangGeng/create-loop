@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://create-loop/schemas/loop.state.schema.json",
+  "title": "loop.state",
+  "description": "The live pointer file for a loop (loop.state.yaml), distinct from the durable checkpoint. Holds the currently-active node, the ready set, and the lease index (who holds which node), plus pointers to the event log and latest checkpoint. Cheap to read for 'what is running now' without replaying the whole log.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["loop_id", "plan_id", "plan_version", "phase", "active_node", "ready_set", "lease_index", "event_log_ref", "checkpoint_ref", "updated_at"],
+  "properties": {
+    "loop_id": {"type": "string"},
+    "plan_id": {"type": "string"},
+    "plan_version": {"type": "integer", "minimum": 1},
+    "phase": {"type": "integer", "minimum": 0},
+    "active_node": {"type": ["string", "null"], "description": "The node currently executing, or null when idle/between nodes."},
+    "ready_set": {"type": "array", "items": {"type": "string"}},
+    "lease_index": {
+      "type": "array",
+      "description": "Snapshot of held node claims (mirrors contracts/*.claim).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["node_id", "owner_id", "lease_expires_at"],
+        "properties": {
+          "node_id": {"type": "string"},
+          "owner_id": {"type": "string"},
+          "lease_expires_at": {"type": "string"}
+        }
+      }
+    },
+    "event_log_ref": {"type": "string"},
+    "checkpoint_ref": {"type": "string"},
+    "updated_at": {"type": "string"}
+  }
+}

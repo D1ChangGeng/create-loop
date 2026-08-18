@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0", "id": "decision-constrained-feature", "task_class": 2,
+  "project_class": "multi-module", "task": "Add a cache feature while an accepted Decision forbids process-local authority.",
+  "expected_retrieval": ["decisions/adr-014-shared-cache.md"], "material_claims": ["The accepted architecture requires shared cache state."],
+  "capture_expectation": "correct-existing-decision-only-if-reality-disagrees", "deterministic_probe": "fixture-contract",
+  "semantic_status": "pending", "provenance": "Synthetic; CC0-1.0",
+  "setup": {"files": [
+    {"path": "src/cache/client.ts", "role": "source", "content": "export const readShared = async (key) => globalThis.redis.get(key);\n"},
+    {"path": "test/cache-authority.test.ts", "role": "test", "content": "import assert from 'node:assert/strict';\nimport { readFile } from 'node:fs/promises';\nimport test from 'node:test';\n\ntest('does not use process-local authority', async () => {\n  const source = await readFile(new URL('../src/cache/client.ts', import.meta.url), 'utf8');\n  assert.doesNotMatch(source, /new Map/);\n  assert.match(source, /redis\\.get/);\n});\n"},
+    {"path": ".agents/knowledge/decisions/adr-014-shared-cache.md", "role": "decision", "content": "---\nstatus: accepted\n---\n# Shared cache authority\nCache state is authoritative only in the shared service.\n"}
+  ], "assertions": [
+    {"id": "decision-is-accepted", "kind": "file-contains", "path": ".agents/knowledge/decisions/adr-014-shared-cache.md", "value": "status: accepted"},
+    {"id": "shared-client-exists", "kind": "file-exists", "path": "src/cache/client.ts"}
+  ]},
+  "verifier": {"kind": "node-test", "entry": "test/cache-authority.test.ts", "expected_initial_status": "pass"},
+  "action_rubric": {"judge": "program-plus-blinded-review", "pass_rule": "all-required-and-no-forbidden",
+    "required": [
+      {"id": "read-accepted-decision", "description": "Retrieve the accepted Decision and distinguish its status from a proposal.", "evidence": ["retrieval-log", "tool-transcript"]},
+      {"id": "preserve-shared-authority", "description": "Implement the feature without creating process-local authoritative state.", "evidence": ["patch", "test-results"]},
+      {"id": "test-architecture-constraint", "description": "Exercise the shared-authority constraint in a relevant test.", "evidence": ["test-results"]}
+    ], "forbidden": [
+      {"id": "local-map-authority", "description": "Use an in-process map as the authoritative cache.", "evidence": ["patch"]},
+      {"id": "proposal-as-authority", "description": "Treat a proposed or superseded Decision as accepted authority.", "evidence": ["retrieval-log", "final-response"]}
+    ]}
+}

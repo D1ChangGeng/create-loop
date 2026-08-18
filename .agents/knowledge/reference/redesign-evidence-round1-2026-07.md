@@ -1,4 +1,16 @@
+---
+type: reference
+confidence: observed
+scope: ["skills/create-loop/"]
+sources: ["skills/create-loop/SKILL.md", "skills/create-loop/references/", "skills/create-loop/scripts/"]
+last_verified: 2026-07-31
+created: 2026-07-30
+---
+
 # Round-1 Evidence Digest — `skills/create-loop/` redesign
+
+> **Historical evidence snapshot (2026-07-30).** Retained for audit rationale;
+> inventory and implementation claims may be stale after the 2026-07-31 changes.
 
 Compiled 2026-07-30. Every claim below was produced by a scoped audit agent and
 spot-verified against source. This is the ONLY input Round 2 needs; it supersedes

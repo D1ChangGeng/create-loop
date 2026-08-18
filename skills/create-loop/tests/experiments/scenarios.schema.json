@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-scenarios-v1.json",
+  "title": "create-loop paired experiment scenarios",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "paired_runs_per_protocol", "scenarios"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "paired_runs_per_protocol": {"const": 3},
+    "scenarios": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": {"$ref": "#/$defs/scenario"}
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "uniqueStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/nonEmptyString"}
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "slug", "title", "input", "input_sha256", "oracle", "metrics"],
+      "properties": {
+        "id": {"type": "integer", "minimum": 1},
+        "slug": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "title": {"$ref": "#/$defs/nonEmptyString"},
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["task", "fixture", "injected_facts"],
+          "properties": {
+            "task": {"$ref": "#/$defs/nonEmptyString"},
+            "fixture": {"type": "string", "pattern": "^builtin:[a-z0-9]+(?:-[a-z0-9]+)*$"},
+            "injected_facts": {"$ref": "#/$defs/uniqueStrings"}
+          }
+        },
+        "input_sha256": {"$ref": "#/$defs/sha256"},
+        "oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "forbidden"],
+          "properties": {
+            "required": {"$ref": "#/$defs/uniqueStrings"},
+            "forbidden": {"$ref": "#/$defs/uniqueStrings"}
+          }
+        },
+        "metrics": {"$ref": "#/$defs/uniqueStrings"}
+      }
+    }
+  }
+}

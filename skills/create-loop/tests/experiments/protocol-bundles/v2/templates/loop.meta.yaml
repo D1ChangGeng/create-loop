@@ -1,0 +1,60 @@
+# loop.meta — a loop's IDENTITY and RELATION. Carries everything the directory
+# name deliberately omits (see references/recursive_loops.md §6). One file per
+# loop directory, isomorphic at every recursion level.
+# This template shows a CHILD loop (a depth-2 subloop). For a root_loop set
+# type: root_loop, parent: null, depth: 0, and point root at itself.
+# Tokens are LOCKED — do not rename or invent values.
+#   type:    root_loop | child_loop
+#   status (15): undiscovered | discovered | needs_clarification | pending | ready |
+#                running | waiting_external | waiting_user | blocked | verifying |
+#                verification_failed | retry_pending | completed | cancelled | deprecated
+#   loop_id: L<seq> (top-level) + one .<local-seq> per recursion level (e.g. L001.02.03)
+#   slug:    lowercase kebab-case, English only, <= 32 chars, no status/date/punctuation
+
+loop_id: L001.02.03               # immutable primary key (parent id + .<local-seq>)
+slug: live-policy                 # kebab-case slug from the directory name
+title: Live Loop admission policy for the design sub-loop
+type: child_loop                  # child_loop for any materialized child at any depth
+
+# parent — the parent relation. REQUIRED object for a child_loop (null for a root_loop).
+parent:
+  loop_id: L001.02                # the parent loop's id
+  path: ../..                     # path to the parent loop dir, relative to THIS dir
+  parent_node_id: n-live-policy   # the node in the parent plan that spawned this loop
+  spawn_reason: >-                # which Sub-loop Admission Gate criterion held (§8)
+    Recursive decomposition: defining the Live Loop admission policy needs its
+    own evidence chain and closeout; it produces multiple artifacts and may
+    itself spawn grandchildren for edge-case rubrics. Trips Admission Gate
+    criteria "independent audit" and "recursive decomposition".
+
+# root — the top-of-tree relation. For a root_loop, root points at itself.
+root:
+  loop_id: L001                   # the root loop's id
+  path: ../../..                  # path to the root loop dir, relative to THIS dir
+
+status: running                   # identity-level status (one of the 15 node statuses)
+created_at: "2026-07-01T14:30:00Z"  # ISO-8601 date-time the loop directory was created
+created_by: create-loop           # who/what created the loop (agent, subagent, or user)
+depth: 2                          # recursion depth: 0 root, 1 child, 2 grandchild, ...
+
+# scope — this loop's boundary. Each list may be empty ([]).
+scope:
+  in:
+    - the admission-gate criteria for Live Loop growth inside the design sub-loop
+    - the default response flow when a growth trigger fires
+    - the boundaries Live Loop MUST NOT cross
+  out:
+    - top-level replan policy (owned by L001)
+    - the state-model status enum (owned by L001.02.01-state-model)
+
+# return_contract — how this loop returns to its parent (the merge/return protocol, §7).
+return_contract:
+  closeout_file: closeout.md      # path (relative to this loop dir) to the closeout
+  required_outputs:               # artifacts this loop MUST produce before closing out
+    - artifacts/live-policy.md
+    - artifacts/admission-gate-rubric.md
+  parent_updates:                 # updates the parent applies once this loop closes
+    - node: n-live-policy
+      update: mark produces[] artifact live-policy.md satisfied
+    - node: n-design-verify
+      update: re-verify gate llm_judge once live-policy.md exists

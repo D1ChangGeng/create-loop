@@ -1,0 +1,8 @@
+{
+  "schema_version": "2.0",
+  "loop_id": "L001",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "source": {"goal_sha256": "replace-with-goal-sha256", "plan_version": 1, "plan_sha256": "replace-with-plan-sha256", "journal_last_seq": 1, "journal_tail_id": "rec-0001"},
+  "projection": {"loop_status": "active", "node_states": {"N1": "pending"}, "ready_nodes": ["N1"], "active_nodes": [], "waiting_nodes": [], "current_evidence_refs": {}, "open_context_ids": [], "pending_authorization_refs": [], "in_doubt_effect_ids": []},
+  "recovery_refs": {"confirmed_evidence": [], "recent_records": ["rec-0001"], "latest_next_action_decision": null}
+}

@@ -6,26 +6,26 @@
     {
       "id": "loop-new",
       "body": "loop-new.md",
-      "description": "Create a new create-loop control plan from a fuzzy goal — runs the Charter interview and emits loop.plan v0 (Mode A).",
-      "argumentHint": "<goal text>"
+      "description": "Admit and create a create-loop using the default v1 protocol or explicit opt-in v2 protocol.",
+      "argumentHint": "[--protocol v1|v2] <goal text>"
     },
     {
       "id": "loop-run",
       "body": "loop-run.md",
-      "description": "Advance an existing create-loop by executing the next ready node(s) (Mode B).",
-      "argumentHint": "[node-id]"
+      "description": "Advance an existing v1 or v2 create-loop after detecting and validating its protocol.",
+      "argumentHint": "[--protocol v1|v2] [loop-dir|node-id]"
     },
     {
       "id": "loop-resume",
       "body": "loop-resume.md",
-      "description": "Resume a create-loop from its checkpoint in a fresh session after interruption (Mode C).",
-      "argumentHint": "[loop-dir]"
+      "description": "Resume a v1 checkpoint loop or v2 journal loop from a blank session.",
+      "argumentHint": "[--protocol v1|v2] [loop-dir]"
     },
     {
       "id": "loop-status",
       "body": "loop-status.md",
-      "description": "Show a create-loop status snapshot — goal, current node, ready set, blockers, next action (read-only).",
-      "argumentHint": "[loop-id]"
+      "description": "Show a read-only status snapshot for a detected v1 or v2 create-loop.",
+      "argumentHint": "[--protocol v1|v2] [loop-id|loop-dir]"
     }
   ]
 }

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/network-execution-boundary-v1.json",
+  "title": "create-loop Pilot model-process network execution boundary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "policy", "roles", "provider_profile_sha256",
+    "allowed_endpoint", "enforcement", "verification"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "id": {"$ref": "#/$defs/id"},
+    "policy": {"const": "provider-api-only"},
+    "roles": {
+      "type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true,
+      "items": {"enum": ["calibration", "producer", "reviewer"]}
+    },
+    "provider_profile_sha256": {"$ref": "#/$defs/sha256"},
+    "allowed_endpoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scheme", "host", "port", "path_prefix"],
+      "properties": {
+        "scheme": {"const": "https"},
+        "host": {"type": "string", "pattern": "^[A-Za-z0-9.-]+$"},
+        "port": {"const": 443},
+        "path_prefix": {"type": "string", "pattern": "^/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$"}
+      }
+    },
+    "enforcement": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "backend", "backend_identity", "launcher", "adapter", "launch_arguments",
+        "session_id", "default_action", "applies_to_process_tree",
+        "dns_fail_closed"
+      ],
+      "properties": {
+        "backend": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+        "backend_identity": {"$ref": "#/$defs/binding"},
+        "launcher": {"$ref": "#/$defs/executableBinding"},
+        "adapter": {"$ref": "#/$defs/binding"},
+        "launch_arguments": {
+          "type": "array", "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "session_id": {"$ref": "#/$defs/id"},
+        "default_action": {"const": "deny"},
+        "applies_to_process_tree": {"const": true},
+        "dns_fail_closed": {"const": true}
+      }
+    },
+    "verification": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "policy_export", "provider_probe", "denied_probe",
+        "provider_probe_result", "denied_probe_result", "session_id",
+        "launcher_sha256", "adapter_sha256", "verified_at", "valid_until"
+      ],
+      "properties": {
+        "policy_export": {"$ref": "#/$defs/binding"},
+        "provider_probe": {"$ref": "#/$defs/binding"},
+        "denied_probe": {"$ref": "#/$defs/binding"},
+        "provider_probe_result": {"const": "allowed"},
+        "denied_probe_result": {"const": "denied"},
+        "session_id": {"$ref": "#/$defs/id"},
+        "launcher_sha256": {"$ref": "#/$defs/sha256"},
+        "adapter_sha256": {"$ref": "#/$defs/sha256"},
+        "verified_at": {"type": "string", "format": "date-time"},
+        "valid_until": {"type": "string", "format": "date-time"}
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "executableBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

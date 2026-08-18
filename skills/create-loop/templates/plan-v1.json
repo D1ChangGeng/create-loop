@@ -1,0 +1,9 @@
+{
+  "schema_version": "2.0",
+  "plan_id": "plan-L001-v1",
+  "plan_version": 1,
+  "goal_sha256": "replace-with-the-64-character-lowercase-sha256-of-goal-json",
+  "created_at": "2026-01-01T00:00:00Z",
+  "control": {"mode": "lightweight", "modules": [], "admission_reason": "The task needs a stable multi-step dependency plan."},
+  "nodes": [{"id": "N1", "objective": "Produce the required outcome.", "depends_on": [], "success_criteria_refs": ["SC1"], "outputs": [], "checks": [{"id": "check-N1", "method": "tool", "instruction": "Run the direct check.", "expected": "The success condition holds."}], "authorization_refs": []}]
+}

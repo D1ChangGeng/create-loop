@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-deterministic-authoritative-run-v1.json",
+  "title": "create-loop authoritative deterministic validator run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "algorithm", "experiment_id", "preregistration_sha256", "protocol",
+    "source_sha256", "fixture_catalog_sha256", "runner_sha256", "tool_profile_sha256", "cases"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "algorithm": {"const": "create-loop-deterministic-validator-run-v1"},
+    "experiment_id": {"$ref": "#/$defs/id"},
+    "preregistration_sha256": {"$ref": "#/$defs/sha256"},
+    "protocol": {"enum": ["v1", "v2"]},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "fixture_catalog_sha256": {"$ref": "#/$defs/sha256"},
+    "runner_sha256": {"$ref": "#/$defs/sha256"},
+    "tool_profile_sha256": {"$ref": "#/$defs/sha256"},
+    "cases": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/case"}
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "algorithm", "case_id", "protocol", "expected", "actual",
+        "validator", "source_fixture_sha256", "executed_fixture_sha256", "returncode"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "algorithm": {"const": "create-loop-deterministic-case-result-v1"},
+        "case_id": {"$ref": "#/$defs/id"},
+        "protocol": {"enum": ["v1", "v2"]},
+        "expected": {"enum": ["accept", "reject"]},
+        "actual": {"enum": ["accept", "reject", "error"]},
+        "validator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "sha256"],
+          "properties": {
+            "id": {"enum": ["validate_loop_plan", "validate_loop_dir"]},
+            "sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "source_fixture_sha256": {"$ref": "#/$defs/sha256"},
+        "executed_fixture_sha256": {"$ref": "#/$defs/sha256"},
+        "returncode": {"type": "integer"}
+      }
+    }
+  }
+}

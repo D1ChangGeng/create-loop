@@ -1,0 +1,3 @@
+PASS setup produced the expected input state
+PASS pre-fix run reproduced the incorrect final effect (5/5 runs)
+PASS failure signature matched the reported effectiveness bug

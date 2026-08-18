@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-tool-profile-v1.json",
+  "title": "create-loop experiment tool profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "network", "publish", "external_effects",
+    "writable_roots", "allowed_capabilities", "denied_capabilities", "environment"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "network": {"enum": ["denied", "provider-api-only"]},
+    "publish": {"const": "denied"},
+    "external_effects": {"const": "simulated-workspace-only"},
+    "writable_roots": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}
+    },
+    "allowed_capabilities": {"$ref": "#/$defs/stringList"},
+    "denied_capabilities": {"$ref": "#/$defs/stringList"},
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allow", "deny_prefixes", "credential_allow"],
+      "properties": {
+        "allow": {"$ref": "#/$defs/stringList"},
+        "deny_prefixes": {"$ref": "#/$defs/stringList"},
+        "credential_allow": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/controller-interruption-v1.json",
+  "title": "create-loop preregistered controller interruption",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "authorization_id", "execution_id", "experiment_id",
+    "run_id", "episode_id", "attempt_id", "role", "case_id", "termination",
+    "reason", "interrupted_at", "controller", "wall_seconds_upper_bound",
+    "partial_provider_events", "stderr", "initial_workspace_manifest",
+    "final_workspace_manifest", "reality_observation", "post_absence_observation",
+    "termination_fact",
+    "controller_evidence_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "authorization_id": {"$ref": "#/$defs/id"},
+    "execution_id": {"$ref": "#/$defs/id"},
+    "experiment_id": {"const": "create-loop-v1-v2-real-task-pilot-2026"},
+    "run_id": {"type": "string", "pattern": "^PL-S1-P01-v[12]-E01$"},
+    "episode_id": {"const": "E01"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "role": {"const": "producer"},
+    "case_id": {"const": "S1"},
+    "termination": {"const": "controller-kill-after-reality-before-post"},
+    "reason": {"const": "preregistered-s1-effect-reality-boundary"},
+    "interrupted_at": {"$ref": "#/$defs/timestamp"},
+    "controller": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "observed_at", "termination_method"],
+      "properties": {
+        "id": {"const": "create-loop-codex-exec-adapter"},
+        "observed_at": {"$ref": "#/$defs/timestamp"},
+        "termination_method": {"enum": ["graceful-then-force", "force-process-tree"]}
+      }
+    },
+    "wall_seconds_upper_bound": {
+      "type": "object", "additionalProperties": false,
+      "required": ["seconds", "source"],
+      "properties": {
+        "seconds": {"type": "number", "minimum": 0},
+        "source": {"enum": ["controller-measured", "per-call-reservation-limit"]}
+      }
+    },
+    "partial_provider_events": {"$ref": "#/$defs/binding"},
+    "stderr": {"$ref": "#/$defs/binding"},
+    "initial_workspace_manifest": {"$ref": "#/$defs/binding"},
+    "final_workspace_manifest": {"$ref": "#/$defs/binding"},
+    "reality_observation": {"$ref": "#/$defs/binding"},
+    "post_absence_observation": {"$ref": "#/$defs/binding"},
+    "termination_fact": {"$ref": "#/$defs/binding"},
+    "controller_evidence_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

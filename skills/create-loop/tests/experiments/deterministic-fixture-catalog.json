@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "algorithm": "create-loop-deterministic-validator-catalog-v1",
+  "cases": [
+    {
+      "case_id": "accept-control",
+      "expected": "accept",
+      "protocols": {
+        "v1": {
+          "validator": "validate_loop_plan",
+          "fixture": "examples/example_product_delivery/loop.plan.yaml",
+          "mutation": "none"
+        },
+        "v2": {
+          "validator": "validate_loop_dir",
+          "fixture": "examples/example_v2_persistent",
+          "mutation": "none"
+        }
+      }
+    },
+    {
+      "case_id": "reject-control",
+      "expected": "reject",
+      "protocols": {
+        "v1": {
+          "validator": "validate_loop_plan",
+          "fixture": "examples/example_product_delivery/loop.plan.yaml",
+          "mutation": "empty-object"
+        },
+        "v2": {
+          "validator": "validate_loop_dir",
+          "fixture": "examples/example_v2_persistent",
+          "mutation": "tamper-goal"
+        }
+      }
+    }
+  ]
+}

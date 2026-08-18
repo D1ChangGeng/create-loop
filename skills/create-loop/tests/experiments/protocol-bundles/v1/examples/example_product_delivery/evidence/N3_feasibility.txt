@@ -1,0 +1,3 @@
+PASS auth: protected request accepted with valid token and rejected without one
+PASS persistence: resource survived process restart
+PASS deploy: staging health endpoint returned 200

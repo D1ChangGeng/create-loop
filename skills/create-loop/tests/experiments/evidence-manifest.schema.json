@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-evidence-manifest-v1.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "run_id", "episode_id", "attempt_id", "role", "initial_workspace_manifest", "final_workspace_manifest", "structured_claim", "files", "aggregate_sha256"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "run_id": {"$ref": "#/$defs/id"}, "episode_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "role": {"enum": ["producer", "reviewer", "calibration"]},
+    "initial_workspace_manifest": {"$ref": "#/$defs/binding"},
+    "final_workspace_manifest": {"$ref": "#/$defs/binding"},
+    "workspace_population_seal": {"$ref": "#/$defs/binding"},
+    "structured_claim": {"$ref": "#/$defs/binding"},
+    "files": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}},
+    "aggregate_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"role": {"const": "producer"}}, "required": ["role"]},
+      "then": {"required": ["workspace_population_seal"]}
+    }
+  ],
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+    "binding": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false, "required": ["role", "path", "sha256"],
+      "properties": {
+        "role": {"enum": ["request", "provider_events", "provider_response", "stderr", "structured_claim", "initial_workspace", "final_workspace", "workspace_population_seal", "injection", "trace_source", "protocol_bundle", "reviewer_isolation"]},
+        "path": {"$ref": "#/$defs/path"}, "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

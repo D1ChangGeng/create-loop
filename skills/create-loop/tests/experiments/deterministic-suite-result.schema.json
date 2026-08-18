@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://create-loop.local/schemas/experiment-deterministic-suite-result-v1.json",
+  "title": "create-loop deterministic safety suite result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "experiment_id", "preregistration_sha256", "protocol", "source_sha256",
+    "fixture_catalog_sha256", "runner_sha256", "tool_profile_sha256", "cases"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment_id": {"$ref": "#/$defs/id"},
+    "preregistration_sha256": {"$ref": "#/$defs/sha256"},
+    "protocol": {"enum": ["v1", "v2"]},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "fixture_catalog_sha256": {"$ref": "#/$defs/sha256"},
+    "runner_sha256": {"$ref": "#/$defs/sha256"},
+    "tool_profile_sha256": {"$ref": "#/$defs/sha256"},
+    "cases": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/case"}}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "case": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_id", "expected", "actual", "output"],
+      "properties": {
+        "case_id": {"$ref": "#/$defs/id"},
+        "expected": {"enum": ["accept", "reject"]},
+        "actual": {"enum": ["accept", "reject", "error", "not-run"]},
+        "output": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+            "sha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    }
+  }
+}

@@ -12,7 +12,7 @@ Single source of truth for the four slash commands (`/loop-new`, `/loop-run`, `/
 ## EDIT → RENDER → COMMIT (mandatory sequence)
 1. Edit a body in `command/<id>.md` (NO frontmatter) and/or metadata in `manifest.json`.
 2. `node ../bin/create-loop.js render` (or `npm run render` from repo root).
-3. `node ../test/installer.test.js` — asserts render is byte-for-byte deterministic.
+3. `node ../bin/create-loop.js render --check` and `node ../test/installer.test.js`.
 4. Commit `command/` **AND** the regenerated `../.opencode/command/` + `../.claude/commands/` together.
 
 ## CONVENTIONS
