@@ -38,6 +38,7 @@ python3 check_loop_integrity.py <loop-dir>   # run at session start, after every
 python3 render_dag.py <plan.yaml>
 python validate_loop_dir.py <v2-loop-dir>
 python render_resume.py <v2-loop-dir> [--check]
+# Migration maintenance route: README -> references/migration_v1_to_v2.md
 python migrate_v1.py <v1-loop-dir> [v2-sibling-dir] [--dry-run]
 python ../tests/experiments/freeze_experiment.py        # refreshes candidate/instrument/preregistration bindings
 python ../tests/experiments/freeze_experiment.py --check # read-only exact freeze check
@@ -90,11 +91,11 @@ python ../tests_py/test_experiment_execution_guard.py
 
 ## ANTI-PATTERNS
 - NEVER hard-code an enum inline in a rule module — import from `checks/__init__.py`.
-- NEVER make a validator or projector mutate its inputs. `render_resume.py`
-  writes only generated `resume.json`, and `migrate_v1.py` writes only a new
-  sibling v2 directory unless `--dry-run` is used. Dry-run staging stays in the
-  system temporary area outside the source Loop ancestry; real migration stages
-  beside the destination to preserve atomic publication.
+- Validators and projectors consume their inputs as immutable sources.
+  `render_resume.py` writes the generated `resume.json`, and `migrate_v1.py`
+  publishes a sibling v2 directory. Dry-run staging uses the system temporary
+  area outside the source Loop ancestry; real migration stages beside the
+  destination for atomic publication.
 - For v1, do not let `validate_loop_plan.py` and its JSON Schemas disagree on
   any enum or required field: the compatibility Python validator remains
   authoritative. For v2, Draft 2020-12 schemas are shape-authoritative and

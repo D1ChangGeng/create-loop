@@ -6,7 +6,7 @@ The installable `create-loop` payload. v1 is the compatibility default; v2 is ex
 ```
 skills/create-loop/
 ├── SKILL.md         entrypoint, ≤1000 lines (HARD budget, enforced by tests); Modes A/B/C + reference map
-├── references/      v1 docs plus protocol_v2.md
+├── references/      runtime protocol docs plus migration workflow documentation
 ├── templates/       v1 artifacts plus goal/plan/journal/resume v2 core
 ├── schemas/         v1 Draft-07 plus v2 Draft 2020-12 schemas
 ├── scripts/         v1 validators and v2 projector/validator/resume/migrator
@@ -38,12 +38,18 @@ risk-triggered child Loop is explicitly enabled.
    update templates and examples after the schemas.
 4. For v1, `scripts/checks/__init__.py` is the Python mirror of every
    enum/regex/required tuple.
-5. `SKILL.md` reference map must register every new `references/` or `templates/` doc.
+5. `SKILL.md` maps runtime references and templates. `README.md` maps
+   maintenance runbooks.
 
 For v2, the order is `references/protocol_v2.md` → v2 Draft 2020-12 schemas →
 `schema_runtime.py`/`project_loop.py`/`validate_loop_dir.py` → executable fixtures
 → the short selector/routes in `SKILL.md`. v2 uses stable invariant families,
 not new v1 R numbers.
+
+The v1-to-v2 migration prose authority is
+`references/migration_v1_to_v2.md`, reached through `README.md`.
+`migrate_v1.py`, the migration schema, and imported-Loop validation implement
+that maintenance route as installed compatibility code.
 
 ## V1 LOCKED VOCABULARY (compatibility only)
 - **15 node statuses**: undiscovered, discovered, needs_clarification, pending, ready, running, waiting_external, waiting_user, blocked, verifying, verification_failed, retry_pending, completed·cancelled·deprecated (terminal).

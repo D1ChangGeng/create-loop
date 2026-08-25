@@ -21,6 +21,22 @@ from schema_runtime import SchemaError, check_schema, load_json, validate  # noq
 from validate_loop_dir import validate_loop_dir  # noqa: E402
 
 
+class DocumentationRoutingTests(unittest.TestCase):
+    def test_migration_runbook_is_readme_routed(self):
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        protocol = (ROOT / "references" / "protocol_v2.md").read_text(encoding="utf-8")
+        runbook = ROOT / "references" / "migration_v1_to_v2.md"
+
+        self.assertTrue(runbook.is_file())
+        self.assertNotIn("migrate_v1.py", skill)
+        self.assertNotIn("legacy_import", skill)
+        self.assertIn("references/migration_v1_to_v2.md", readme)
+        self.assertIn("scripts/migrate_v1.py", readme)
+        self.assertNotIn("python scripts/migrate_v1.py", protocol)
+        self.assertIn("migration_v1_to_v2.md", protocol)
+
+
 def json_bytes(value: object) -> bytes:
     return (json.dumps(value, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 

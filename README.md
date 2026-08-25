@@ -13,6 +13,10 @@ opt-in (`/loop-new --protocol v2 ...`) while paired evaluation is pending. v2
 uses immutable `goal.json` and versioned plans, one append-only `journal.jsonl`,
 and a generated `resume.json`; short single-session tasks create no Loop at all.
 
+Explicit v1 → v2 conversions use the
+[migration runbook](skills/create-loop/references/migration_v1_to_v2.md), which
+is the maintenance entry point for migration work.
+
 ## Install
 
 There are two ways to install, depending on whether you want the slash commands
@@ -158,7 +162,7 @@ create-loop/
     └── create-loop/            the installable skill
         ├── SKILL.md            core protocol (progressive disclosure)
         ├── README.md           full usage / maintain / extend guide
-        ├── references/         v1 protocol docs plus protocol_v2.md
+        ├── references/         runtime protocol docs plus the migration workflow runbook
         ├── templates/          v1 artifacts plus four v2 core templates
         ├── schemas/            v1 Draft-07 and v2 Draft 2020-12 contracts
         ├── scripts/            v1 validators plus v2 projector/validator/migrator

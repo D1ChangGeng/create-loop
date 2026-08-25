@@ -2,15 +2,15 @@
 type: domain
 confidence: observed
 scope: ["skills/create-loop/SKILL.md", "skills/create-loop/references/", "skills/create-loop/templates/", "skills/create-loop/examples/"]
-sources: ["skills/create-loop/AGENTS.md", "skills/create-loop/README.md", "skills/create-loop/SKILL.md", "skills/create-loop/references/protocol_v2.md", "skills/create-loop/scripts/project_loop.py", "skills/create-loop/scripts/migrate_v1.py", "skills/create-loop/tests_py/", "README.md"]
+sources: ["skills/create-loop/AGENTS.md", "skills/create-loop/README.md", "skills/create-loop/SKILL.md", "skills/create-loop/references/protocol_v2.md", "skills/create-loop/references/migration_v1_to_v2.md", "skills/create-loop/scripts/project_loop.py", "skills/create-loop/scripts/migrate_v1.py", "skills/create-loop/tests_py/", "README.md"]
 last_verified: 2026-07-31
 created: 2026-07-03
 ---
 # Skill Protocol (create-loop skill proper)
 
-Covers the installable protocol payload. The repository now carries a repaired
-v1 compatibility protocol and a smaller, explicitly selected v2 protocol; it
-does not silently mix or convert their write paths.
+Covers the installable protocol payload. The repository carries a v1
+compatibility protocol and a smaller, explicitly selected v2 protocol. Durable
+artifacts select one write path for each active Loop.
 
 ## Core Invariants
 
@@ -27,11 +27,11 @@ does not silently mix or convert their write paths.
 - v2 admission has four levels: ordinary task with no Loop files; lightweight with goal plus immutable plan; persistent with journal and generated resume; governed with only the optional modules triggered by actual concurrency, effects, children, artifact versioning, or independent review [source: skills/create-loop/references/protocol_v2.md:8-21].
 - Lightweight has one legal durability bridge: activate `plan-v1`, append one control-only observation, append the matching `control_mode_upgrade` decision with explicit `plan_change:null`, and immediately activate `plan-v2`. The bridge may change only plan identity/version/time/control metadata; the goal binding and entire node graph remain identical, and semantic changes require a fresh plan-v3 replan [source: skills/create-loop/references/protocol_v2.md:19-33] [source: command/loop-run.md:22-40].
 - v2 has six node states: `pending`, `active`, `waiting`, `verifying`, `done`, `closed`. Readiness is derived, and retry/escalation/verification failure/cancellation/supersession are reasons or decisions rather than extra states [source: skills/create-loop/references/protocol_v2.md:42-60].
-- Loop lifecycle is `active`, `waiting`, `completed`, or `closed`. Before top-level completion, a stale `done` node returns to `active` through a node-local counterevidence transition; only a previously completed Loop uses a top-level `reopen` record. Imported unverified legacy `done` nodes use the bounded `legacy_reverification` exception before fresh work [source: skills/create-loop/references/protocol_v2.md:56-68] [source: skills/create-loop/references/protocol_v2.md:91-101].
+- Loop lifecycle is `active`, `waiting`, `completed`, or `closed`. Before top-level completion, a stale `done` node returns to `active` through a node-local counterevidence transition; only a previously completed Loop uses a top-level `reopen` record. Imported unverified legacy `done` nodes use the bounded `legacy_reverification` exception before fresh work [source: skills/create-loop/references/protocol_v2.md:61-87] [source: skills/create-loop/references/migration_v1_to_v2.md:73-92].
 
 ## Journal and Runtime
 
-- v2 journal records include plan activation, transitions, immutable evidence and relations, decisions, context, exact effect pairs, completion, reopen, lifecycle, and conservative legacy import [source: skills/create-loop/references/protocol_v2.md:66-85].
+- v2 journal records include plan activation, transitions, immutable evidence and relations, decisions, context, exact effect pairs, completion, reopen, and lifecycle; the schema/projector retain `legacy_import` solely for validating explicitly migrated Loops [source: skills/create-loop/references/protocol_v2.md:89-143] [source: skills/create-loop/schemas/journal-record.schema.json:13-39] [source: skills/create-loop/scripts/project_loop.py:741-766].
 - Evidence currentness changes through `supersedes`, `invalidates`, `challenges`, or `confirms` relations, not observation edits. A relation source must be newer than its target, active, unchallenged, and bound to the active exact check definition when check-specific; its downstream effects are derived and retract if the source later expires, becomes invalid, is challenged, or is made stale by replan. Independent review depends on a delivered-context manifest rather than actor labels or file mtimes [source: skills/create-loop/references/protocol_v2.md:86-94] [source: skills/create-loop/references/protocol_v2.md:119-134].
 - A check ID is only a plan-local label, not durable evidence identity. Every check-specific observation binds `plan_version`, node ID, check ID, and the hash of the complete canonical check object; replan may reuse it only when the active check definition is byte-canonically identical, while review-context evidence is always recollected after replan [source: skills/create-loop/references/protocol_v2.md:77-81] [source: skills/create-loop/references/protocol_v2.md:106-119].
 - The runtime cycle is ORIENT -> DIAGNOSE -> DECIDE -> WORK -> EVIDENCE -> JUDGE -> COMMIT. COMMIT appends evidence/decision before transitions and atomically regenerates `resume.json` [source: skills/create-loop/references/protocol_v2.md:94-106].
@@ -39,14 +39,14 @@ does not silently mix or convert their write paths.
 - Replan and Loop closure are both forbidden while an effect is in doubt. Replan preserves the goal hash and activates a newly validated immutable plan; resume replays the full valid journal; recover is read-only until reality is known; reopen begins with counterevidence; complete leaves the semantic decision to the model after the deterministic gate [source: skills/create-loop/references/protocol_v2.md:124-147].
 - Ordinary plan activation is a causal act: an old-plan `plan_replacement` decision binds exact old/new plan versions and hashes through `plan_change`, and its active unchallenged evidence set must exactly equal the activation refs. The program validates this structural causal envelope without deciding semantic sufficiency. Node IDs remain Loop-global and cannot be reused after removal [source: skills/create-loop/references/protocol_v2.md:91-103] [source: skills/create-loop/references/protocol_v2.md:198-211].
 - The artifact registry preserves validated historical versions as well as the one current selection. Every artifact evidence record also retains its immutable path/hash binding, so historical reality remains checkable after the active plan disables the module or removes the live index; evidence relations, rather than registry status alone, decide whether that observation is current [source: skills/create-loop/references/protocol_v2.md:149-166] [source: skills/create-loop/scripts/validate_loop_dir.py:419-462].
-- v2 outputs use one shared canonical POSIX path contract across planning, child returns, migration, projection, and whole-loop validation. Windows-invalid characters and control bytes fail closed; Windows case identity uses length-preserving OS mapping rather than Unicode `casefold()`, and file or directory deliverables are both valid while `sha256` remains file-only [source: skills/create-loop/references/protocol_v2.md:240-253] [source: skills/create-loop/scripts/project_loop.py:116-155] [source: skills/create-loop/scripts/project_loop.py:1455-1490].
+- v2 outputs use one shared canonical POSIX path contract across planning, child returns, projection, migration, and whole-loop validation. Windows-invalid characters and control bytes fail closed; Windows case identity uses length-preserving OS mapping rather than Unicode `casefold()`, and file or directory deliverables are both valid while `sha256` remains file-only [source: skills/create-loop/references/protocol_v2.md:235-241] [source: skills/create-loop/references/migration_v1_to_v2.md:113-130] [source: skills/create-loop/scripts/project_loop.py:116-155] [source: skills/create-loop/scripts/project_loop.py:1455-1490].
 
 ## Compatibility and Migration
 
 - v1 remains usable during the transition and is not retired merely because v2 artifacts, schemas, or tools exist [source: skills/create-loop/SKILL.md:34-50].
-- `migrate_v1.py` is an explicit conservative conversion to a sibling directory. It never writes in place, rejects malformed goal-authority fields, converts one immutable byte snapshot, binds its source hashes into the journal/report, rechecks the live source before publication, validates mapped outputs and statuses fail closed, and does not manufacture a v2 completion from legacy completion. Dry-run staging stays outside the source Loop ancestry; real publication stages beside the destination for a same-filesystem rename [source: skills/create-loop/scripts/migrate_v1.py:59-91] [source: skills/create-loop/scripts/migrate_v1.py:451-651] [source: skills/create-loop/scripts/migrate_v1.py:716-764] [source: skills/create-loop/tests_py/test_v2_migration_hardening.py:989-1068].
+- README routes explicit v1-to-v2 migration to `references/migration_v1_to_v2.md`. `migrate_v1.py` converts one immutable source snapshot into a sibling v2 protocol tree, binds source hashes into the journal and report, rechecks the source before publication, and applies fail-closed goal, status, output, evidence, and effect rules. Dry-run staging uses a temporary directory outside the source Loop ancestry; real publication stages beside the destination for a same-filesystem rename [source: skills/create-loop/references/migration_v1_to_v2.md:1-12] [source: skills/create-loop/scripts/migrate_v1.py:59-91] [source: skills/create-loop/scripts/migrate_v1.py:451-651] [source: skills/create-loop/scripts/migrate_v1.py:716-764] [source: skills/create-loop/tests_py/test_v2_migration_hardening.py:989-1068].
 - Lexically equivalent or Windows-case-equivalent legacy outputs keep one earliest owner and an immutable warning for later producers; genuinely distinct Unicode paths and legitimate directory outputs remain representable [source: skills/create-loop/scripts/migrate_v1.py:211-254] [source: skills/create-loop/tests_py/test_v2_migration_hardening.py:478-626].
-- Migrated v1 completed nodes become legacy `done` facts with unverified warnings; conflicting legacy active evidence is not selected as current and cannot authorize completion [source: skills/create-loop/scripts/migrate_v1.py:597-622] [source: skills/create-loop/references/protocol_v2.md:91-101].
+- Migrated v1 completed nodes become legacy `done` facts with unverified warnings; conflicting legacy active evidence is not selected as current and cannot authorize completion [source: skills/create-loop/scripts/migrate_v1.py:597-622] [source: skills/create-loop/references/migration_v1_to_v2.md:70-90].
 
 ## Common Mistakes
 
@@ -60,7 +60,7 @@ does not silently mix or convert their write paths.
 ## Verified Facts
 
 - `SKILL.md` remains below its enforced 1000-line entrypoint ceiling; exact line count is deliberately measured by the acceptance gate rather than pinned in knowledge [source: skills/create-loop/tests/acceptance_tests.md:215-225] [source: skills/create-loop/tests/baseline_green.sh:52-57].
-- The Skill tool map lists both v1 tools and the v2 whole-loop validator, projector, resume renderer, and migration tool [source: skills/create-loop/SKILL.md:870-880].
+- The Skill tool map lists v1 runtime tools and the v2 whole-loop validator, projector, and resume renderer. README lists the migration runbook and installed migrator backend [source: skills/create-loop/SKILL.md:870-889] [source: skills/create-loop/README.md:160-188].
 - v2 uses Draft 2020-12 schemas and stable invariant families rather than extending the v1 linear R-number sequence [source: skills/create-loop/references/protocol_v2.md:36-40].
 
 ## Open Questions

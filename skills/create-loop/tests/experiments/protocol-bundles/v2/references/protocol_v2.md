@@ -43,8 +43,8 @@ other runtime fact may appear before the upgrade activation.
   must match a fresh projection; the model must not edit it.
 - Deliverables remain in the actual workspace. The protocol stores bounded
   evidence, paths, and hashes rather than copies of ordinary project state.
-- Workspace-relative paths use one shared canonical identity across plans,
-  claims, artifact records, child returns, and migration. They reject path
+- Workspace-relative paths use one shared canonical identity across every v2
+  artifact producer and consumer. They reject path
   escape, non-canonical segments/suffixes, Win32-invalid characters and reserved
   device basenames; Unicode names that Windows does not equate remain distinct.
 - An authorization boundary names exactly one reserved actor type: `user`,
@@ -77,10 +77,8 @@ Retry, escalation, verification failure, cancellation, and supersession are
 reason codes or decisions, not additional states. `verifying -> done` must cite
 active passing evidence for every declared node check. In an active or waiting
 Loop, `done -> active` is a node-local reopen: it must cite the exact current
-fail or inconclusive evidence that invalidated the node. The sole import-time
-exception is an unverified legacy `done`, which uses reason code
-`legacy_reverification` without treating legacy evidence as current. The
-top-level `reopen` record is reserved for restoring a previously completed Loop.
+fail or inconclusive evidence that invalidated the node. The top-level `reopen`
+record is reserved for restoring a previously completed Loop.
 
 Loop lifecycle is `active`, `waiting`, `completed`, or `closed`. Completion is
 created only by a `completion` record; it is never inferred from all nodes being
@@ -141,26 +139,6 @@ optional `plan_version`/`node_id`, and a kind-specific `payload`.
   criterion, deterministic checks, reviews, risks, scope, and authorization.
 - `reopen`: completion, counterevidence, affected criteria/nodes, and action.
 - `loop_lifecycle`: waiting/resume/close facts.
-- `legacy_import`: conservative v1 state snapshot, source hashes, and validated
-  audit summaries for conclusively closed legacy effect pairs. It is the
-  unique first record (`seq=1`), is written by a `migrator`, and is followed
-  immediately by the initial `plan_activated`. It never manufactures a v2
-  completion or treats legacy evidence as current. Every imported `done` node
-  remains `legacy_completion_unverified`: it cannot support completion until an
-  explicit `done -> active` transition with reason code
-  `legacy_reverification` starts fresh work, followed by a new
-  `active -> verifying -> done` chain with current passing check evidence.
-  Until that chain succeeds, the node cannot be removed/renamed by replan or
-  transitioned to `closed`; closing the Loop itself remains an explicit
-  non-completion outcome.
-  Its source binding names `event_log.jsonl`, binds that file and
-  `checkpoint.yaml` to the imported hash inventory, and records the reconciled
-  event-log tail. Closed-effect audit rows must reference nodes in the initial
-  active plan and source sequence numbers within that bound tail. The generated
-  migration report repeats the source inventory and hashes the complete imported
-  journal prefix through its recorded migration tail; later valid appends do not
-  change that prefix. A generic v2 validator therefore rejects a copied or
-  hand-edited `legacy_import` whose report no longer binds the imported bytes.
 
 Evidence is immutable. Relations, not edits, change which observations are
 current. Invalidated or superseded evidence cannot authorize `done` or
@@ -257,40 +235,15 @@ the registry status, determine whether that observation remains current.
 ```text
 python scripts/validate_loop_dir.py <loop-dir>
 python scripts/render_resume.py <loop-dir> [--check]
-python scripts/migrate_v1.py <v1-loop-dir> [v2-destination] [--dry-run]
 ```
 
 `validate_loop_dir.py` is read-only. `render_resume.py` uses atomic replacement.
-Migration rejects an in-place or child destination, hashes every source file,
-writes only a new sibling directory, requires the checkpoint-declared
-`event_log.jsonl`, and rejects disagreement between its replayed node/tail
-projection and the checkpoint snapshot. Journal timestamps never move backward
-with sequence order; imported runtime records use the migration commit time.
-Migration also rejects node states outside the locked v1 status vocabulary
-instead of guessing a v2 state, and rejects malformed or unsafe legacy
-`produces` paths instead of silently dropping outputs. It maps
-legacy completion conservatively. A conclusively paired v1 effect is retained
-as a non-authorizing `legacy_import.closed_effects` audit fact. An unmatched
-idempotent effect is emitted as a real v2 `effect_pre` only when the imported
-checkpoint already places its node in `active`; it then remains visible in
-`resume.projection.in_doubt_effect_ids`. Ambiguous, orphaned, unmatched
-non-idempotent, or state-incompatible effects fail closed rather than being
-dropped or forcing a fabricated state transition. Migration discards its
-unpublished staging tree if the source changes; the destination remains absent.
-Dry-run validation stages in the system temporary area outside the source Loop
-ancestry and always removes that tree. A real migration stages beside its
-destination so publication remains a same-filesystem atomic rename.
-Output identity is the canonical POSIX relative file path: legacy backslashes
-are converted to `/`, repeated separators and `.` segments are removed, and
-absolute, drive-qualified, parent-traversing, Win32-reserved characters,
-control characters, or platform-ambiguous suffixes fail closed. A v2 plan must
-already store this canonical form. On Windows, identity uses the operating
-system's length-preserving invariant case mapping rather than Unicode
-`casefold()`, so ordinary case variants collide without merging distinct names
-such as `straße.txt` and `strasse.txt`. When multiple legacy nodes claim the
-same canonical output identity, the earliest flattened producer remains the
-sole v2 owner and every later producer relationship is preserved explicitly in
-immutable import warnings. This retains the source fact without violating the
-v2 plan's single-owner output invariant. A declared output may be a file or a
-directory; completion hashes are file-only, while a directory deliverable is
-accepted only without `sha256`.
+
+## Imported v1 compatibility
+
+Runtime v2 trees begin with `plan_activated`. Migrated v2 trees begin with one
+`legacy_import` record at `seq=1`, followed immediately by the initial plan
+activation. The projector and validator verify the source-hash inventory and
+migration report, then require fresh reverification before imported `done` facts
+can authorize completion. Explicit v1 → v2 conversions follow the
+README-routed [`migration_v1_to_v2.md`](migration_v1_to_v2.md) runbook.

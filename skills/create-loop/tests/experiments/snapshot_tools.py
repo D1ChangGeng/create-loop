@@ -398,9 +398,15 @@ def build_worktree_snapshot(
     include_list = list(include)
     if tuple(include_list) != SUBJECT_INCLUDE:
         raise SnapshotError("subject include set drifted")
-    resolved_base = _resolve_commit(repo_root, "HEAD")
-    if base_git_commit != resolved_base:
-        raise SnapshotError("dirty-worktree base_git_commit must equal the repository HEAD")
+    if (
+        not isinstance(base_git_commit, str)
+        or len(base_git_commit) != 40
+        or any(char not in "0123456789abcdef" for char in base_git_commit)
+    ):
+        raise SnapshotError("dirty-worktree base_git_commit must be a lowercase 40-character commit")
+    resolved_base = _resolve_commit(repo_root, base_git_commit)
+    resolved_head = _resolve_commit(repo_root, "HEAD")
+    _require_ancestor(repo_root, resolved_base, resolved_head)
     tracked_modes = _worktree_modes(repo_root, skill_root)
     entries = [
         _entry(path, data, mode)
@@ -445,6 +451,29 @@ def _resolve_commit(repo_root: Path, revision: str) -> str:
     if len(commit) != 40 or any(char not in "0123456789abcdef" for char in commit):
         raise SnapshotError(f"git returned an invalid commit for {revision!r}")
     return commit
+
+
+def _require_ancestor(repo_root: Path, ancestor: str, descendant: str) -> None:
+    """Require a frozen worktree base to remain in the current repository history."""
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repo_root), "merge-base", "--is-ancestor", ancestor, descendant],
+            capture_output=True,
+            check=False,
+        )
+    except OSError as exc:
+        raise SnapshotError(f"cannot execute git: {exc}") from exc
+    if completed.returncode == 0:
+        return
+    if completed.returncode == 1:
+        raise SnapshotError(
+            f"dirty-worktree base commit {ancestor} is not an ancestor of repository HEAD {descendant}"
+        )
+    message = completed.stderr.decode("utf-8", errors="replace").strip()
+    raise SnapshotError(
+        "cannot verify dirty-worktree base ancestry"
+        + (f": {message}" if message else "")
+    )
 
 
 def _git_mode(mode: str, path: str) -> str:
@@ -627,9 +656,9 @@ def validate_source_snapshot(
             raise SnapshotError("worktree validation requires dirty-worktree origin and no archive")
         if repo_root is None:
             raise SnapshotError("worktree validation requires the repository root")
-        resolved_base = _resolve_commit(repo_root, "HEAD")
-        if manifest["origin"]["base_git_commit"] != resolved_base:
-            raise SnapshotError("source snapshot base commit drifted from repository HEAD")
+        resolved_base = _resolve_commit(repo_root, manifest["origin"]["base_git_commit"])
+        resolved_head = _resolve_commit(repo_root, "HEAD")
+        _require_ancestor(repo_root, resolved_base, resolved_head)
         tracked_modes = _worktree_modes(repo_root, skill_root)
         current = [
             _entry(path, data, mode)

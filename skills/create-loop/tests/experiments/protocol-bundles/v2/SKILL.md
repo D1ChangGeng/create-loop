@@ -39,8 +39,8 @@ Two explicitly selected protocols coexist during the v2 transition:
   [`references/protocol_v2.md`](references/protocol_v2.md). Use it only when the
   user supplies `--protocol v2`, explicitly requests protocol v2, or an existing
   Loop contains `goal.json` with `schema_version: "2.0"`. Once a Loop exists,
-  detect its protocol from its artifacts; never silently convert or mix write
-  paths.
+  bind all writes to the protocol identified by its artifacts. An explicit,
+  user-approved migration begins through the README-routed maintenance runbook.
 
 For v2, ordinary replans require a `plan_replacement` decision whose
 `plan_change` binds the exact old and candidate plan versions and hashes; its
@@ -885,7 +885,6 @@ rows only matter in their respective modes.
 | [`validate_loop_dir.py`](scripts/validate_loop_dir.py) | v2 whole-loop deterministic gate: validates schemas, DAGs, plan activation/hashes, ordered journal references, transitions, evidence/effects, conditional modules, and canonical resume freshness without deciding semantic completion. |
 | [`project_loop.py`](scripts/project_loop.py) | v2 canonical projector from immutable goal + journal-selected plan + ordered journal into the disposable resume view. |
 | [`render_resume.py`](scripts/render_resume.py) | v2 atomic resume regeneration and read-only `--check`. |
-| [`migrate_v1.py`](scripts/migrate_v1.py) | Explicit conservative v1-to-v2 migration into a new sibling directory; never an in-place write and never an automatic conversion. |
 
 ### Examples — `examples/`
 

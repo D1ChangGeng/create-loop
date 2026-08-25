@@ -2,7 +2,7 @@
 type: reference
 confidence: verified
 scope: ["bin/", "command/", ".opencode/command/", ".claude/commands/", "install-commands.sh", "test/", "skills/create-loop/"]
-sources: ["package.json", "bin/create-loop.js", "test/installer.test.js", "command/manifest.json", "command/", "skills/create-loop/SKILL.md", "skills/create-loop/scripts/AGENTS.md", "skills/create-loop/references/protocol_v2.md", "skills/create-loop/tests/experiments/codex_exec_adapter.py", "skills/create-loop/tests/experiments/pilot_runners.py", "skills/create-loop/tests/experiments/pilot_freeze.py", "skills/create-loop/tests/experiments/network_execution_boundary.py", "skills/create-loop/tests/experiments/execution_guard.py", "skills/create-loop/tests/experiments/experiment_harness.py", "skills/create-loop/tests/experiments/evaluation.py"]
+sources: ["package.json", "bin/create-loop.js", "test/installer.test.js", "command/manifest.json", "command/", "skills/create-loop/SKILL.md", "skills/create-loop/README.md", "skills/create-loop/scripts/AGENTS.md", "skills/create-loop/references/protocol_v2.md", "skills/create-loop/references/migration_v1_to_v2.md", "skills/create-loop/tests/experiments/codex_exec_adapter.py", "skills/create-loop/tests/experiments/pilot_runners.py", "skills/create-loop/tests/experiments/pilot_freeze.py", "skills/create-loop/tests/experiments/network_execution_boundary.py", "skills/create-loop/tests/experiments/execution_guard.py", "skills/create-loop/tests/experiments/experiment_harness.py", "skills/create-loop/tests/experiments/evaluation.py"]
 last_verified: 2026-08-06
 created: 2026-07-03
 ---
@@ -26,6 +26,7 @@ create-loop/
 |  |- SKILL.md                         protocol entrypoint under executable 1000-line ceiling; v1 default, v2 opt-in
 |  |- LICENSE                          installed payload license copy
 |  |- references/protocol_v2.md        v2 admission/authority/state/journal/lifecycle/modules
+|  |- references/migration_v1_to_v2.md README migration workflow and source-binding runbook
 |  |- schemas/                         v1 schemas + seven v2 core/optional/migration schemas
 |  |- templates/                       v1 templates + four v2 core templates
 |  |- scripts/                         v1 checks plus v2 schema/project/validate/render/migrate tools
@@ -36,7 +37,10 @@ create-loop/
 `- .agents/knowledge/                  evolving project knowledge and this map
 ```
 
-The current skill entrypoint routes v2 to `protocol_v2.md`, `validate_loop_dir.py`, `project_loop.py`, `render_resume.py`, and `migrate_v1.py` instead of embedding the full implementation in `SKILL.md` [source: skills/create-loop/SKILL.md:808-880].
+The skill entrypoint maps runtime v2 work to `protocol_v2.md`,
+`validate_loop_dir.py`, `project_loop.py`, and `render_resume.py`. README maps
+the explicit v1-to-v2 migration workflow and its installed `migrate_v1.py`
+backend [source: skills/create-loop/SKILL.md:807-889] [source: skills/create-loop/README.md:160-188] [source: skills/create-loop/references/migration_v1_to_v2.md:1-12].
 
 ## Delivery Routing
 
@@ -91,12 +95,13 @@ State v2 records `stateRoot`, optional project root, per-host roots/anchors, and
 | Resume | `schemas/resume.schema.json`, `templates/resume.json` | generated cache only |
 | Optional concurrency | `schemas/claim-v2.schema.json` | validated only when module enabled |
 | Optional artifacts | `schemas/artifact-index-v2.schema.json` | current-selection registry; evidence keeps an independent path/hash binding |
-| Migration report | `schemas/migration-report.schema.json` | conservative source hashes/warnings |
+| Migration runbook | `references/migration_v1_to_v2.md` | README entry for explicit conversion and migration maintenance |
+| Migration report | `schemas/migration-report.schema.json` | conservative source hashes/warnings for imported Loop validation |
 | Runtime schema subset | `scripts/schema_runtime.py` | `validate()` and `validate_file()` [source: skills/create-loop/scripts/schema_runtime.py:64-149] |
 | Canonical projection | `scripts/project_loop.py` | six states, exact old/new `plan_change` causality, node-identical lightweight bridge, retired node IDs, journal replay, check/artifact reality binding, effects and confined deliverables [source: skills/create-loop/scripts/project_loop.py:714-795] [source: skills/create-loop/scripts/project_loop.py:810-970] [source: skills/create-loop/scripts/project_loop.py:1065-1175] [source: skills/create-loop/scripts/project_loop.py:1446-1658] [source: skills/create-loop/scripts/project_loop.py:1661-1790] |
 | Whole-loop deterministic gate | `scripts/validate_loop_dir.py` | graph, journal payloads, claims, live artifact registry plus durable evidence bindings, child/module contracts [source: skills/create-loop/scripts/validate_loop_dir.py:151-311] [source: skills/create-loop/scripts/validate_loop_dir.py:313-396] [source: skills/create-loop/scripts/validate_loop_dir.py:398-541] [source: skills/create-loop/scripts/validate_loop_dir.py:543-657] [source: skills/create-loop/scripts/validate_loop_dir.py:660-774] |
 | Resume generation | `scripts/render_resume.py` | atomic write and read-only `--check` [source: skills/create-loop/scripts/render_resume.py:14-32] |
-| v1 migration | `scripts/migrate_v1.py` | pre-resolution symlink/reparse rejection, one byte snapshot, authority-field validation, source-hash journal/report binding, ancestry-safe dry-run staging, pre-publication mutation recheck, canonical single-owner outputs, atomic sibling publication [source: skills/create-loop/scripts/migrate_v1.py:62-105] [source: skills/create-loop/scripts/migrate_v1.py:451-501] [source: skills/create-loop/scripts/migrate_v1.py:716-764] |
+| v1 migration | `references/migration_v1_to_v2.md` + `scripts/migrate_v1.py` | README-routed maintenance runbook plus pre-resolution symlink/reparse rejection, one byte snapshot, authority-field validation, source-hash journal/report binding, ancestry-safe dry-run staging, pre-publication mutation recheck, canonical single-owner outputs, atomic sibling publication [source: skills/create-loop/references/migration_v1_to_v2.md:1-12] [source: skills/create-loop/scripts/migrate_v1.py:62-105] [source: skills/create-loop/scripts/migrate_v1.py:451-501] [source: skills/create-loop/scripts/migrate_v1.py:716-764] |
 | Executable tests | `tests_py/test_v2_*.py` | schema, projector/invariants, optional modules, migration, path/evidence hardening [source: skills/create-loop/tests_py/test_v2_protocol.py:102-278] [source: skills/create-loop/tests_py/test_v2_migration_hardening.py:478-626] |
 
 ## Baselines and Experiment Infrastructure

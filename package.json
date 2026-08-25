@@ -118,6 +118,7 @@
     "skills/create-loop/references/layered_execution_chain.md",
     "skills/create-loop/references/live_loop_semantics.md",
     "skills/create-loop/references/loop_plan_spec.md",
+    "skills/create-loop/references/migration_v1_to_v2.md",
     "skills/create-loop/references/parallel_development_protocol.md",
     "skills/create-loop/references/protocol_v2.md",
     "skills/create-loop/references/recovery_protocol.md",

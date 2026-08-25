@@ -117,9 +117,9 @@ normal discovery, no daemon, no API key.
 
 ### Prerequisites
 
-The scripts use Python 3.10+. v1 YAML validators and `migrate_v1.py` require
-PyYAML. Native v2 JSON/JSONL projection, validation, and resume rendering use
-the standard library.
+The scripts use Python 3.10+. v1 YAML validators require PyYAML. Native v2
+JSON/JSONL projection, validation, and resume rendering use the standard
+library.
 
 ```bash
 # PyYAML is required by the scripts.
@@ -154,26 +154,32 @@ skill emits.
 Before creating artifacts, apply admission: a short, low-risk, single-session
 task with no durable recovery or dependency-control need remains an ordinary
 task. Use `--protocol v2` on slash commands to opt into v2; otherwise new Loops
-use v1. Existing Loops are detected from their artifacts and are never silently
-migrated or written through the other protocol.
+use v1. Existing Loops are detected from their artifacts and each write path
+follows that protocol.
 
 ### Validate and resume a v2 Loop
 
 ```bash
 python scripts/validate_loop_dir.py <loop-dir>
 python scripts/render_resume.py <loop-dir> --check
-python scripts/migrate_v1.py <v1-loop-dir> <new-sibling-v2-dir> --dry-run
 ```
 
 The v2 gate checks deterministic structure, graph, hash, ordered journal,
 state/effect/evidence, conditional-module, and projection-freshness invariants.
-It does not decide that the real goal is complete. Migration never writes in
-place and never manufactures completion from a legacy status. Ordinary replans
-use a `plan_replacement` decision with an exact old/new version-and-hash
+It does not decide that the real goal is complete. Ordinary replans use a
+`plan_replacement` decision with an exact old/new version-and-hash
 `plan_change` binding and the same causal evidence set as activation. The
 lightweight durability bridge changes only control metadata; semantic plan
 changes happen in a later, freshly evidenced replan. Projection and resume
 rendering also fail closed if a bound artifact path or hash drifts.
+
+### Explicit v1 → v2 migration
+
+For an explicit v1 → v2 conversion, read the complete
+[`references/migration_v1_to_v2.md`](references/migration_v1_to_v2.md) runbook
+before invoking `scripts/migrate_v1.py`. The runbook defines prerequisites,
+dry-run and sibling-destination rules, source hashing, conservative status,
+evidence, and effect mapping, publication, verification, and rollback boundaries.
 
 ### Validate a plan
 

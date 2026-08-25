@@ -99,7 +99,7 @@ class SnapshotToolTests(unittest.TestCase):
             with self.assertRaisesRegex(snapshots.SnapshotError, "non-standard JSON"):
                 snapshots.load_json(path)
 
-    def test_worktree_snapshot_is_deterministic_and_binds_head(self) -> None:
+    def test_worktree_snapshot_is_deterministic_and_rejects_unrelated_base(self) -> None:
         first = snapshots.build_worktree_snapshot(
             self.skill,
             repo_root=self.repo,
@@ -115,14 +115,51 @@ class SnapshotToolTests(unittest.TestCase):
             base_git_commit=self.head,
         )
         self.assertEqual(snapshots.canonical_bytes(first), snapshots.canonical_bytes(second))
-        with self.assertRaisesRegex(snapshots.SnapshotError, "must equal the repository HEAD"):
+        unrelated = run_git(
+            self.repo,
+            "commit-tree",
+            f"{self.head}^{{tree}}",
+            "-m",
+            "unrelated root",
+        )
+        with self.assertRaisesRegex(snapshots.SnapshotError, "is not an ancestor of repository HEAD"):
             snapshots.build_worktree_snapshot(
                 self.skill,
                 repo_root=self.repo,
                 snapshot_id="candidate-v2",
                 protocol="v2",
-                base_git_commit="f" * 40,
+                base_git_commit=unrelated,
             )
+
+    def test_worktree_snapshot_accepts_descendant_head_but_rejects_source_drift(self) -> None:
+        marker = self.repo / "unrelated.txt"
+        marker.write_text("unrelated\n", encoding="utf-8", newline="\n")
+        run_git(self.repo, "add", "unrelated.txt")
+        run_git(self.repo, "commit", "-qm", "advance outside subject")
+        manifest = snapshots.build_worktree_snapshot(
+            self.skill,
+            repo_root=self.repo,
+            snapshot_id="candidate-v2",
+            protocol="v2",
+            base_git_commit=self.head,
+        )
+        self.assertEqual(manifest["origin"]["base_git_commit"], self.head)
+        snapshots.validate_source_snapshot(manifest, skill_root=self.skill, repo_root=self.repo)
+        (self.skill / "SKILL.md").write_text("drift\n", encoding="utf-8", newline="\n")
+        with self.assertRaisesRegex(snapshots.SnapshotError, "drifted from current worktree"):
+            snapshots.validate_source_snapshot(manifest, skill_root=self.skill, repo_root=self.repo)
+
+    def test_worktree_snapshot_rejects_noncanonical_base_revision(self) -> None:
+        for base in ("HEAD", self.head[:12], self.head.upper()):
+            with self.subTest(base=base):
+                with self.assertRaisesRegex(snapshots.SnapshotError, "lowercase 40-character commit"):
+                    snapshots.build_worktree_snapshot(
+                        self.skill,
+                        repo_root=self.repo,
+                        snapshot_id="candidate-v2",
+                        protocol="v2",
+                        base_git_commit=base,
+                    )
 
     def test_worktree_uses_git_index_modes_on_windows(self) -> None:
         script = self.skill / "scripts" / "seed.txt"

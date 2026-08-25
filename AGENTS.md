@@ -15,7 +15,8 @@ create-loop/
 ├── install-commands.sh      compatibility wrapper over Node --commands-only
 ├── test/installer.test.js   renderer/installer/package safety regression
 ├── skills/create-loop/      THE INSTALLABLE SKILL (see its own AGENTS.md)
-│   ├── references/protocol_v2.md  opt-in v2 canonical protocol
+│   ├── references/protocol_v2.md  opt-in v2 runtime protocol
+│   ├── references/migration_v1_to_v2.md  README migration workflow and source-binding runbook
 │   ├── scripts/{project_loop,validate_loop_dir,render_resume,migrate_v1}.py
 │   ├── tests/experiments/   freeze/check, workspace fixtures, offline evaluation, execution guard
 │   └── tests_py/            executable v1/v2 safety + experiment workspace/evaluation/guard tests
@@ -29,6 +30,7 @@ create-loop/
 | What the skill teaches / its protocol | [skills/create-loop/SKILL.md](skills/create-loop/SKILL.md) (≤1000-line entrypoint) |
 | v1 locked vocabulary / fields | `skills/create-loop/references/loop_plan_spec.md` + `state_model.md` |
 | v2 protocol / authority / state / journal | `skills/create-loop/references/protocol_v2.md` |
+| Explicit v1 → v2 migration | root/Skill README → `skills/create-loop/references/migration_v1_to_v2.md` |
 | Add/edit a slash command | [command/](command/) → then `render` |
 | Change install behavior | [bin/create-loop.js](bin/create-loop.js) |
 | v1 validators (R-family compatibility) | [skills/create-loop/scripts/](skills/create-loop/scripts/) |

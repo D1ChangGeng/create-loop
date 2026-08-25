@@ -2,7 +2,7 @@
 type: domain
 confidence: verified
 scope: ["package.json", "bin/", "test/", "skills/create-loop/scripts/", "skills/create-loop/tests/", "skills/create-loop/tests_py/"]
-sources: ["package.json", "bin/create-loop.js", "test/installer.test.js", "skills/create-loop/scripts/AGENTS.md", "skills/create-loop/scripts/schema_runtime.py", "skills/create-loop/tests/baseline_green.sh", "skills/create-loop/tests/experiments/codex_exec_adapter.py", "skills/create-loop/tests/experiments/pilot_runners.py", "skills/create-loop/tests/experiments/pilot_freeze.py", "skills/create-loop/tests/experiments/network_execution_boundary.py", "skills/create-loop/tests/experiments/execution_guard.py", "skills/create-loop/tests/experiments/experiment_harness.py", "skills/create-loop/tests/experiments/evaluation.py", "skills/create-loop/tests/experiments/pilot_harness.py", "skills/create-loop/tests_py/"]
+sources: ["package.json", "bin/create-loop.js", "test/installer.test.js", "skills/create-loop/references/migration_v1_to_v2.md", "skills/create-loop/scripts/AGENTS.md", "skills/create-loop/scripts/schema_runtime.py", "skills/create-loop/tests/baseline_green.sh", "skills/create-loop/tests/experiments/snapshot_tools.py", "skills/create-loop/tests/experiments/codex_exec_adapter.py", "skills/create-loop/tests/experiments/pilot_runners.py", "skills/create-loop/tests/experiments/pilot_freeze.py", "skills/create-loop/tests/experiments/network_execution_boundary.py", "skills/create-loop/tests/experiments/execution_guard.py", "skills/create-loop/tests/experiments/experiment_harness.py", "skills/create-loop/tests/experiments/evaluation.py", "skills/create-loop/tests/experiments/pilot_harness.py", "skills/create-loop/tests_py/"]
 last_verified: 2026-08-06
 created: 2026-07-03
 ---
@@ -21,7 +21,7 @@ created: 2026-07-03
 ## Tooling and Commands
 
 - npm exposes `render`, read-only `render:check`, and the zero-dependency installer regression suite as `test` [source: package.json:32-35].
-- v1 tools are `validate_loop_plan.py`, `validate_checkpoint.py`, and `check_loop_integrity.py`; v2 tools are `validate_loop_dir.py`, `project_loop.py`, `render_resume.py`, and `migrate_v1.py` [source: skills/create-loop/scripts/AGENTS.md:9-27] [source: skills/create-loop/scripts/AGENTS.md:30-41].
+- v1 tools are `validate_loop_plan.py`, `validate_checkpoint.py`, and `check_loop_integrity.py`; runtime v2 tools are `validate_loop_dir.py`, `project_loop.py`, and `render_resume.py`. README routes migration to `references/migration_v1_to_v2.md`, with `migrate_v1.py` providing the conversion backend [source: skills/create-loop/scripts/AGENTS.md:9-27] [source: skills/create-loop/scripts/AGENTS.md:30-43] [source: skills/create-loop/references/migration_v1_to_v2.md:1-12].
 - Executable Python regression tests live in `skills/create-loop/tests_py/`: v1 safety tests cover event/evidence/checkpoint defects, while v2 tests cover schema runtime, projection/invariants, and migration [source: skills/create-loop/tests_py/test_v1_safety.py:19-124] [source: skills/create-loop/tests_py/test_v2_protocol.py:102-278].
 - The installer test remains a hand-rolled Node harness rather than Jest/Vitest and performs its cleanup in a `finally` block [source: test/installer.test.js:13-18] [source: test/installer.test.js:1755-1759].
 - The WSL/Linux rollback oracle compiles Python sources in memory and disables bytecode writes for the entire script, so running the gate does not leave `__pycache__` artifacts in the Skill tree [source: skills/create-loop/tests/baseline_green.sh:1-50].
@@ -158,7 +158,8 @@ created: 2026-07-03
 
 ## Verified Facts
 
-- `SKILL.md` is governed by an executable 1000-line ceiling; v2 detail is routed through `references/protocol_v2.md` and scripts rather than duplicating the full protocol in the entrypoint [source: skills/create-loop/tests/acceptance_tests.md:215-225] [source: skills/create-loop/SKILL.md:808-880].
+- `SKILL.md` is governed by an executable 1000-line ceiling. It maps runtime protocol references and tools; README maps the migration runbook and its backend [source: skills/create-loop/tests/acceptance_tests.md:215-225] [source: skills/create-loop/SKILL.md:807-889] [source: skills/create-loop/references/migration_v1_to_v2.md:1-12].
+- Dirty-worktree source freezes use a lowercase full commit as an ancestry anchor, while the per-file manifest and aggregate hashes are the exact candidate identity. A later descendant HEAD is allowed only while all captured Skill paths, bytes, and modes still match; unrelated history and source drift fail closed [source: skills/create-loop/tests/experiments/snapshot_tools.py:389-430] [source: skills/create-loop/tests/experiments/snapshot_tools.py:656-669] [source: skills/create-loop/tests_py/test_experiment_snapshots.py:102-176].
 - The installer harness derives its pass/fail count from every `ok(...)` assertion and emits a zero-failure summary; baseline integration checks match that summary rather than pinning an assertion count that changes as safety coverage grows [source: test/installer.test.js:13-18] [source: test/installer.test.js:1755-1759] [source: skills/create-loop/tests/baseline_green.sh:117-122].
 
 ## Open Questions
